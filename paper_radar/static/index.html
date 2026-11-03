@@ -1,0 +1,199 @@
+<!doctype html>
+<!-- Copyright (c) 2026 @EatRice. SPDX-License-Identifier: MIT -->
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta name="color-scheme" content="light dark" />
+  <meta name="local-token" content="__LOCAL_TOKEN__" />
+  <title>Paper-Radar · 科研文献工作台</title>
+  <link rel="stylesheet" href="app.css" />
+  <script defer src="app.js"></script>
+</head>
+<body>
+<div class="app">
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="brand-icon"><span>↗</span></div>
+      <div><div class="brand-name">Paper-Radar</div><div class="brand-sub">科研文献工作台</div></div>
+    </div>
+    <div class="nav-label">工作空间</div>
+    <nav class="navigation" aria-label="主导航">
+      <button class="nav-link active" data-view="dashboard"><span class="nav-symbol">▦</span><span>工作台</span></button>
+      <button class="nav-link" data-view="zotero"><span class="nav-symbol">◎</span><span>Zotero 研究方向</span></button>
+      <button class="nav-link" data-view="library"><span class="nav-symbol">▤</span><span>论文库</span><span id="navLibraryCount" class="nav-count">0</span></button>
+      <button class="nav-link" data-view="downloads"><span class="nav-symbol">⇩</span><span>PDF 下载</span><span id="navDownloadCount" class="nav-count">0</span></button>
+      <button class="nav-link" data-view="reports"><span class="nav-symbol">▧</span><span>研究报告</span></button>
+      <button class="nav-link" data-view="settings"><span class="nav-symbol">⚙</span><span>设置</span></button>
+    </nav>
+    <div class="sidebar-note">
+      <div class="notice-dot"></div>
+      <div><strong>本地工作空间</strong><p>论文、PDF 和报告保存在本机。</p></div>
+    </div>
+    <div class="sidebar-footer">
+      <button id="themeToggle" class="theme-button" type="button">◐ <span>切换外观</span></button>
+      <div class="app-version">Paper-Radar v1.9.0</div>
+    </div>
+  </aside>
+
+  <main class="workspace">
+    <header class="topbar">
+      <div class="breadcrumb"><span>本地工作空间</span><span class="crumb-sep">/</span><strong id="breadcrumbLabel">工作台</strong></div>
+      <div class="top-actions"><span class="connection-dot"></span><span>本机运行</span><span id="clock"></span></div>
+    </header>
+
+    <section id="taskCenter" class="task-center" aria-live="polite" hidden>
+      <div class="task-header"><div><strong id="taskStage">准备中</strong><span id="taskMeta">任务进度将在这里显示</span></div><span id="taskPercent" class="task-percent">0%</span></div>
+      <progress id="taskProgressBar" max="100" value="0" aria-label="任务进度"></progress>
+      <details id="taskLogDetails"><summary>查看这次任务的运行日志</summary><pre id="taskLiveLog" class="task-live-log">正在准备…</pre></details>
+    </section>
+
+    <section id="dashboard" class="view active">
+      <div class="heading-row home-title">
+        <div><div class="eyebrow">PAPER-RADAR · 研究检索</div><h1>追踪你的研究方向</h1><p class="lede">输入研究主题，检索近期论文，生成可阅读的研究报告。</p></div>
+        <button id="openFolder" class="button secondary" type="button">打开报告文件夹</button>
+      </div>
+
+      <section class="panel search-hero" aria-label="开始文献检索">
+        <div class="hero-topline"><div><span class="hero-kicker">开始新一轮检索</span><h2>这次想了解什么？</h2></div><span class="pill">默认 30 篇 · 相关性优先</span></div>
+        <label class="form-label" for="topicKeywords">研究关键词</label>
+        <input id="topicKeywords" class="input large search-keywords" placeholder="例如 embankment, slope stability, finite element" autocomplete="off" />
+        <p class="hint search-hint">写明研究对象或方法，多个关键词用逗号分开。少用 numerical、simulation 等过宽的词。</p>
+        <div class="preset-row"><span>示例主题</span><button class="chip" data-preset="neural operator, operator learning, physics informed">神经算子</button><button class="chip" data-preset="large language model, agent, reasoning">大语言模型</button><button class="chip" data-preset="battery thermal management, heat transfer">热管理</button><button class="chip" data-preset="embankment, slope stability, soil constitutive model">岩土工程</button></div>
+        <div class="primary-actions hero-actions"><button class="button primary hero-submit" id="runSearch">开始检索并生成报告 <span aria-hidden="true">→</span></button><button class="button tertiary" id="runExport">仅更新本地报告</button><button class="button secondary" type="button" data-view="reports">查看最近报告</button></div>
+        <p class="hint" id="progressLine" hidden><span id="progressText">任务正在运行，进度显示在页面顶部。</span></p>
+        <div class="source-shortcut"><span>已在 Zotero 整理参考论文？</span><button type="button" class="text-button" data-view="zotero">按收藏夹找相关论文 →</button></div>
+        <details class="search-advanced" id="searchAdvanced"><summary>检索范围和选项 <span>来源 · 篇数 · 排序</span></summary>
+          <p class="hint">开放来源可直接使用。出版社来源需要在设置中配置相应 API Key。</p>
+          <div class="sources-inline" id="sourceOptions"><span>文献来源</span></div>
+          <div id="sourceAccessHelp" class="access-help" hidden></div>
+          <div class="field-grid search-advanced-fields"><label class="form-label">最多收录（篇）<input id="quickMaxResults" class="input" type="number" min="1" max="500" value="30"></label><label class="form-label">结果排序<select id="quickSort" class="select"><option value="relevance">相关性优先</option><option value="newest">日期优先</option></select></label></div>
+        </details>
+      </section>
+
+      <div id="firstRunGuide" class="first-run-guide onboarding-compact" hidden><div class="guide-icon">1</div><div class="guide-copy"><strong>首次使用，从一次普通检索开始</strong><p>无需先连接 Zotero，也无需配置大模型。填写关键词后点击上面的蓝色按钮即可。</p></div><div class="guide-actions"><button class="button secondary" data-focus="topicKeywords">填写关键词</button></div></div>
+      <section id="afterSearch" class="next-step" hidden aria-live="polite"><div><strong>报告已更新</strong><span id="afterSearchText">可以阅读本期综述，或进入论文库管理结果。</span></div><div class="next-step-buttons"><button class="button primary" data-view="reports" type="button">阅读研究报告</button><button class="button secondary" data-view="library" type="button">管理论文库</button></div></section>
+      <div class="stat-grid home-summary">
+        <div class="stat-card"><span>本期入选</span><strong id="statMatched">—</strong><small>当前检索条件</small></div>
+        <div class="stat-card"><span>文献库累计</span><strong id="statArchived">—</strong><small>历史记录继续保留</small></div>
+        <div class="stat-card"><span>已保存 PDF</span><strong id="statDownloaded">—</strong><small>开放获取全文</small></div>
+        <div class="stat-card accent"><span>最近一次运行</span><strong id="statRun">尚未运行</strong><small id="statRunDetail">运行记录自动保存</small></div>
+      </div>
+      <section class="panel recent-panel"><div class="panel-top"><div><div class="small-overline">阅读队列</div><h2>最近入库的论文</h2></div><button class="text-button" type="button" data-view="library">打开论文库 →</button></div><div id="recentList" class="paper-list compact-list"><div class="empty">完成一次检索后，这里会显示最近收录的论文。</div></div></section>
+      <details id="scheduleDisclosure" class="schedule-disclosure"><summary><span>自动更新</span><span>设置每日计划任务，关闭网页后继续运行（Windows）</span><span class="disclosure-chevron">⌄</span></summary>
+        <section class="panel schedule-panel"><div class="panel-top"><div><h2>每日自动检索</h2><p class="hint">适合长期跟踪固定研究方向，任务到点运行后自动退出。</p></div><span id="schedulePill" class="pill muted">未开启</span></div><label class="form-label" for="taskTime">每天运行时间</label><div class="time-row"><input id="taskTime" class="input" type="time" value="08:30"/><button id="installTask" class="button primary outline">开启后台更新</button></div><div class="schedule-details" id="scheduleDetails">Windows 定时任务需电脑开机、联网，并满足用户登录条件。</div><div class="schedule-actions"><button id="triggerTask" class="text-button">立即执行一次</button><button id="removeTask" class="text-button danger">关闭后台更新</button></div><div class="running-card"><div class="small-overline">最近后台记录</div><div id="scheduleLast">尚无定时运行记录</div></div></section>
+      </details>
+    </section>
+
+    <section id="zotero" class="view">
+      <div class="heading-row"><div><div class="eyebrow">ZOTERO LIBRARY</div><h1>从 Zotero 收藏夹发现新论文</h1><p class="lede">选择已有的论文，提取检索关键词，继续跟踪相关研究。</p></div></div>
+      <div class="zotero-layout">
+        <section class="panel zotero-connect-panel">
+          <div class="panel-top"><div><div class="small-overline">01 · 连接</div><h2>本地 Zotero</h2></div><span class="pill">只读</span></div>
+          <label class="form-label" for="zoteroMode">连接方式</label>
+          <select class="select" id="zoteroMode"><option value="auto">自动连接（推荐）</option><option value="api">正在运行的 Zotero</option><option value="sqlite">读取本地数据库</option></select>
+          <label class="form-label" for="zoteroPath">数据库位置（可留空）</label>
+          <div class="zotero-file-row"><input id="zoteroPath" class="input" placeholder="自动查找，或填写 zotero.sqlite 文件路径" autocomplete="off"/><button id="zoteroPick" class="button secondary" type="button">浏览…</button></div>
+          <p class="hint">建议使用本地 API，程序只读取文献。连接失败时，请按下方说明开启 Zotero 通讯权限。</p>
+          <details class="zotero-guide"><summary>如何在 Zotero 中允许本机连接？</summary>
+            <p>① 打开 Zotero → 设置（macOS 通常在菜单栏 Zotero → 设置；Windows 通常在 编辑 → 设置）。</p>
+            <p>② 进入 <strong>高级 → 杂项</strong>，勾选“<strong>允许此计算机上的其他应用程序与 Zotero 通讯</strong>”。</p>
+            <p>③ 保持 Zotero 打开，再点击下方“连接并读取收藏夹”。如仍报 403，请重新检查勾选状态。</p>
+            <p><a href="https://www.zotero.org/support/dev/web_api/v3/local_api" target="_blank" rel="noopener noreferrer">Zotero 官方本地 API 说明 ↗</a></p>
+          </details>
+          <div id="zoteroActivity" class="zotero-activity" hidden role="status"><span class="spinner"></span><span id="zoteroActivityText">正在读取 Zotero…</span><progress></progress></div>
+          <div class="settings-actions"><button id="zoteroConnect" class="button primary" type="button">连接并读取收藏夹</button><span class="minor" id="zoteroConnectionState">尚未连接</span></div>
+          <div class="form-divider"></div>
+          <label class="form-label" for="zoteroCollection">参考收藏夹</label>
+          <select id="zoteroCollection" class="select"><option value="">请先连接 Zotero</option></select>
+          <label class="toggle-line zotero-check"><input id="zoteroChildren" type="checkbox" checked/><span>包含子收藏夹</span></label>
+          <div class="settings-actions"><button id="zoteroPreview" class="button secondary" type="button">分析收藏夹文献</button><span class="minor" id="zoteroCollectionCount"></span></div>
+        </section>
+        <section class="panel zotero-keywords-panel">
+          <div class="panel-top"><div><div class="small-overline">02 · 研究方向</div><h2>推荐检索关键词</h2></div><span class="pill muted">可编辑</span></div>
+          <p class="panel-intro">从收藏夹文献的标题、摘要和标签中提取。结果可以直接编辑。</p>
+          <label class="form-label" for="zoteroKeywords">英文关键词（逗号分隔）</label>
+          <textarea id="zoteroKeywords" class="input zotero-keyword-input" rows="4" placeholder="分析收藏夹后显示关键词"></textarea>
+          <label class="toggle-line zotero-check"><input type="checkbox" id="zoteroRefresh"/><span>后台更新时重新提取收藏夹关键词</span></label>
+          <p class="hint">取消勾选时，后台任务使用你保存的关键词，但仍参考选定收藏夹排序。</p>
+          <div class="settings-actions"><button id="zoteroApply" class="button primary" type="button">应用到文献检索</button><button id="zoteroApplyRun" class="button secondary" type="button">应用并立即检索</button></div>
+          <div class="settings-actions"><button id="zoteroDisable" class="text-button danger" type="button">停止使用 Zotero 收藏夹</button></div>
+        </section>
+      </div>
+      <section class="panel zotero-reference-panel"><div class="panel-top"><div><div class="small-overline">收藏夹内容</div><h2>参考文献预览</h2></div><span class="minor" id="zoteroReferencesMeta">请选择收藏夹</span></div><div id="zoteroReferences" class="zotero-reference-list"><div class="empty">分析后显示文献标题及标签。</div></div></section>
+    </section>
+
+    <section id="library" class="view">
+      <div class="heading-row"><div><div class="eyebrow">LIBRARY</div><h1>论文库</h1><p class="lede">检索文献、标记阅读进度并下载开放获取 PDF。</p></div></div>
+      <section class="panel">
+        <div class="filter-row"><button class="button secondary" type="button" id="downloadSelected">下载勾选 PDF</button><button class="button tertiary" type="button" id="downloadStarred">下载星标 PDF</button><span class="minor" id="selectedCount">未选择论文</span></div>
+        <div class="filter-row"><input id="librarySearch" class="input" placeholder="搜索标题、作者、DOI 或摘要" /><select id="libraryFilter" class="select"><option value="all">全部论文</option><option value="starred">仅看星标</option><option value="unread">未阅读</option><option value="reading">阅读中</option><option value="done">已读完</option></select></div>
+        <div class="filter-row library-organize"><label class="form-label">按研究方向分类<select id="libraryGroup" class="select"><option value="keyword">研究关键词</option><option value="category">学科分类</option><option value="source">文献来源</option><option value="year">发表年份</option><option value="initial">标题首字母索引</option><option value="none">不分组</option></select></label><label class="form-label">索引排序<select id="librarySort" class="select"><option value="relevance">相关性优先</option><option value="recent">最近入库</option><option value="default">星标与发表日期</option></select></label><span class="hint">按当前已加载论文分组；点击分组标题可展开或折叠。</span></div>
+        <div id="libraryStatus" class="list-status" role="status">正在读取论文库…</div>
+        <div id="libraryList" class="paper-list"><div class="empty">正在读取论文库…</div></div>
+        <div class="list-footer"><button id="libraryMore" class="button secondary" type="button" hidden>加载更多论文</button><span id="libraryPagination" class="minor"></span></div>
+      </section>
+    </section>
+
+    <section id="downloads" class="view">
+      <div class="heading-row"><div><div class="eyebrow">DOWNLOADS</div><h1>PDF 下载</h1><p class="lede">管理已下载文件，查看失败原因并重新下载。</p></div><button id="refreshDownloads" type="button" class="button secondary">刷新记录</button></div>
+      <section class="panel"><div class="panel-top"><h2>下载记录</h2><span class="pill">仅下载开放获取 PDF</span></div>
+        <div class="filter-row download-filters"><label class="form-label" for="downloadFilter">查看状态</label><select id="downloadFilter" class="select"><option value="all">全部记录</option><option value="downloaded">已下载</option><option value="failed">下载失败</option><option value="unavailable">暂无 PDF</option></select></div>
+        <div id="downloadList" class="report-list"><div class="empty">暂无下载记录。</div></div></section>
+    </section>
+
+    <section id="reports" class="view">
+      <div class="heading-row"><div><div class="eyebrow">REPORTS</div><h1>研究报告</h1><p class="lede">导出近期调研报告，或保存全部历史文献的索引。</p></div><div class="report-actions"><button class="button primary" id="exportReports">更新近期报告</button><button class="button secondary" type="button" id="exportAll">导出全部文献索引</button></div></div>
+      <div class="report-highlight"><div><span class="report-mark">W</span><div><div class="report-eyebrow">最新报告</div><h2>近期文献汇总</h2><p>优先阅读、论文详目、原始摘要及论文链接</p></div></div><div class="report-highlight-actions"><button id="latestMarkdownPreview" class="button primary" type="button">预览 Markdown</button><a id="latestReport" class="button secondary" href="/download/近期文献汇总.docx">下载 Word</a></div></div>
+      <section class="panel"><div class="panel-top"><h2>已生成文件</h2><span class="minor">文件保存在 reports 文件夹</span></div><div class="report-list" id="reportList"><div class="empty">暂无报告。检索后自动生成。</div></div></section>
+    </section>
+
+    <section id="settings" class="view">
+      <div class="heading-row"><div><div class="eyebrow">PREFERENCES</div><h1>设置</h1><p class="lede">基础检索可直接使用；中文速览需要配置模型 API。</p></div></div>
+      <div class="settings-grid">
+        <section class="panel"><div class="panel-top"><h2>中文速览</h2><span class="pill">可选</span></div><label class="toggle-line"><input id="aiEnabled" type="checkbox" /><span>使用云端大模型生成中文速览</span></label>
+          <div class="field-grid"><label class="form-label">服务商<select id="apiProvider" class="select"><option>DeepSeek</option></select></label><label class="form-label">模型名称<input id="apiModel" class="input" placeholder="服务商提供的模型名" /></label></div>
+          <label class="form-label">接口地址<input id="apiBase" class="input" placeholder="https://api.example.com/v1" /></label>
+          <label class="form-label">API Key<input id="apiKey" class="input" type="password" placeholder="填写新密钥；已保存的密钥不会回显" autocomplete="new-password" /></label>
+          <div class="key-hint" id="keyState">读取密钥状态…</div>
+          <div id="providerHint" class="hint">以 DeepSeek 为例：注册 API 平台账号，创建密钥后填入。</div>
+          <section class="provider-usage"><div class="panel-top"><h3>API 使用记录</h3><button id="refreshProviderUsage" class="text-button" type="button">刷新当前供应商</button></div><div id="providerLocalUsage" class="minor">正在读取本机请求记录…</div><div id="providerBalance" class="minor">官方余额与计费请查看服务商控制台。</div><a id="providerConsole" class="text-button" target="_blank" rel="noopener noreferrer" href="https://platform.deepseek.com/usage">打开供应商用量页面 ↗</a><div id="providerConfigured" class="usage-all">已配置的服务商：正在检查…</div><div id="providerUsageAll" class="usage-all"></div><p class="hint">本机仅统计 Paper-Radar 成功请求的 Token，不能代表账号总账单；其他应用的用量需在官方控制台查看。</p></section>
+          <div class="settings-actions"><button id="testApi" class="button secondary">保存并测试连接</button><button id="removeKey" class="text-button danger">删除当前密钥</button></div>
+          <p class="hint">仅向所选 API 服务商发送论文标题和摘要。密钥保存在操作系统凭据管理器。</p>
+        </section>
+        <section class="panel"><div class="panel-top"><h2>检索范围</h2><span class="pill muted">高级</span></div>
+          <label class="form-label">arXiv 分类<input id="categories" class="input" placeholder="cs.LG, cs.AI, math.NA" /></label>
+          <div class="field-grid"><label class="form-label">回溯天数<input id="lookbackDays" class="input" type="number" min="1" max="60" /></label><label class="form-label">最大检索数量<input id="maxResults" class="input" type="number" min="1" max="500" /></label></div>
+          <div class="field-grid"><label class="form-label">报告最多收录<input id="reportLimit" class="input" type="number" min="1" max="100" /></label><label class="form-label">每次 AI 速览<input id="aiLimit" class="input" type="number" min="1" max="30" /></label></div>
+          <label class="form-label">报告排序<select id="sortMode" class="select"><option value="relevance">关键词相关度</option><option value="newest">发表日期优先</option></select></label>
+          <div class="settings-actions"><button id="saveSettings" class="button primary">保存设置</button></div>
+          <p class="hint">检索范围越大，检索耗时和摘要调用数量通常也会增加。</p>
+        </section>
+      </div>
+      <section class="panel" id="publisherPanel" style="margin-top:20px"><div class="panel-top"><h2>出版社检索授权</h2><span class="pill muted">默认关闭</span></div>
+        <p class="panel-intro">Springer Nature、Scopus 和 ScienceDirect 只在勾选并完成授权后检索。API Key 保存在系统凭据管理器，不随项目上传到 GitHub。</p>
+        <div class="publisher-grid">
+          <div class="publisher-config"><h3>Springer Nature · 元数据</h3><p class="hint">注册 Developer Portal、申请 API Key 后开启来源；可检索题名、摘要、DOI 等公开或获授权的元数据。</p><label class="form-label">Springer API Key<input id="springerKey" class="input" type="password" placeholder="留空表示保留当前密钥" autocomplete="off"></label><div class="settings-actions"><button id="saveSpringer" class="button secondary" type="button">保存密钥</button><span id="springerState" class="minor">未设置</span></div><a class="text-button" href="https://dev.springernature.com/" target="_blank" rel="noopener noreferrer">打开 Springer 开发者平台 ↗</a></div>
+          <div class="publisher-config"><h3>Elsevier · Scopus</h3><p class="hint">必须取得具备访问权限的 API Key。机构订阅可能需要连接校园网/VPN，或使用获授权的机构令牌。订阅全文仍应通过学校图书馆或出版社页面访问。</p><label class="form-label">Elsevier API Key<input id="elsevierKey" class="input" type="password" placeholder="留空表示保留当前密钥" autocomplete="off"></label><label class="form-label">机构令牌（可选）<input id="elsevierToken" class="input" type="password" placeholder="仅在机构提供时填写" autocomplete="off"></label><div class="settings-actions"><button id="saveElsevier" class="button secondary" type="button">保存授权</button><span id="elsevierState" class="minor">未设置</span></div><a class="text-button" href="https://dev.elsevier.com/" target="_blank" rel="noopener noreferrer">打开 Elsevier 开发者平台 ↗</a></div>
+        </div><p class="hint">出版商 API 的题录访问与 PDF 全文授权是两种权限。本软件不模拟网页登录，不绕过付费墙，付费全文须由具备权限的用户通过官方页面访问；当前不提供订阅论文自动下载。</p>
+      </section>
+      <section class="panel" style="margin-top:20px"><div class="panel-top"><h2>下载设置</h2><span class="pill muted">可选</span></div>
+        <label class="toggle-line"><input id="autoDownload" type="checkbox" /><span>每天检索后自动下载可用的 PDF</span></label>
+        <div class="field-grid"><label class="form-label">每次最多下载<input id="downloadLimit" class="input" type="number" min="1" max="20" /></label><label class="form-label">单篇大小上限（MB）<input id="maxPdfMb" class="input" type="number" min="1" max="50" /></label></div>
+        <p class="hint">只下载开放获取的 PDF。部分论文只有网页链接，系统不会绕过付费墙。</p>
+        <button id="saveDownloadSettings" class="button secondary" type="button">保存下载设置</button>
+      </section>
+      <section class="panel" style="margin-top:20px"><div class="panel-top"><h2>运行记录</h2><div class="log-controls"><select id="logSource" class="select"><option value="manual">手动任务</option><option value="scheduled">每日后台任务</option></select><button class="text-button" id="refreshLogs">刷新</button></div></div><pre id="logBox" class="log-box">暂无运行记录。</pre><div class="settings-actions"><button class="text-button danger" id="shutdown">关闭本地工作台</button></div></section>
+    </section>
+
+    <footer class="page-footer">Paper-Radar · © 2026 @EatRice · MIT License · 本地保存论文与报告</footer>
+  </main>
+</div>
+<dialog id="markdownDialog" class="markdown-dialog" aria-labelledby="markdownTitle">
+  <div class="modal-top"><div><span class="small-overline">REPORT PREVIEW</span><h2 id="markdownTitle">近期文献汇总</h2></div><button id="markdownClose" class="modal-close" aria-label="关闭预览" type="button">×</button></div>
+  <div class="modal-actions"><span id="markdownSize" class="minor">Markdown 本地预览</span><div><button id="markdownCopy" class="button secondary" type="button">复制 Markdown</button><a id="markdownDownload" class="button primary" href="#">下载原文件</a></div></div>
+  <article id="markdownRendered" class="markdown-rendered" tabindex="0">正在读取报告…</article>
+</dialog>
+<div id="toast" role="status" aria-live="polite"></div>
+</body>
+</html>

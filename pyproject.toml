@@ -1,0 +1,28 @@
+[project]
+name = "paper-radar-local"
+version = "1.9.0"
+description = "Local research paper discovery, Zotero topic matching, open-access PDF download and reports"
+readme = "README.md"
+requires-python = ">=3.10"
+license = {file = "LICENSE"}
+authors = [{name = "EatRice"}]
+dependencies = ["python-docx>=1.1,<2", "keyring>=25,<27"]
+
+[project.urls]
+Homepage = "https://github.com/QiQiWan/Paper-Radar"
+Repository = "https://github.com/QiQiWan/Paper-Radar"
+Issues = "https://github.com/QiQiWan/Paper-Radar/issues"
+Documentation = "https://github.com/QiQiWan/Paper-Radar/tree/main/docs"
+
+[project.optional-dependencies]
+dev = ["pytest>=8"]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["paper_radar*"]
+
+[tool.setuptools.package-data]
+paper_radar = ["static/*.html", "static/*.css", "static/*.js"]
