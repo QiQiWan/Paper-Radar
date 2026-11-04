@@ -55,3 +55,42 @@
 查询由 `updates.py` 的后台线程完成，遵守6—168小时配置间隔；只访问 `https://api.github.com/repos/QiQiWan/Paper-Radar/releases/latest`。成功解析后必须验证 Release 链接属于本项目官方 HTTPS 发布页。不支持静默下载安装。`GET /api/state` 会附带 `update` 与 `topics_info`，以便前端定时刷新状态。
 
 可配置项包括 `update_check_enabled`、`update_check_interval_hours`、`max_queries_per_source`。私人密钥不通过这些接口返回。
+
+## v1.11.0 主题数据、推荐及任务历史接口
+
+| 方法 | 路径 | 返回/参数 |
+| --- | --- | --- |
+| GET | `/api/papers?scope=topic&limit=40&offset=0&sort=relevance` | 当前主题论文库，包含 `feedback`、`recommend_reason`、`recommend_evidence` 等；`scope=all` 查全库，仍显示当前主题标记 |
+| POST | `/api/paper` | 例 `{"id":"arxiv:2601.12345","feedback":1}`；`feedback` 只能为 -1/0/1，也可传 `starred` 或 `status`；仅修改活动主题 |
+| POST | `/api/job` | `{"mode":"search_all"}`：按顺序执行全部主题；任务状态 `partial` 表示部分成功 |
+| GET | `/api/history?scope=topic` | 最近任务摘要；`scope=all` 返回跨主题历史；最多返回30条 |
+| POST | `/api/config` | 新增 `research_goal`、`ai_rerank_enabled`、`ai_rerank_limit`、`schedule_all_topics`。`sources` 可选择 `openalex_semantic`，需用户主动开启 |
+
+历史数据单独保存 `data/run_history.sqlite3`，不包含 API Key 或全文 PDF。独立主题只影响推荐分数、阅读状态和报告筛选，原始文献表保持共享。前端由本地访问令牌保护写操作；接口不对外提供公网服务。
+
+## v1.12.0 全文证据与后台任务接口
+
+所有接口只能通过本地服务调用。GET 只读取本地缓存；POST `/api/job` 需要 `X-Local-Token`，并沿用现有 Host/Origin 验证。API Key 不随接口返回。
+
+| 方法 | 路径/输入 | 处理与输出 |
+| --- | --- | --- |
+| GET | `/api/fulltext/status?paper_id=<已入库ID>` | 返回 `has_pdf`、`indexed`、`document`（`state/indexed_pages/total_pages/chunk_count/note`）、`claims`（类别、陈述、页码、原文引文）。PDF 内容变更则 `state=stale` 且不返回旧卡片。不存在的论文返回404。 |
+| GET | `/api/fulltext/search?q=geometry&scope=topic&paper_id=<可选ID>` | 已索引 PDF 中的原文片段检索，返回 `results`（`paper_id/title/page/section/quote/chunk_id`）与 `total`，最多20条；`scope=topic` 限当前研究主题，`scope=all` 查全库；指定 `paper_id` 时限定单篇。 |
+| POST | `/api/job` + `{"mode":"index_fulltext","ids":["paper-id"]}` | 在后台为1–10篇本地 PDF 建立分页索引；报告 `indexed/failed/results`；不会访问外网模型。 |
+| POST | `/api/job` + `{"mode":"analyze_fulltext","ids":["paper-id"]}` | 对已索引的单篇 PDF 使用配置的大模型生成阅读卡片；前端操作前须获得用户同意。失败不覆盖原论文元数据。 |
+
+后台任务通过既有 `GET /api/state` 查询进度及结束状态。全文解析或模型任务可能耗时较长，HTTP 的 202 只表示**任务已接受**，不能理解成索引或 AI 阅读卡片已完成。客户端必须轮询任务状态并重新读取全文状态。
+
+`fulltext_documents` / `fulltext_chunks` / `fulltext_claims` 建立在主论文 SQLite 数据库中。`fulltext_chunks` 保存从 PDF 提取的原文片段，数据库需与本地 PDF 一样按照个人科研资料妥善保管。PDF 指纹不一致时，旧证据不会在状态、检索或新报告中展示。
+
+## v1.12.0 推荐质量离线 CLI
+
+与 HTTP 接口分离，避免打开新的浏览器写文件权限：
+
+```bash
+python -m paper_radar.evaluation --db data/papers.sqlite3 --export-template reports/推荐标注模板.csv --max-per-topic 50
+# 完成人工标注 label 列（0—3）后：
+python -m paper_radar.evaluation --db data/papers.sqlite3 --labels reports/推荐标注模板.csv --k 10 --out reports/推荐评估.json
+```
+
+CSV 标注最少应含 `topic_id,paper_id,label`。模板另带 `rank,title,source,published,url,notes` 便于人工判断；只需填写 `label` 列。未标注 Top-K 位置计入保守下界且单独报告覆盖率，Recall 分母仅为已标注相关文献。

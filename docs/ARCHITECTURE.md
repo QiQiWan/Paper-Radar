@@ -42,3 +42,21 @@ Paper-Radar 前端为本地 HTML/CSS/JavaScript 工作台，后端为 Python HTT
 `updates.py` 只访问固定 GitHub Release API，检查结果保存到 `data/update_check.json`，后台线程运行、HTTP 请求只读缓存。启动和运行中按检查间隔调度，前端发现较新正式版后显示可关闭的通知条。**不接受任意仓库 URL、不执行远程安装、不覆盖本地程序**。
 
 下一阶段建议新增跨主题独立计划任务与语义混合检索，并建立人工标注集衡量推荐质量。
+
+## v1.11.0 研究主题状态与可选推荐层
+
+新增 `topic_papers(topic_id,paper_id)`，将主题特有的分数、星标、阅读状态、反馈、AI 推荐理由与证据和分析缓存指纹从共享 `papers` 中剥离。`connect()` 启动时执行幂等结构升级和一次默认主题迁移。`get_recent()`、`list_library()`、`count_library()`、`get_selected()`、报告导出读取活动主题关联，避免跨课题混用数据。
+
+`recommend.py` 负责可选标题摘要 LLM 重排序，执行有限的原文证据检查、主题指纹缓存和失败降级。`sources/openalex_semantic.py` 使用 OpenAlex 语义检索端点补充新来源，用户在 `sources` 配置中显式开启，按照官方额度运行。`batch.py` 冻结全部主题配置后顺序运行，允许部分完成；`history.py` 只保存简化任务摘要并限定条目总数。`webapp.py` 提供批量任务、主题级论文 API、反馈和运行历史。
+
+**截至历史版本 v1.11.0，**尚未建立全文 PDF 的结构化片段存储；下一阶段设计当时详见 [v1.11.0 完整设计方案](DESIGN_V1.11.0.md)，其中严格区分已实现模块和后续规划。
+
+## v1.12.0 本地 PDF 全文证据与推荐评价模块
+
+`fulltext.py` 负责受控 PDF 路径的本地读取、`pypdf` 按页文本提取、近似章节识别、有重叠文本切片、SQLite FTS5 检索与退化 LIKE 查询。它在主 SQLite 中新增 `fulltext_documents`（指纹、解析进度、状态）、`fulltext_chunks`（页码和原文片段）、`fulltext_claims`（AI 解释、准确引文、引用片段 ID、页码和模型缓存键）。索引缓存依赖 PDF SHA-256、解析器版本；AI 卡片还绑定模型与提示词版本。
+
+`webapp.py` 通过 `/api/fulltext/status`、`/api/fulltext/search`、`/api/job` 的 `index_fulltext`/`analyze_fulltext` 调用这些服务。前端在“论文库”中按需打开“全文证据”，并在用户确认之后发送部分正文到云端模型；解析 PDF 时不调用模型。`core.py` 将符合当前实际 PDF 指纹的卡片附加到报表生成配置，`reports/text.py`、`reports/word.py` 才在逐篇详情中显示具体页码及引用内容。
+
+`evaluation.py` 从 `topic_papers` 读取主题级排名，可导出人工标注模板，随后计算 P@K、标注集内 Recall@K、NDCG@K、MRR 和标签覆盖率。该模块不修改论文库，不调用网络，也不代替研究人员打标签。
+
+> v1.11 章节中“当前尚未建立全文 PDF 的结构化片段存储”描述的是历史版本；v1.12 已完成以上第一阶段全文索引。真实结构化表格、公式与向量化 RAG 尚未实现。完整决策与局限详见 [v1.12.0 设计](DESIGN_V1.12.0.md)。

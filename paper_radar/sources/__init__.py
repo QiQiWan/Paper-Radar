@@ -15,3 +15,6 @@ register(ElsevierSource)
 
 from .sciencedirect import ScienceDirectSource
 register(ScienceDirectSource)
+
+from .openalex_semantic import OpenAlexSemanticSource
+register(OpenAlexSemanticSource)

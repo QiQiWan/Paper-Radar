@@ -30,7 +30,7 @@ def paper(pid='2610.01234', doi='', source='arxiv', url='https://arxiv.org/abs/2
 
 class EngineTests(unittest.TestCase):
     def test_registered_source_and_downloaders(self):
-        self.assertEqual({s['name'] for s in available_sources()}, {'arxiv','openalex','crossref','springer','elsevier','sciencedirect'})
+        self.assertEqual({s['name'] for s in available_sources()}, {'arxiv','openalex','crossref','springer','elsevier','sciencedirect','openalex_semantic'})
         self.assertEqual(set(available_downloaders()),{'arxiv_pdf','open_access_pdf'})
         config=dict(DEFAULTS); config['sources']=['arxiv','openalex']
         self.assertEqual(validate_config(config)['sources'], ['arxiv','openalex'])

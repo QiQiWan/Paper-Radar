@@ -34,7 +34,7 @@ def query_plan(config: dict, source_name: str) -> list[dict]:
     """
     words = [str(w).strip() for w in config.get('keywords', []) if str(w).strip()]
     cap = max(1, min(int(config.get('max_queries_per_source', 8)), 20))
-    if source_name == 'arxiv' or len(words) <= 1:
+    if source_name in ('arxiv','openalex_semantic') or len(words) <= 1:
         return [{'label': '组合检索' if source_name == 'arxiv' else (words[0] if words else '学科分类'),
                  'keywords': words[:cap], 'max_results': int(config.get('max_results', 30))}]
     words = words[:cap]

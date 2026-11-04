@@ -1,6 +1,6 @@
 # 开发与调试
 
-Paper-Radar v1.10.0 使用 Python 3.10+ 和标准库本地 HTTP 服务。主要模块见 [ARCHITECTURE.md](ARCHITECTURE.md)，扩展检索器见 [ADDING_SOURCES.md](ADDING_SOURCES.md)，PDF 下载器见 [ADDING_DOWNLOADERS.md](ADDING_DOWNLOADERS.md)。
+Paper-Radar v1.11.0 使用 Python 3.10+ 和标准库本地 HTTP 服务。主要模块见 [ARCHITECTURE.md](ARCHITECTURE.md)，扩展检索器见 [ADDING_SOURCES.md](ADDING_SOURCES.md)，PDF 下载器见 [ADDING_DOWNLOADERS.md](ADDING_DOWNLOADERS.md)。
 
 ```bash
 python -m pip install -r requirements.txt
@@ -20,3 +20,7 @@ python main.py --serve
 ## v1.10.0 回归重点
 
 运行 `tests/test_v110_updates_topics_queries.py` 覆盖版本识别、Release 元数据解析、状态缓存、主题增删改切换及多关键词查询；运行完整 `python -m pytest -q` 检查旧版兼容性。更新检查测试应使用 Mock 网络响应，不能依赖实时 GitHub Release 状态或用户 API Key。发布前还需在真实 Windows/Web 浏览器中检验更新提醒、设置开关、主题选择和研究报告页面。每次提升版本应同步 [更新日志](../CHANGELOG.md)、[更新指南](UPDATING.md)、[发布检查](RELEASE_CHECKLIST.md) 和相关操作手册。
+
+## v1.11.0 新增测试说明
+
+推荐排序的模型调用须完全 Mock 后纳入 CI，任何密钥或外部学术 API 都不得成为日常测试依赖。重点测试 `topic_papers` 的旧库迁移、跨主题反馈隔离、模型 JSON 及原文证据校验、OpenAlex 语义接口错误、多主题顺序运行及历史记录的隐私边界。真实模型质量与学术推荐结果使用单独的人工标注评估集完成，详见 [完整设计方案](DESIGN_V1.11.0.md)。

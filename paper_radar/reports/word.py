@@ -204,6 +204,17 @@ def write_report(path: Path, title: str, papers, config: dict, count: int, *, de
                 doc.add_paragraph('仅题录：原始来源未提供摘要，需打开原文核对研究方法和结论。', style='AbstractLocal')
             else:
                 doc.add_paragraph('摘要未出现可直接提取的结果句；暂不推断方法有效性。', style='AbstractLocal')
+            if p.recommend_reason and p.recommend_evidence:
+                q = doc.add_paragraph(style='AbstractLocal')
+                q.add_run('AI 推荐理由（题名摘要级）  ').bold = True
+                q.add_run(p.recommend_reason)
+                doc.add_paragraph('推荐依据（原文节选）：' + p.recommend_evidence, style='MetaLocal')
+            for item in (config.get('_fulltext_cards') or {}).get(p.paper_id, []):
+                q=doc.add_paragraph(style='AbstractLocal')
+                label={'method':'方法','experiment':'实验','limitation':'局限'}.get(item['category'],'证据')
+                q.add_run(f'全文证据 · {label} · PDF 第 {item["page"]} 页  ').bold=True
+                q.add_run(item['statement'])
+                doc.add_paragraph('原文节选：'+item['quote'],style='MetaLocal')
             if p.summary:
                 q = doc.add_paragraph()
                 q.add_run('AI 中文速览（需核对）  ').bold = True
@@ -228,7 +239,7 @@ def write_report(path: Path, title: str, papers, config: dict, count: int, *, de
     footer = sec.footer.paragraphs[0]
     footer.alignment = WD_ALIGN_PARAGRAPH.CENTER
     footer.text = ('Paper-Radar © 2026 @EatRice  ·  数据来源：' + '、'.join(config.get('sources', ['arxiv'])) + '；中文速览基于题名和摘要生成。\n'
-                   + ('Thank you to arXiv for use of its open access interoperability.' if 'arxiv' in config.get('sources', []) else '全文与图片版权由原作者及出版方持有。'))
+                   + ('Thank you to arXiv for use of its open access interoperability.' if 'arxiv' in config.get('sources', []) else '全文与图片版权由原作者及出版方持有。') + ' 全文证据需核对对应 PDF 原文。')
     for run in footer.runs:
         run.font.size = Pt(8)
         run.font.color.rgb = MUTED

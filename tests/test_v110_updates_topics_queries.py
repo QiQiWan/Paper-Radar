@@ -25,17 +25,17 @@ class ReleaseMetadataTests(unittest.TestCase):
         self.assertIsNone(version_tuple('v01.10.0'))
         self.assertIsNone(version_tuple('fake-version'))
 
-    def fake_response(self, tag='v1.10.1', link=None):
+    def fake_response(self, tag='v1.11.1', link=None):
         return BytesIO(json.dumps({'tag_name':tag,'draft':False,'prerelease':False,
                                    'body':'更新日志：测试内容',
                                    'html_url':link or 'https://github.com/QiQiWan/Paper-Radar/releases/tag/'+tag,
                                    'published_at':'2026-11-04T00:00:00Z'}).encode('utf-8'))
 
     def test_latest_public_release_detected(self):
-        with patch('paper_radar.updates.request.urlopen',return_value=self.fake_response()) as opened:
+        with patch('paper_radar.updates.__version__','1.11.0'), patch('paper_radar.updates.request.urlopen',return_value=self.fake_response()) as opened:
             result=fetch_latest()
         self.assertEqual(result['state'],'available')
-        self.assertEqual(result['latest_version'],'1.10.1')
+        self.assertEqual(result['latest_version'],'1.11.1')
         self.assertEqual(opened.call_args.args[0].full_url,API_URL)
         self.assertEqual(opened.call_args.kwargs['timeout'],8)
 
@@ -61,7 +61,7 @@ class ReleaseMetadataTests(unittest.TestCase):
             calls=[]
             def fake():
                 calls.append('called')
-                return {'state':'available','tag_name':'v1.10.1', 'latest_version':'1.10.1',
+                return {'state':'available','tag_name':'v1.12.1', 'latest_version':'1.12.1',
                         'release_url':'https://github.com/QiQiWan/Paper-Radar/releases/tag/v1.10.1'}
             cfg={**DEFAULTS,'update_check_enabled':True,'update_check_interval_hours':24}
             checker=UpdateChecker(loc, fetcher=fake, now=lambda:now[0])
@@ -74,7 +74,7 @@ class ReleaseMetadataTests(unittest.TestCase):
             new_checker=UpdateChecker(loc,fetcher=fake, now=lambda:now[0])
             self.assertFalse(new_checker.schedule(cfg))
             self.assertEqual(len(calls),1)
-            self.assertTrue(new_checker.status({**cfg,'dismissed_update_tag':'v1.10.1'})['dismissed'])
+            self.assertTrue(new_checker.status({**cfg,'dismissed_update_tag':'v1.12.1'})['dismissed'])
             now[0]+=timedelta(hours=25)
             self.assertTrue(new_checker.schedule(cfg))
             for _ in range(100):
@@ -112,8 +112,8 @@ class ReleaseMetadataTests(unittest.TestCase):
     def test_offline_preserves_known_release_and_returns_quickly(self):
         with TemporaryDirectory() as td:
             loc=Path(td)/'state.json'
-            loc.write_text(json.dumps({'state':'available','tag_name':'v1.10.2',
-                                       'latest_version':'1.10.2','checked_at':'2026-11-03T00:00:00+00:00'}))
+            loc.write_text(json.dumps({'state':'available','tag_name':'v1.12.2',
+                                       'latest_version':'1.12.2','checked_at':'2026-11-03T00:00:00+00:00'}))
             checker=UpdateChecker(loc,fetcher=lambda: (_ for _ in ()).throw(RuntimeError('offline')))
             cfg={**DEFAULTS,'update_check_enabled':True}
             self.assertTrue(checker.schedule(cfg,force=True))

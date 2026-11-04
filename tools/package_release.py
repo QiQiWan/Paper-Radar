@@ -42,6 +42,6 @@ def build(output: Path, root: Path = ROOT) -> int:
 
 if __name__ == '__main__':
     parser=argparse.ArgumentParser()
-    parser.add_argument('--out',type=Path,default=ROOT.parent/'Paper-Radar_v1.10.0_GitHub_Source.zip')
+    parser.add_argument('--out',type=Path,default=ROOT.parent/'Paper-Radar_v1.12.0_GitHub_Source.zip')
     opts=parser.parse_args()
     build(opts.out)

@@ -30,4 +30,9 @@ class Paper:
     downloaded_at: str = ""
     summary_fingerprint: str = ""
     summary_model: str = ""
+    feedback: int = 0  # active-topic relevance feedback: -1, 0 or 1
+    recommend_reason: str = ""
+    ai_relevance: int = -1
+    recommend_evidence: str = ""
+    rerank_fingerprint: str = ""
 

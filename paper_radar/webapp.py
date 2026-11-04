@@ -36,6 +36,8 @@ from .zotero import ZoteroReader, build_profile, detect_database
 from .ai_planner import plan_research
 from .topics import manage_topic, topic_list
 from .updates import checker as update_checker
+from .batch import run_all_topics
+from .history import record_run, recent_runs
 
 STATIC = Path(__file__).parent / 'static'
 from . import __version__ as VERSION, __app_id__ as APP_ID
@@ -120,10 +122,13 @@ class Runtime:
             row = db.execute('SELECT COUNT(*) total, SUM(is_starred) starred, '
                              'SUM(reading_status="unread") unread FROM papers').fetchone()
             downloaded = db.execute("SELECT COUNT(*) FROM papers WHERE download_status='downloaded'").fetchone()[0]
+            topic=cfg.get('active_topic_id','default')
+            counts=db.execute('SELECT SUM(is_starred) starred, SUM(reading_status="unread") unread FROM topic_papers WHERE topic_id=?',(topic,)).fetchone()
             recent = get_recent(db, days=cfg['lookback_days'],limit=cfg['report_limit'],
-                                keywords=cfg['keywords'],sort_mode=cfg['sort_mode'])
-        result = {'archived':row['total'], 'starred':row['starred'] or 0,
-                  'unread':row['unread'] or 0, 'matched':len(recent), 'downloaded':downloaded}
+                                keywords=cfg['keywords'],sort_mode=cfg['sort_mode'],
+                                topic_id=topic,rerank_enabled=cfg.get('ai_rerank_enabled',False))
+        result = {'archived':row['total'], 'starred':counts['starred'] or 0,
+                  'unread':counts['unread'] or 0, 'matched':len(recent), 'downloaded':downloaded}
         with self.lock:
             self.stats_cache_key = key
             self.stats_cache_at = time.monotonic()
@@ -131,6 +136,7 @@ class Runtime:
         return dict(result)
 
     def start(self, mode: str, ids: list[str] | None = None):
+        config_snapshot = read_config()
         with self.lock:
             if self.busy:
                 raise ValueError('当前已有任务在执行。')
@@ -141,9 +147,10 @@ class Runtime:
             self.progress = {'percent':0, 'stage':'等待启动', 'detail':'正在初始化任务'}
             self.logs.clear()
             self.last_result = {}
-        Thread(target=self._worker, args=(mode, ids or []), daemon=True).start()
+        Thread(target=self._worker, args=(mode, ids or [], config_snapshot), daemon=True).start()
 
-    def _worker(self, mode, ids):
+    def _worker(self, mode, ids, cfg=None):
+        cfg = cfg if cfg is not None else read_config()
         status = {'state':'running', 'started_at':datetime.now().astimezone().isoformat(timespec='seconds'), 'mode':mode}
         write_status(status)
         def on_progress(value):
@@ -157,17 +164,25 @@ class Runtime:
         task.emit(1, '启动任务', detail='正在读取本地设置')
         try:
             if mode == 'search':
-                result = run_cycle(read_config(), logger=self.push, progress=on_progress)
+                result = run_cycle(cfg, logger=self.push, progress=on_progress)
                 output = {'retrieved':result['retrieved'], 'new':result['new'], 'selected':result['selected']}
                 self.push(f"完成：检索 {result['retrieved']} 篇，新增 {result['new']} 篇，报告已更新。")
+                try:record_run(cfg['active_topic_id'],'search','success',result=result,started_at=status['started_at'])
+                except Exception as exc:self.push('检索成功，但运行历史保存失败：'+str(exc)[:100])
+            elif mode == 'search_all':
+                result=run_all_topics(cfg,logger=self.push,progress=on_progress)
+                output={k:result[k] for k in ('topics_succeeded','topics_failed','retrieved','new','selected')}
+                self.push(f"批量检索完成：成功 {result['topics_succeeded']} 个，失败 {result['topics_failed']} 个研究主题。")
             elif mode == 'export':
-                path = report_from_cache(logger=self.push, progress=on_progress)
+                path = report_from_cache(config=cfg,logger=self.push, progress=on_progress)
                 output = {'file':path.name}
                 self.push('报告已生成。')
+                try:record_run(cfg['active_topic_id'],'export','success',result=output,started_at=status['started_at'])
+                except Exception as exc:self.push('导出成功，但运行历史保存失败：'+str(exc)[:100])
             elif mode == 'download':
                 with single_instance(LOCK_FILE):
                     with open_database() as db:
-                        results = download_selected(db, ids, read_config(), logger=self.push,
+                        results = download_selected(db, ids, cfg, logger=self.push,
                             progress=lambda done,total,detail: task.emit(
                                 5 + 94*done/max(1,total), '下载 PDF',
                                 current=done,total=total,detail=detail))
@@ -176,9 +191,36 @@ class Runtime:
                           'failed':sum(item['status'] in ('failed','unavailable') for item in results),
                           'results':results}
                 self.push(f"PDF 下载完成：新增 {output['downloaded']}，已存在 {output['skipped']}，未完成 {output['failed']}。")
+            elif mode == 'index_fulltext':
+                from .fulltext import index_paper
+                results=[]
+                with single_instance(LOCK_FILE):
+                    with open_database() as db:
+                        for i,pid in enumerate(ids,1):
+                            task.emit(5 + 85*(i-1)/max(1,len(ids)), '全文索引',
+                                      current=i-1,total=len(ids),detail=f'解析本地 PDF {i}/{len(ids)}')
+                            try:
+                                item=index_paper(db,pid,db_path=DB_FILE)
+                                results.append(item)
+                                self.push(f"全文索引：{pid[:60]}，{item.get('pages',0)}页、{item.get('chunks',0)}片段。")
+                            except (ValueError, RuntimeError, OSError) as exc:
+                                results.append({'paper_id':pid,'status':'failed','error':str(exc)[:180]})
+                                self.push(f'全文索引失败 {pid[:40]}：{str(exc)[:130]}')
+                completed=sum(r['status'] in ('indexed','partial','cached') for r in results)
+                if completed == 0:
+                    raise ValueError('本批 PDF 均未能索引：'+results[0].get('error','无可解析 PDF'))
+                output={'indexed':completed,'failed':len(results)-completed,'results':results}
+                task.emit(100,'已完成',detail=f'索引 {completed} 篇，失败 {len(results)-completed} 篇')
+            elif mode == 'analyze_fulltext':
+                from .fulltext import analyze_paper
+                task.emit(12,'全文阅读卡片',detail='正在核查原文片段并调用配置的大模型')
+                with single_instance(LOCK_FILE):
+                    with open_database() as db:
+                        output=analyze_paper(db,ids[0],cfg)
+                self.push(f"全文阅读卡片：{ids[0][:60]}，有效证据 {output.get('claims',0)} 条。")
+                task.emit(100,'已完成',detail='全文阅读卡片已更新，可在论文库查看')
             elif mode == 'export_all':
                 from .reports.text import write_csv
-                cfg = read_config()
                 with single_instance(LOCK_FILE):
                     with open_database() as db:
                         dest = get_output_dir(cfg)
@@ -200,20 +242,26 @@ class Runtime:
                 self.push(f'已导出 {total} 条本地文献记录。')
             elif mode == 'test_api':
                 task.emit(12, '连接模型服务', detail='等待模型服务商响应；可能需要几十秒')
-                reply = test_connection(read_config())
+                reply = test_connection(cfg)
                 output = {'reply':reply[:100]}
                 task.emit(100, '已完成', detail='模型连接正常')
                 self.push('API 连接成功。')
             else:
                 raise ValueError('未知操作')
             task.emit(100, '已完成', detail='任务已完成')
-            write_status({**status,'state':'success','finished_at':datetime.now().astimezone().isoformat(timespec='seconds'), 'result':output, 'progress':dict(self.progress)})
+            final_state='partial' if ((mode=='search_all' and output.get('topics_failed',0)>0) or (mode=='index_fulltext' and output.get('failed',0)>0)) else 'success'
+            write_status({**status,'state':final_state,'finished_at':datetime.now().astimezone().isoformat(timespec='seconds'), 'result':output, 'progress':dict(self.progress)})
             with self.lock:
                 self.last_result = output
         except Exception as exc:
             # Error messages come from source wrappers and should never contain credentials.
             message = str(exc)[:500]
             self.push('执行失败：' + message)
+            if mode in ('search','export'):
+                try:
+                    record_run(cfg['active_topic_id'],mode,'failed',error=message,started_at=status['started_at'])
+                except Exception:
+                    pass
             write_status({**status,'state':'failed','finished_at':datetime.now().astimezone().isoformat(timespec='seconds'), 'error':message, 'progress':dict(self.progress)})
         finally:
             with self.lock:
@@ -308,6 +356,13 @@ class Handler(BaseHTTPRequestHandler):
                      'source_access':credential_state(), 'downloaders':available_downloaders(),
                      'api_usage_local':read_usage(), 'topics_info':topic_list(),
                      'update':update_checker.status(cfg)})
+            elif route == '/api/history':
+                query=parse_qs(parts.query)
+                scope=(query.get('scope') or ['topic'])[0]
+                if scope not in ('topic','all'):
+                    self.respond(400,{'error':'运行记录范围无效'});return
+                topic=read_config()['active_topic_id'] if scope=='topic' else None
+                self.respond(200, {'runs':recent_runs(topic_id=topic,limit=30)})
             elif route == '/api/provider-catalog':
                 usage = read_usage()
                 configured = {}
@@ -343,9 +398,14 @@ class Handler(BaseHTTPRequestHandler):
                            'only_starred':(q.get('starred') or ['0'])[0] == '1',
                            'reading_status':(q.get('status') or [''])[0]}
                 sort = (q.get('sort') or ['relevance'])[0]
+                scope = (q.get('scope') or ['topic'])[0]
+                if scope not in ('topic','all'):
+                    self.respond(400, {'error':'论文库范围无效'});return
+                topic_id=read_config().get('active_topic_id','default')
                 with open_database() as db:
-                    total = count_library(db, **filters)
-                    papers = list_library(db, **filters, limit=limit, offset=offset, sort=sort)
+                    total = count_library(db, **filters, topic_id=topic_id, topic_only=(scope=='topic'))
+                    papers = list_library(db, **filters, limit=limit, offset=offset, sort=sort,
+                                          topic_id=topic_id, topic_only=(scope=='topic'))
                 self.respond(200, {'papers':[asdict(p) for p in papers], 'total': total,
                                    'offset': offset, 'has_more': offset+len(papers) < total})
             elif route.startswith('/api/pdf/'):
@@ -360,6 +420,33 @@ class Handler(BaseHTTPRequestHandler):
                     self.respond(404,{'error':'本地 PDF 不存在'})
                     return
                 self.file_response(file,content_type='application/pdf',attachment=False)
+            elif route == '/api/fulltext/status':
+                from .fulltext import paper_status
+                pid=(parse_qs(parts.query).get('paper_id') or [''])[0]
+                if not pid or len(pid)>150:
+                    self.respond(400,{'error':'论文 ID 无效'});return
+                with open_database() as db:
+                    exists=db.execute('SELECT 1 FROM papers WHERE paper_id=?',(pid,)).fetchone()
+                    if not exists:
+                        self.respond(404, {'error':'论文不存在'});return
+                    status=paper_status(db,pid,db_path=DB_FILE)
+                self.respond(200,status)
+            elif route == '/api/fulltext/search':
+                from .fulltext import search_evidence
+                q=parse_qs(parts.query)
+                keyword=(q.get('q') or [''])[0]
+                scope=(q.get('scope') or ['topic'])[0]
+                pid=(q.get('paper_id') or [''])[0] or None
+                if scope not in ('topic','all') or (pid and len(pid)>150):
+                    self.respond(400,{'error':'全文检索范围不正确'});return
+                if not keyword.strip():
+                    self.respond(200,{'results':[],'total':0});return
+                with open_database() as db:
+                    results=search_evidence(db,keyword,
+                        topic_id=read_config()['active_topic_id'] if scope=='topic' else None,
+                        paper_id=pid,limit=20)
+                self.respond(200,{'results':results,'total':len(results),
+                    'note':'结果只来自已建立本地全文索引的 PDF，片段和页码需要在 PDF 原文中核查。'})
             elif route == '/api/downloads':
                 q = parse_qs(parts.query)
                 status = (q.get('status') or ['all'])[0]
@@ -477,7 +564,8 @@ class Handler(BaseHTTPRequestHandler):
                            'sources','auto_download','download_limit','max_pdf_mb',
                            'zotero_enabled','zotero_mode','zotero_db_path','zotero_collection_key',
                            'zotero_include_children','zotero_refresh_keywords','zotero_keyword_limit',
-                           'max_queries_per_source','update_check_enabled','update_check_interval_hours'}
+                           'max_queries_per_source','update_check_enabled','update_check_interval_hours',
+                           'research_goal','ai_rerank_enabled','ai_rerank_limit','schedule_all_topics'}
                 cfg = read_config()
                 cfg.update({k:v for k,v in data.items() if k in allowed})
                 for source in ('springer','elsevier','sciencedirect'):
@@ -512,12 +600,17 @@ class Handler(BaseHTTPRequestHandler):
                 self.respond(200, {'ok':True})
             elif route == '/api/job':
                 mode = str(data.get('mode','search'))
-                if mode not in {'search','export','export_all','test_api','download'}:
+                if mode not in {'search','search_all','export','export_all','test_api','download','index_fulltext','analyze_fulltext'}:
                     raise ValueError('不支持的任务')
-                ids = data.get('ids', []) if mode=='download' else []
+                ids = data.get('ids', []) if mode in ('download','index_fulltext','analyze_fulltext') else []
                 if mode=='download':
                     if not isinstance(ids,list) or len(ids)>20 or not ids or any(not isinstance(x,str) or len(x)>150 for x in ids):
                         raise ValueError('请选择 1 至 20 篇论文下载')
+                if mode in ('index_fulltext','analyze_fulltext'):
+                    upper=10 if mode=='index_fulltext' else 1
+                    if (not isinstance(ids,list) or not 1<=len(ids)<=upper or
+                            any(not isinstance(x,str) or not x or len(x)>150 for x in ids)):
+                        raise ValueError(f'全文任务请选择 1 至 {upper} 篇有效论文。')
                 runtime.start(mode,ids)
                 self.respond(202, {'ok':True,'mode':mode})
             elif route == '/api/zotero/collections':
@@ -593,7 +686,9 @@ class Handler(BaseHTTPRequestHandler):
                 if not pid or len(pid)>100:
                     raise ValueError('论文 ID 无效')
                 with open_database() as db:
-                    updated = update_paper_flags(db, pid, starred=data.get('starred'),status=data.get('status'))
+                    updated = update_paper_flags(db, pid, starred=data.get('starred'),status=data.get('status'),
+                                                 feedback=data.get('feedback'),
+                                                 topic_id=read_config().get('active_topic_id','default'))
                 self.respond(200 if updated else 404, {'ok':updated})
             elif route == '/api/schedule':
                 action = str(data.get('action','status'))

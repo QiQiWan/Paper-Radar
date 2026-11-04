@@ -43,10 +43,20 @@ def write_markdown(path: Path, papers, config: dict) -> Path:
         text += [f"- **研究方向**：{brief['topic']}", f"- **方法线索**：{brief['method']}",
                  f"- **摘要结果依据**：{brief['evidence'] or ('仅题录，无法判断结果' if not p.abstract else '没有可直接提取的结果性原句')}",
                  f"- **待核查**：{brief['review']}", ""]
+        if p.recommend_reason and p.recommend_evidence:
+            text += ["**AI 推荐理由（仅依据题名与摘要）**", "",
+                     p.recommend_reason, "原文依据：" + p.recommend_evidence, ""]
+        evidence_cards=(config.get('_fulltext_cards') or {}).get(p.paper_id, [])
+        if evidence_cards:
+            text += ["**全文阅读卡片（有原文页码；仅覆盖已分析片段）**", ""]
+            for item in evidence_cards:
+                section={'method':'方法','experiment':'实验','limitation':'局限'}.get(item['category'],'证据')
+                text += [f"- {section} · PDF 第 {item['page']} 页：{item['statement']}",
+                         f"  - 原文依据：{item['quote'].replace(chr(10),' ')}", ""]
         if p.summary:
             text += ["**AI 中文速览（需与原摘要核对）**", "", p.summary, ""]
         text += ["**原始摘要**", "", p.abstract or "未提供摘要；请打开原文核对。", ""]
-    text += ["---", "", "数据来源：" + "、".join(config.get("sources", ["arxiv"])) + "。PDF 下载仅限可公开获取的直链；中文速览依据标题与摘要生成。"]
+    text += ["---", "", "数据来源：" + "、".join(config.get("sources", ["arxiv"])) + "。PDF 下载仅限可公开获取的直链；中文速览依据标题与摘要生成；全文阅读卡片仅使用已索引的原文片段且需复核。"]
     path.write_text("\n".join(text) + "\n", encoding='utf-8')
     return path
 

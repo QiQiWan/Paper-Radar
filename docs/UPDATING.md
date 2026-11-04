@@ -1,4 +1,4 @@
-# 软件更新检查与升级指南（v1.10.0）
+# 软件更新检查与升级指南（v1.12.0）
 
 Paper-Radar 在本地浏览器工作台运行期间，可以在后台自动检查 GitHub 上是否发布了更新。检查只读取项目的公开 Release 元数据，不需要登录 GitHub，也不会把论文库、Zotero 数据、API Key 或本地配置发送给 GitHub。
 
@@ -26,7 +26,7 @@ Paper-Radar 在本地浏览器工作台运行期间，可以在后台自动检�
 
 推荐先关闭正在运行的 Paper-Radar，再完成以下步骤：
 
-1. 在 GitHub Release 页面核对标签、发布日期、更新内容与附件名，例如 `v1.10.0`，不要从不明网站下载安装程序。
+1. 在 GitHub Release 页面核对标签、发布日期、更新内容与附件名，例如 `v1.11.0`，不要从不明网站下载安装程序。
 2. **先备份整个原文件夹**，尤其是 `settings.json`、`data/`、`reports/`、`downloads/` 和 `logs/`。Zotero 本身的数据库应继续由 Zotero 管理。
 3. 将新源码 ZIP 解压到一个独立临时目录，确认根目录包含 `main.py`、`paper_radar/`、`requirements.txt`、`CHANGELOG.md`。
 4. 将新版本的程序文件和文档合并到旧目录，保留原目录里的个人数据目录以及 `settings.json`。不要直接删除旧目录后重装，也不要将数据文件上传到 GitHub。
@@ -39,9 +39,31 @@ Paper-Radar 在本地浏览器工作台运行期间，可以在后台自动检�
 
 1. 同步调整 `paper_radar/__init__.py` 的版本号、`CHANGELOG.md`、`README.md` 和相关使用文档；源码 ZIP 里的版本也必须一致。
 2. 运行单元测试、Python 编译检查、JavaScript 语法检查，并检查源码 ZIP 不含个人数据。
-3. 合并正式代码到 GitHub 仓库，创建与版本一致的 Tag，例如 `v1.10.0`。
+3. 合并正式代码到 GitHub 仓库，创建与版本一致的 Tag，例如 `v1.11.0`。
 4. 进入仓库 Releases，创建**已发布的正式 Release**。不要只创建 Tag、Draft 或勾选 Prerelease。填写更新日志，上传源码 ZIP。
-5. 在**未登录 GitHub 的浏览器**中确认 `https://github.com/QiQiWan/Paper-Radar/releases/latest` 可访问，并且显示的标签与 `v1.10.0` 一致。若仓库尚未公开、没有 Release 或创建了 Prerelease，程序不会推送这个版本。
+5. 在**未登录 GitHub 的浏览器**中确认 `https://github.com/QiQiWan/Paper-Radar/releases/latest` 可访问，并且显示的标签与 `v1.11.0` 一致。若仓库尚未公开、没有 Release 或创建了 Prerelease，程序不会推送这个版本。
 6. 用低于最新正式版的旧版本程序进行一次模拟或实机检查，确认“发现新版本”以及跳转按钮可用。
 
 更多信息请查看 [发布指南](PUBLISH_GITHUB.md)、[发布清单](RELEASE_CHECKLIST.md)、项目根目录 [CHANGELOG.md](../CHANGELOG.md)。
+
+## 从 v1.10.0 升级到 v1.11.0
+
+1. 完全关闭正在运行的工作台与 Windows 计划任务；备份完整旧目录，尤其是 `settings.json`、`data/`、`downloads/`、`reports/` 和 `logs/`。
+2. 解压新版 `Paper-Radar_v1.11.0_Source.zip`，将程序代码迁入原目录。请保留个人数据，不能用空 `data/` 覆盖旧数据库。
+3. 启动新版工作台，检查版本显示 `1.11.0`。打开各研究主题，核对默认主题原星标、阅读状态和旧报告。
+4. v1.11 自动建立主题关系索引。旧版历史文献统一归入默认研究主题；如果以前已有其他主题，请逐一重新检索，以重建各自文献归属。
+5. 先保持 AI 推荐与 OpenAlex 语义发现关闭，完成一次普通检索和报告检查；确认模型 API/语义额度后，再按需开启。
+6. 可通过“依次追踪全部主题”验证每个主题独立生成报告；计划任务需在网页中重新保存“追踪全部主题”选项。更新提示功能保持原有官方 Release 检查方式。
+7. 如需回滚，恢复相应版本的完整旧数据库备份；新旧数据库版本混用可能存在字段兼容问题。
+
+## 从 v1.11.0 升级至 v1.12.0
+
+1. 先停止本地工作台和每日计划任务，备份**整个旧目录**，特别是 `settings.json`、`data/`、`downloads/`、`reports/`、`logs/`。
+2. 把 `Paper-Radar_v1.12.0_Source.zip` 解压到新目录。确认有 `paper_radar/fulltext.py`、`paper_radar/evaluation.py`、`requirements.txt` 和 `CHANGELOG.md`。
+3. 按已有升级流程将程序文件和 `docs/` 合并到旧目录，保留原个人数据及密钥；不要用空的 `data/` 覆盖原库。启动脚本会安装新增 `pypdf` 依赖；离线机器应先准备相应依赖包。
+4. 打开工作台确认显示 `1.12.0`；分别检查原研究主题、Zotero、星标、报告和本地 PDF 文件未丢失。
+5. 先使用无模型模式执行常规检索；再选择已有开放获取 PDF，执行一次“解析本地 PDF”和正文检索。确认许可和云端发送范围后，才进行 AI 阅读卡片测试。
+6. 新版在已有 SQLite 文件里增设全文相关表，全文索引时才建立记录。数据库备份应继续包含全文索引和证据卡片；新功能不会替换旧的元数据表。
+7. 检查“设置 → 软件更新检查”仍能手动执行。**只有仓库创建正式公开 Release 后，旧版本才会收到 v1.12.0 更新提示**。本交付包本身不代表远程 Release 已发布。
+
+如需回滚旧版本，应连同升级前的 `data/papers.sqlite3` 完整备份一并恢复。新旧版本对同一数据库来回运行可能产生兼容差异。

@@ -13,3 +13,7 @@ arXiv、OpenAlex、Crossref、Springer Nature、Elsevier、Zotero、DeepSeek、O
 - https://dev.springernature.com/
 - https://dev.elsevier.com/
 - https://www.zotero.org/support/dev/web_api/v3/start
+
+### v1.12.0 本地 PDF 解析依赖
+
+`pypdf` 为独立的第三方开源 Python 库，采用 BSD-3-Clause 许可证，项目地址：<https://github.com/py-pdf/pypdf>；Paper-Radar 将其作为本地 PDF 文本层解析依赖。源码发行包不包含或转售第三方论文 PDF，使用者应遵守各篇论文、出版社和数据提供方适用的使用许可。发布打包的可执行版本前，需再次收集和附加所有实际分发依赖的第三方许可证。

@@ -33,3 +33,9 @@ arXiv 偏重预印本，可检索到尚未正式出版的论文。OpenAlex 提�
 - ScienceDirect Search API：https://dev.elsevier.com/documentation/SCIDIRSearchAPI.wadl
 
 出版社可能调整订阅政策、免费额度和接口，出现 HTTP 401、403、429 应先确认当前官方规定。**当前实现尚未在真实出版社授权账户下做端到端验证。**
+
+## v1.11.0 OpenAlex 语义发现（用户主动开启）
+
+在“检索范围和选项 → 文献来源”勾选 `OpenAlex 语义发现（可选）` 后，程序根据当前研究目标或关键词使用 OpenAlex `search.semantic` 查询近期论文。该来源与普通 OpenAlex 检索分别执行，默认关闭；每次查询最多50条。查询额度、API Key 和访问政策以 [OpenAlex 语义搜索官方说明](https://help.openalex.org/api/semantic-search/) 为准。可在运行环境设置 `OPENALEX_API_KEY`，请勿在日志、公众号截图或源码中填写真实密钥。
+
+语义相似度用于发现可能相关的论文，无法据此确认论文方法与实验有效；建议与默认关键词来源共同使用，并结合论文摘要和原文核查。

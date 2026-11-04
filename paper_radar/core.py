@@ -48,6 +48,10 @@ DEFAULTS = {
     "zotero_refresh_keywords": False,
     "zotero_keyword_limit": 8,
     "max_queries_per_source": 8,
+    "research_goal": "",
+    "ai_rerank_enabled": False,
+    "ai_rerank_limit": 15,
+    "schedule_all_topics": False,
     "update_check_enabled": True,
     "update_check_interval_hours": 24,
     "dismissed_update_tag": "",
@@ -59,7 +63,8 @@ DEFAULTS = {
 # default output folder remain global. Existing flat settings stay compatible.
 TOPIC_FIELDS = (
     'keywords', 'categories', 'sources', 'lookback_days', 'max_results',
-    'report_limit', 'sort_mode', 'max_queries_per_source', 'zotero_enabled',
+    'report_limit', 'sort_mode', 'max_queries_per_source', 'research_goal',
+    'zotero_enabled',
     'zotero_mode', 'zotero_db_path', 'zotero_collection_key',
     'zotero_include_children', 'zotero_refresh_keywords', 'zotero_keyword_limit',
 )
@@ -99,9 +104,12 @@ def validate_config(config: dict) -> dict:
         raise ValueError("请输入关键词或 arXiv 分类。")
     for k, lo, hi in (("lookback_days", 1, 60), ("max_results", 1, 500),
                       ("report_limit", 1, 100), ("interval_hours", 1, 168),
-                      ("ai_limit", 1, 30), ("download_limit", 1, 20), ("max_pdf_mb", 1, 50), ("zotero_keyword_limit", 1, 15), ("max_queries_per_source", 1, 20), ("update_check_interval_hours", 6, 168)):
+                      ("ai_limit", 1, 30), ("ai_rerank_limit", 1, 30), ("download_limit", 1, 20), ("max_pdf_mb", 1, 50), ("zotero_keyword_limit", 1, 15), ("max_queries_per_source", 1, 20), ("update_check_interval_hours", 6, 168)):
         c[k] = max(lo, min(hi, int(c.get(k, DEFAULTS[k]))))
     c["ai_enabled"] = bool(c.get("ai_enabled", False))
+    c["ai_rerank_enabled"] = bool(c.get("ai_rerank_enabled", False))
+    c["schedule_all_topics"] = bool(c.get("schedule_all_topics", False))
+    c["research_goal"] = str(c.get("research_goal") or "").strip()[:1500]
     c["auto_download"] = bool(c.get("auto_download", False))
     c["zotero_enabled"] = bool(c.get("zotero_enabled", False))
     c["zotero_include_children"] = bool(c.get("zotero_include_children", True))
@@ -121,7 +129,7 @@ def validate_config(config: dict) -> dict:
         raise ValueError("请选择 API 服务商。")
     c["api_base_url"] = str(c.get("api_base_url", "")).strip()
     c["api_model"] = str(c.get("api_model", "")).strip()
-    if c["ai_enabled"]:
+    if c["ai_enabled"] or c["ai_rerank_enabled"]:
         completion_endpoint(c["api_base_url"])
         if not c["api_model"]:
             raise ValueError("请填写模型名称。")
@@ -279,6 +287,33 @@ def connect(db_path: Path = DB_FILE) -> sqlite3.Connection:
           AND (pdf_url LIKE 'https://arxiv.org/pdf/%' OR pdf_url LIKE 'https://export.arxiv.org/pdf/%')""")
     conn.execute('CREATE INDEX IF NOT EXISTS idx_papers_doi ON papers(doi)')
     conn.execute('CREATE INDEX IF NOT EXISTS idx_papers_published ON papers(published)')
+    # Topic-specific flags and recommendation values. The canonical paper table
+    # keeps metadata and download state shared across research topics.
+    conn.execute("""CREATE TABLE IF NOT EXISTS topic_papers (
+      topic_id TEXT NOT NULL, paper_id TEXT NOT NULL, score REAL NOT NULL DEFAULT 0,
+      is_starred INTEGER NOT NULL DEFAULT 0,
+      reading_status TEXT NOT NULL DEFAULT 'unread',
+      feedback INTEGER NOT NULL DEFAULT 0,
+      recommend_reason TEXT NOT NULL DEFAULT '',
+      ai_relevance INTEGER NOT NULL DEFAULT -1,
+      recommend_evidence TEXT NOT NULL DEFAULT '',
+      rerank_fingerprint TEXT NOT NULL DEFAULT '',
+      matched_at TEXT NOT NULL DEFAULT '',
+      PRIMARY KEY(topic_id, paper_id), FOREIGN KEY(paper_id) REFERENCES papers(paper_id)
+    )""")
+    cols={row[1] for row in conn.execute('PRAGMA table_info(topic_papers)')}
+    for col in ('recommend_evidence','rerank_fingerprint'):
+        if col not in cols:
+            conn.execute(f"ALTER TABLE topic_papers ADD COLUMN {col} TEXT NOT NULL DEFAULT ''")
+    conn.execute('CREATE INDEX IF NOT EXISTS idx_topic_papers_rank ON topic_papers(topic_id, score DESC)')
+    conn.execute('CREATE TABLE IF NOT EXISTS app_meta (key TEXT PRIMARY KEY, value TEXT NOT NULL)')
+    # Preserve legacy starred/reading flags once, without making future papers
+    # collected for other topics automatically part of the default theme.
+    if not conn.execute("SELECT 1 FROM app_meta WHERE key='topic_migrated_v111'").fetchone():
+        conn.execute("""INSERT OR IGNORE INTO topic_papers
+          (topic_id,paper_id,score,is_starred,reading_status,matched_at)
+          SELECT 'default',paper_id,score,is_starred,reading_status,first_seen FROM papers""")
+        conn.execute("INSERT INTO app_meta VALUES ('topic_migrated_v111','1')")
     conn.commit()
     return conn
 
@@ -293,11 +328,13 @@ def open_database(db_path: Path = DB_FILE):
         connection.close()
 
 
-def save_papers(conn: sqlite3.Connection, papers: list[Paper]) -> list[Paper]:
+def save_papers(conn: sqlite3.Connection, papers: list[Paper], *, topic_id: str = "default") -> list[Paper]:
     """Idempotent upsert with DOI matching across source adapters.
 
     Existing local annotations and downloaded file state are preserved.
     """
+    if not TOPIC_ID_RE.fullmatch(topic_id):
+        raise ValueError('研究主题标识无效。')
     inserted = []
     seen_at = datetime.now().isoformat(timespec='seconds')
     for p in papers:
@@ -345,28 +382,73 @@ def save_papers(conn: sqlite3.Connection, papers: list[Paper]) -> list[Paper]:
             conn.execute(f'INSERT INTO papers ({",".join(keys)}) VALUES ({",".join("?" for _ in keys)})',
                          tuple(getattr(p,k) for k in keys))
             inserted.append(p)
+        conn.execute("""INSERT INTO topic_papers
+          (topic_id,paper_id,score,matched_at,recommend_reason,ai_relevance,recommend_evidence,rerank_fingerprint)
+          VALUES (?,?,?,?,?,?,?,?) ON CONFLICT(topic_id,paper_id) DO UPDATE SET
+          score=excluded.score, matched_at=excluded.matched_at,
+          recommend_reason=excluded.recommend_reason,
+          ai_relevance=excluded.ai_relevance,
+          recommend_evidence=excluded.recommend_evidence,
+          rerank_fingerprint=excluded.rerank_fingerprint""",
+          (topic_id,p.paper_id,p.score,seen_at,p.recommend_reason,p.ai_relevance,
+           p.recommend_evidence,p.rerank_fingerprint))
     conn.commit()
     return inserted
 
 
 def get_recent(conn: sqlite3.Connection, days=7, limit=20,
                keywords: list[str] | None = None, now: datetime | None = None,
-               sort_mode: str = "relevance", ranker=None) -> list[Paper]:
+               sort_mode: str = "relevance", ranker=None, topic_id: str | None = None,
+               rerank_enabled: bool = False) -> list[Paper]:
     """Read recent saved papers and score against the current topic."""
     current = now or datetime.now(timezone.utc)
     if current.tzinfo is None:
         current = current.replace(tzinfo=timezone.utc)
     today = current.astimezone(timezone.utc).date()
     cutoff = (today - timedelta(days=days)).isoformat()
-    rows = conn.execute("SELECT * FROM papers WHERE substr(published,1,10)>=? AND substr(published,1,10)<=?", (cutoff, today.isoformat())).fetchall()
-    papers = [Paper(**dict(row)) for row in rows if valid_recent_publication(row['published'], current, days)]
+    if topic_id is not None:
+        if not TOPIC_ID_RE.fullmatch(topic_id):
+            raise ValueError('研究主题标识无效。')
+        rows = conn.execute("""SELECT p.*,tp.feedback AS topic_feedback,
+          tp.recommend_reason AS topic_reason,tp.ai_relevance AS topic_ai_relevance,
+          tp.recommend_evidence AS topic_evidence,tp.rerank_fingerprint AS topic_fingerprint,
+          tp.is_starred AS topic_starred,tp.reading_status AS topic_reading
+          FROM papers p JOIN topic_papers tp ON tp.paper_id=p.paper_id
+          WHERE tp.topic_id=? AND substr(p.published,1,10)>=? AND substr(p.published,1,10)<=?""",
+          (topic_id,cutoff,today.isoformat())).fetchall()
+    else:
+        rows = conn.execute("SELECT * FROM papers WHERE substr(published,1,10)>=? AND substr(published,1,10)<=?", (cutoff, today.isoformat())).fetchall()
+    papers=[]
+    for row in rows:
+        if not valid_recent_publication(row['published'], current, days):
+            continue
+        values=dict(row)
+        if topic_id is not None:
+            values['feedback']=values.pop('topic_feedback')
+            values['recommend_reason']=values.pop('topic_reason')
+            values['ai_relevance']=values.pop('topic_ai_relevance')
+            values['recommend_evidence']=values.pop('topic_evidence')
+            values['rerank_fingerprint']=values.pop('topic_fingerprint')
+            values['is_starred']=values.pop('topic_starred')
+            values['reading_status']=values.pop('topic_reading')
+        papers.append(Paper(**values))
     if ranker is not None:
         papers = [paper for paper in papers if not ranker.already_collected(paper)]
     if keywords is not None:
         for paper in papers:
             paper.score = rank(paper, keywords, ranker)
+            if paper.score <= 0 and 'openalex_semantic' in paper.source.split(',') and paper.abstract:
+                paper.score=0.35
+            if rerank_enabled and paper.ai_relevance in (0,1,2,3):
+                # The stored AI result is a supplementary signal, never sole proof
+                # of methods/experimental evidence. Re-evaluate when re-fetched.
+                from .recommend import bonus
+                paper.score=max(0,round(paper.score+bonus(paper.ai_relevance),4))
+            if paper.feedback == 1:
+                paper.score += 2.0  # Explicit user feedback, isolated to this topic.
         if keywords:
             papers = [paper for paper in papers if paper.score > 0]
+    papers = [p for p in papers if p.feedback >= 0]  # respect user suppression per topic
     if sort_mode == "newest":
         papers.sort(key=lambda p: (p.published, p.score), reverse=True)
     else:
@@ -374,9 +456,31 @@ def get_recent(conn: sqlite3.Connection, days=7, limit=20,
     return papers[:limit]
 
 
-def get_selected(conn: sqlite3.Connection, ids: list[str]) -> list[Paper]:
-    return [Paper(**dict(row)) for pid in ids if (row := conn.execute(
-        "SELECT * FROM papers WHERE paper_id=?", (pid,)).fetchone()) is not None]
+def get_selected(conn: sqlite3.Connection, ids: list[str], topic_id: str | None = None) -> list[Paper]:
+    """Return requested papers, including the selected topic's recommendation and flags."""
+    if topic_id is None:
+        return [Paper(**dict(row)) for pid in ids if (row := conn.execute(
+            'SELECT * FROM papers WHERE paper_id=?',(pid,)).fetchone()) is not None]
+    if not TOPIC_ID_RE.fullmatch(topic_id):
+        raise ValueError('研究主题标识无效。')
+    rows=[]
+    for pid in ids:
+        row=conn.execute("""SELECT p.*,tp.score AS theme_score,tp.is_starred AS theme_starred,
+            tp.reading_status AS theme_reading,tp.feedback AS theme_feedback,
+            tp.recommend_reason AS theme_reason,tp.ai_relevance AS theme_relevance,
+            tp.recommend_evidence AS theme_evidence,tp.rerank_fingerprint AS theme_fingerprint
+            FROM papers p JOIN topic_papers tp ON tp.paper_id=p.paper_id
+            WHERE p.paper_id=? AND tp.topic_id=?""",(pid,topic_id)).fetchone()
+        if row is None:
+            continue
+        data=dict(row)
+        for col,dest in (('theme_score','score'),('theme_starred','is_starred'),
+                        ('theme_reading','reading_status'),('theme_feedback','feedback'),
+                        ('theme_reason','recommend_reason'),('theme_relevance','ai_relevance'),
+                        ('theme_evidence','recommend_evidence'),('theme_fingerprint','rerank_fingerprint')):
+            data[dest]=data.pop(col)
+        rows.append(Paper(**data))
+    return rows
 
 
 def annotate_papers(conn: sqlite3.Connection, config: dict, logger=print, now: datetime | None = None, ranker=None, progress=None) -> int:
@@ -389,7 +493,9 @@ def annotate_papers(conn: sqlite3.Connection, config: dict, logger=print, now: d
         return 0
     recent = get_recent(conn, days=config["lookback_days"],
                         limit=max(config["report_limit"], config["ai_limit"]),
-                        keywords=config["keywords"], now=now, sort_mode=config.get("sort_mode", "relevance"),ranker=ranker)
+                        keywords=config["keywords"], now=now, sort_mode=config.get("sort_mode", "relevance"),ranker=ranker,
+                        topic_id=config.get("active_topic_id", "default"),
+                        rerank_enabled=config.get("ai_rerank_enabled",False))
     candidates = [p for p in recent if p.abstract and (
         not p.summary or p.summary_fingerprint != summary_fingerprint(p, config)
     )][:config["ai_limit"]]
@@ -469,36 +575,101 @@ def _library_filter(query: str = "", only_starred: bool = False,
     return " AND ".join(pieces), args
 
 
+def _topic_library_parts(topic_id: str, topic_only: bool, query: str,
+                         only_starred: bool, reading_status: str):
+    if not TOPIC_ID_RE.fullmatch(topic_id):
+        raise ValueError('研究主题标识无效。')
+    join = ('JOIN' if topic_only else 'LEFT JOIN') + ' topic_papers tp ON tp.paper_id=p.paper_id AND tp.topic_id=?'
+    where, args = _library_filter(query, False, '')
+    for col in ('title','abstract','authors','doi'):
+        where=where.replace(col+' LIKE', 'p.'+col+' LIKE')
+    if topic_only:
+        where += ' AND tp.paper_id IS NOT NULL'
+    if only_starred:
+        where += ' AND COALESCE(tp.is_starred,0)=1'
+    if reading_status in {'unread','reading','done'}:
+        where += " AND COALESCE(tp.reading_status,'unread')=?"
+        args.append(reading_status)
+    return join,where,[topic_id,*args]
+
+
 def count_library(conn: sqlite3.Connection, *, query: str = "", only_starred: bool = False,
-                  reading_status: str = "") -> int:
-    clause, args = _library_filter(query, only_starred, reading_status)
-    return int(conn.execute("SELECT COUNT(*) FROM papers WHERE " + clause, args).fetchone()[0])
+                  reading_status: str = "", topic_id: str | None = None,
+                  topic_only: bool = False) -> int:
+    if topic_id is not None:
+        join,where,args=_topic_library_parts(topic_id,topic_only,query,only_starred,reading_status)
+        return int(conn.execute('SELECT COUNT(*) FROM papers p '+join+' WHERE '+where,args).fetchone()[0])
+    clause,args=_library_filter(query,only_starred,reading_status)
+    return int(conn.execute('SELECT COUNT(*) FROM papers WHERE '+clause,args).fetchone()[0])
 
 
 def list_library(conn: sqlite3.Connection, *, limit: int = 300, offset: int = 0,
                  query: str = "", only_starred: bool = False,
-                 reading_status: str = "", sort: str = "default") -> list[Paper]:
-    """Paged local library. Sort ties by stable paper ID so pages never skip rows."""
-    clause, args = _library_filter(query, only_starred, reading_status)
-    order = ("first_seen DESC, paper_id ASC" if sort == "recent" else
-             "score DESC, published DESC, paper_id ASC" if sort == "relevance" else
-             "is_starred DESC, published DESC, paper_id ASC")
-    args.extend([max(1, min(int(limit), 500)), max(0, int(offset))])
-    rows = conn.execute("SELECT * FROM papers WHERE " + clause +
-                        f" ORDER BY {order} LIMIT ? OFFSET ?", args).fetchall()
+                 reading_status: str = "", sort: str = "default",
+                 topic_id: str | None = None, topic_only: bool = False) -> list[Paper]:
+    """Page the shared paper index; display selected theme's independent flags."""
+    if topic_id is not None:
+        join,where,args=_topic_library_parts(topic_id,topic_only,query,only_starred,reading_status)
+        order = ('p.first_seen DESC,p.paper_id ASC' if sort=='recent' else
+                 '(COALESCE(tp.score,0)+CASE WHEN tp.feedback=1 THEN 2 WHEN tp.feedback=-1 THEN -100 ELSE 0 END) DESC,p.published DESC,p.paper_id ASC' if sort=='relevance' else
+                 'COALESCE(tp.is_starred,0) DESC,p.published DESC,p.paper_id ASC')
+        rows=conn.execute("""SELECT p.*,COALESCE(tp.score,0) AS topic_score,
+         COALESCE(tp.is_starred,0) AS topic_starred,
+         COALESCE(tp.reading_status,'unread') AS topic_reading,
+         COALESCE(tp.feedback,0) AS topic_feedback,
+         COALESCE(tp.recommend_reason,'') AS topic_reason,
+         COALESCE(tp.ai_relevance,-1) AS topic_ai_relevance,
+         COALESCE(tp.recommend_evidence,'') AS topic_evidence,
+         COALESCE(tp.rerank_fingerprint,'') AS topic_fingerprint
+         FROM papers p """+join+' WHERE '+where+' ORDER BY '+order+' LIMIT ? OFFSET ?',
+         [*args,max(1,min(int(limit),500)),max(0,int(offset))]).fetchall()
+        result=[]
+        for row in rows:
+            data=dict(row)
+            for column,field in (('topic_score','score'),('topic_starred','is_starred'),
+                                 ('topic_reading','reading_status'),('topic_feedback','feedback'),
+                                 ('topic_reason','recommend_reason'),('topic_ai_relevance','ai_relevance'),
+                                 ('topic_evidence','recommend_evidence'),('topic_fingerprint','rerank_fingerprint')):
+                data[field]=data.pop(column)
+            result.append(Paper(**data))
+        return result
+    clause,args=_library_filter(query,only_starred,reading_status)
+    order=('first_seen DESC,paper_id ASC' if sort=='recent' else
+           'score DESC,published DESC,paper_id ASC' if sort=='relevance' else
+           'is_starred DESC,published DESC,paper_id ASC')
+    rows=conn.execute('SELECT * FROM papers WHERE '+clause+' ORDER BY '+order+' LIMIT ? OFFSET ?',
+                     [*args,max(1,min(int(limit),500)),max(0,int(offset))]).fetchall()
     return [Paper(**dict(r)) for r in rows]
 
 
-def update_paper_flags(conn: sqlite3.Connection, paper_id: str, *, starred=None, status=None) -> bool:
-    row = conn.execute("SELECT paper_id FROM papers WHERE paper_id=?", (paper_id,)).fetchone()
+def update_paper_flags(conn: sqlite3.Connection, paper_id: str, *, starred=None,
+                       status=None, topic_id: str | None = None, feedback=None) -> bool:
+    row=conn.execute('SELECT paper_id,score FROM papers WHERE paper_id=?',(paper_id,)).fetchone()
     if row is None:
         return False
-    if starred is not None:
-        conn.execute("UPDATE papers SET is_starred=? WHERE paper_id=?", (int(bool(starred)), paper_id))
-    if status is not None:
-        if status not in {"unread", "reading", "done"}:
-            raise ValueError("阅读状态无效")
-        conn.execute("UPDATE papers SET reading_status=? WHERE paper_id=?", (status, paper_id))
+    if status is not None and status not in {'unread','reading','done'}:
+        raise ValueError('阅读状态无效')
+    if feedback is not None and (type(feedback) is not int or feedback not in (-1,0,1)):
+        raise ValueError('相关性反馈只能是 -1、0、1')
+    if topic_id is None:
+        if starred is not None:
+            conn.execute('UPDATE papers SET is_starred=? WHERE paper_id=?',(int(bool(starred)),paper_id))
+        if status is not None:
+            conn.execute('UPDATE papers SET reading_status=? WHERE paper_id=?',(status,paper_id))
+    else:
+        if not TOPIC_ID_RE.fullmatch(topic_id):
+            raise ValueError('研究主题标识无效')
+        conn.execute("""INSERT OR IGNORE INTO topic_papers(topic_id,paper_id,score,matched_at)
+            VALUES (?,?,?,?)""", (topic_id,paper_id,float(row['score']),datetime.now().isoformat(timespec='seconds')))
+        if starred is not None:
+            conn.execute('UPDATE topic_papers SET is_starred=? WHERE topic_id=? AND paper_id=?',
+                         (int(bool(starred)),topic_id,paper_id))
+        if status is not None:
+            conn.execute('UPDATE topic_papers SET reading_status=? WHERE topic_id=? AND paper_id=?',
+                         (status,topic_id,paper_id))
+        if feedback is not None:
+            conn.execute('UPDATE topic_papers SET feedback=? WHERE topic_id=? AND paper_id=?',
+                         (feedback,topic_id,paper_id))
     conn.commit()
     return True
 
@@ -541,6 +712,18 @@ def run_cycle(config: dict | None = None, logger=print, *,
                 logger(f'已排除 Zotero 收藏夹中已有的 {count_before-len(retrieved)} 篇论文。')
         for paper in retrieved:
             paper.score = rank(paper, config["keywords"], profile_ranker)
+            if (paper.score <= 0 and 'openalex_semantic' in paper.source.split(',')
+                    and paper.abstract):
+                # Clearly flagged exploratory candidates. Semantic similarity
+                # alone is insufficient for claims about research contributions.
+                paper.score=0.35
+        if config.get('ai_rerank_enabled'):
+            from .recommend import rerank_papers
+            try:
+                with open_database(db_path) as rank_db:
+                    config['_ai_rerank_results']=rerank_papers(retrieved,config,rank_db,logger)
+            except Exception as exc:
+                logger('AI 推荐排序已降级为关键词排序：'+str(exc)[:180])
         if config['keywords']:
             before_rank = len(retrieved)
             retrieved = [p for p in retrieved if p.score > 0]
@@ -554,7 +737,7 @@ def run_cycle(config: dict | None = None, logger=print, *,
             logger(f"综合相关度排序后保留前 {config['max_results']} 篇，其他结果不写入本次论文库。")
             retrieved = retrieved[:config['max_results']]
         with open_database(db_path) as conn:
-            new = save_papers(conn, retrieved)
+            new = save_papers(conn, retrieved, topic_id=config.get("active_topic_id", "default"))
             task.emit(55, "整理文献", detail=f"写入本地文献库；新增 {len(new)} 篇")
             new.sort(key=lambda x: (x.score, x.published), reverse=True)
             task.emit(58, '中文速览', detail='检查需要生成速览的论文')
@@ -578,12 +761,17 @@ def run_cycle(config: dict | None = None, logger=print, *,
                             current=done, total=total, detail=detail))
                     logger(f"PDF：成功 {sum(r['status']=='downloaded' for r in results)} / {len(results)} 篇")
             recent = get_recent(conn, days=config["lookback_days"], limit=config["report_limit"],
-                                keywords=config["keywords"], now=now, sort_mode=config.get("sort_mode", "relevance"), ranker=profile_ranker)
+                                keywords=config["keywords"], now=now, sort_mode=config.get("sort_mode", "relevance"), ranker=profile_ranker,
+                                topic_id=config.get("active_topic_id", "default"),
+                                rerank_enabled=config.get("ai_rerank_enabled",False))
             if new:
-                new_papers = get_selected(conn, [p.paper_id for p in new[:config["report_limit"]]])
+                new_papers = get_selected(conn, [p.paper_id for p in new[:config["report_limit"]]], topic_id=config.get("active_topic_id", "default"))
                 new_papers.sort(key=lambda x: (x.score, x.published), reverse=True)
             else:
                 new_papers = []
+            from .fulltext import load_report_cards
+            config['_fulltext_cards']=load_report_cards(conn,
+                [p.paper_id for p in recent]+[p.paper_id for p in new_papers])
         task.emit(87, "整理研究报告", detail="正在生成 Word、Markdown 和 CSV")
         file_new = None
         if new_papers:
@@ -602,6 +790,8 @@ def run_cycle(config: dict | None = None, logger=print, *,
         logger(f"已检索 {len(retrieved)} 篇，新增 {len(new)} 篇。")
         logger(f"汇总文档：{file_weekly}")
         return {"retrieved": len(retrieved), "new": len(new), "selected": len(recent),
+                "source_results":config.get('_source_results',[]),
+                "ai_rerank":config.get('_ai_rerank_results',{}),
                 "weekly": file_weekly, "markdown": file_md, "csv": file_csv,
                 "new_file": file_new}
 
@@ -620,7 +810,11 @@ def report_from_cache(config: dict | None = None, logger=print, db_path: Path = 
         task.emit(28, '读取缓存', detail='筛选并排序本地论文')
         with open_database(db_path) as conn:
             papers = get_recent(conn, days=config["lookback_days"], limit=config["report_limit"],
-                                keywords=config["keywords"], sort_mode=config.get("sort_mode", "relevance"),ranker=profile_ranker)
+                                keywords=config["keywords"], sort_mode=config.get("sort_mode", "relevance"),ranker=profile_ranker,
+                                topic_id=config.get("active_topic_id", "default"),
+                                rerank_enabled=config.get("ai_rerank_enabled",False))
+            from .fulltext import load_report_cards
+            config['_fulltext_cards']=load_report_cards(conn,[p.paper_id for p in papers])
         task.emit(53, '生成 Word', detail=f'整理 {len(papers)} 篇论文')
         target = folder / "近期文献汇总.docx"
         write_report(target, "近期文献汇总", papers, config, len(papers))
