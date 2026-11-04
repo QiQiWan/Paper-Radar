@@ -12,6 +12,7 @@ import json
 import os
 import time
 import re
+from .. import __version__
 from ..models import Paper
 
 BASE = 'https://api.openalex.org/works'
@@ -67,6 +68,8 @@ class OpenAlexSource:
         if now.tzinfo is None: now = now.replace(tzinfo=timezone.utc)
         since = (now - timedelta(days=int(config['lookback_days']))).date().isoformat()
         keywords = config.get('keywords', [])[:3]
+        if len(config.get('keywords', [])) > 3:
+            logger('OpenAlex 当前最多按前 3 组关键词单独检索；完整关键词将用于本地相关性筛选。')
         if not keywords:
             logger('OpenAlex 需要至少一个英文关键词，本次跳过。')
             return []
@@ -82,7 +85,7 @@ class OpenAlexSource:
                 params['api_key'] = api_key
             url = BASE + '?' + parse.urlencode(params)
             req = request.Request(url, headers={
-                'User-Agent':'Paper-Radar/1.9 (+local research tool)', 'Accept':'application/json'})
+                'User-Agent':f'Paper-Radar/{__version__} (+local research tool)', 'Accept':'application/json'})
             data = None
             for attempt in range(3):
                 try:

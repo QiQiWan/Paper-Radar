@@ -45,9 +45,26 @@ DEFAULTS = {
     "zotero_db_path": "",
     "zotero_collection_key": "",
     "zotero_include_children": True,
-    "zotero_refresh_keywords": True,
+    "zotero_refresh_keywords": False,
     "zotero_keyword_limit": 8,
+    "max_queries_per_source": 8,
+    "update_check_enabled": True,
+    "update_check_interval_hours": 24,
+    "dismissed_update_tag": "",
+    "active_topic_id": "default",
+    "topics": [],
 }
+
+# Fields that belong to a research topic; model credentials, updates and
+# default output folder remain global. Existing flat settings stay compatible.
+TOPIC_FIELDS = (
+    'keywords', 'categories', 'sources', 'lookback_days', 'max_results',
+    'report_limit', 'sort_mode', 'max_queries_per_source', 'zotero_enabled',
+    'zotero_mode', 'zotero_db_path', 'zotero_collection_key',
+    'zotero_include_children', 'zotero_refresh_keywords', 'zotero_keyword_limit',
+)
+TOPIC_ID_RE = re.compile(r'^[a-z0-9_-]{1,48}$')
+
 
 
 from .models import Paper
@@ -68,7 +85,11 @@ def validate_config(config: dict) -> dict:
         raw = c.get(key, [])
         if isinstance(raw, str):
             raw = re.split(r"[,，;；\n]", raw)
-        c[key] = [str(x).strip() for x in raw if str(x).strip()]
+        if not isinstance(raw, (tuple, list)):
+            raise ValueError(f'{key} 必须是列表。')
+        c[key] = list(dict.fromkeys(str(x).strip()[:120] for x in raw if str(x).strip()))
+        if len(c[key]) > (20 if key == 'keywords' else 24):
+            raise ValueError(f'{key} 数量过多，请精简后重试。')
     from .sources import available_sources
     names = {s['name'] for s in available_sources()}
     c['sources'] = list(dict.fromkeys(c['sources']))
@@ -78,13 +99,13 @@ def validate_config(config: dict) -> dict:
         raise ValueError("请输入关键词或 arXiv 分类。")
     for k, lo, hi in (("lookback_days", 1, 60), ("max_results", 1, 500),
                       ("report_limit", 1, 100), ("interval_hours", 1, 168),
-                      ("ai_limit", 1, 30), ("download_limit", 1, 20), ("max_pdf_mb", 1, 50), ("zotero_keyword_limit", 1, 15)):
+                      ("ai_limit", 1, 30), ("download_limit", 1, 20), ("max_pdf_mb", 1, 50), ("zotero_keyword_limit", 1, 15), ("max_queries_per_source", 1, 20), ("update_check_interval_hours", 6, 168)):
         c[k] = max(lo, min(hi, int(c.get(k, DEFAULTS[k]))))
     c["ai_enabled"] = bool(c.get("ai_enabled", False))
     c["auto_download"] = bool(c.get("auto_download", False))
     c["zotero_enabled"] = bool(c.get("zotero_enabled", False))
     c["zotero_include_children"] = bool(c.get("zotero_include_children", True))
-    c["zotero_refresh_keywords"] = bool(c.get("zotero_refresh_keywords", True))
+    c["zotero_refresh_keywords"] = bool(c.get("zotero_refresh_keywords", DEFAULTS["zotero_refresh_keywords"]))
     c["zotero_mode"] = str(c.get("zotero_mode", "auto"))
     if c["zotero_mode"] not in ("auto", "api", "sqlite"):
         raise ValueError("Zotero 连接方式无效。")
@@ -106,11 +127,47 @@ def validate_config(config: dict) -> dict:
             raise ValueError("请填写模型名称。")
     c["output_dir"] = str(c.get("output_dir", "reports")).strip() or "reports"
     c["sort_mode"] = "newest" if c.get("sort_mode") == "newest" else "relevance"
+    c['update_check_enabled'] = bool(c.get('update_check_enabled', True))
+    c['dismissed_update_tag'] = str(c.get('dismissed_update_tag') or '')[:40]
+    from copy import deepcopy
+    raw_topics = c.get('topics') or []
+    if not isinstance(raw_topics, list) or len(raw_topics) > 20:
+        raise ValueError('研究主题配置格式不正确，最多允许20个主题。')
+    entries = []
+    used = set()
+    for raw in raw_topics:
+        if not isinstance(raw, dict):
+            raise ValueError('研究主题配置条目无效。')
+        tid = str(raw.get('id') or '')
+        if not TOPIC_ID_RE.fullmatch(tid) or tid in used:
+            raise ValueError('研究主题标识无效或重复。')
+        name = str(raw.get('name') or '').strip()
+        if not 1 <= len(name) <= 55:
+            raise ValueError('研究主题名称需要1至55个字符。')
+        used.add(tid)
+        # Missing fields in older saved snapshots inherit the current settings.
+        item = {'id': tid, 'name': name}
+        for field in TOPIC_FIELDS:
+            item[field] = deepcopy(raw.get(field, c[field]))
+        entries.append(item)
+    if not entries:
+        entries = [{'id': 'default', 'name': '默认研究主题',
+                    **{field: deepcopy(c[field]) for field in TOPIC_FIELDS}}]
+    active = str(c.get('active_topic_id') or 'default')
+    if active not in {item['id'] for item in entries}:
+        active = entries[0]['id']
+    c['active_topic_id'] = active
+    c['topics'] = entries
     return c
 
 
 def save_config(config: dict, path: Path = APP_CONFIG) -> dict:
     c = validate_config(config)
+    from copy import deepcopy
+    for topic in c['topics']:
+        if topic['id'] == c['active_topic_id']:
+            topic.update({field: deepcopy(c[field]) for field in TOPIC_FIELDS})
+            break
     path.parent.mkdir(parents=True, exist_ok=True)
     tmp = path.with_name(path.name + ".tmp")
     tmp.write_text(json.dumps(c, ensure_ascii=False, indent=2), encoding="utf-8")
@@ -120,7 +177,36 @@ def save_config(config: dict, path: Path = APP_CONFIG) -> dict:
 
 def get_output_dir(config: dict) -> Path:
     p = Path(config["output_dir"]).expanduser()
-    return p if p.is_absolute() else APP_ROOT / p
+    base = p if p.is_absolute() else APP_ROOT / p
+    active = str(config.get('active_topic_id') or 'default')
+    if active == 'default':
+        return base  # Preserve all pre-v1.10 reports at their original paths.
+    if not TOPIC_ID_RE.fullmatch(active):
+        raise ValueError('研究主题标识无效。')
+    return base / 'themes' / active
+
+
+def normalize_doi(value: str) -> str:
+    """Canonicalize DOI URL / prefix variants for cross-source matching."""
+    value = parse.unquote(str(value or '').strip()).casefold()
+    value = re.sub(r'^(?:doi\s*:\s*|https?://(?:dx\.)?doi\.org/)', '', value)
+    return value.split('?', 1)[0].split('#', 1)[0].strip().rstrip(' .')
+
+
+def richer_abstract(existing: str, incoming: str) -> str:
+    """Preserve the more informative source abstract on metadata upsert."""
+    old, new = str(existing or ''), str(incoming or '').strip()
+    if not new:
+        return old
+    # Crossref/other index abstracts can be shorter metadata snippets. Longer
+    # text is a conservative proxy for completeness; retain cached analysis if
+    # a shorter copy arrives from a secondary source.
+    return new if len(new) > len(old.strip()) else old
+
+
+def richer_title(existing: str, incoming: str) -> str:
+    old, new = (existing or '').strip(), (incoming or '').strip()
+    return new if len(new) > len(old) else old
 
 
 # Backwards-compatible exports; source logic lives in sources/arxiv.py.
@@ -181,6 +267,8 @@ def connect(db_path: Path = DB_FILE) -> sqlite3.Connection:
         'download_status': "TEXT NOT NULL DEFAULT ''",
         'download_error': "TEXT NOT NULL DEFAULT ''",
         'downloaded_at': "TEXT NOT NULL DEFAULT ''",
+        'summary_fingerprint': "TEXT NOT NULL DEFAULT ''",
+        'summary_model': "TEXT NOT NULL DEFAULT ''",
     }
     for key, definition in upgrades.items():
         if key not in columns:
@@ -213,17 +301,23 @@ def save_papers(conn: sqlite3.Connection, papers: list[Paper]) -> list[Paper]:
     inserted = []
     seen_at = datetime.now().isoformat(timespec='seconds')
     for p in papers:
+        p.doi = normalize_doi(p.doi)
         prior = conn.execute('SELECT * FROM papers WHERE paper_id=?', (p.paper_id,)).fetchone()
         if prior is None and p.doi:
-            prior = conn.execute("SELECT * FROM papers WHERE doi=? AND doi<>'' LIMIT 1", (p.doi,)).fetchone()
+            # Old records sometimes store DOI URLs; avoid duplicate rows when
+            # a later data source returns the canonical DOI form.
+            prior = conn.execute("SELECT * FROM papers WHERE lower(doi) IN (?,?,?) LIMIT 1",
+                                 (p.doi, 'https://doi.org/' + p.doi,
+                                  'http://dx.doi.org/' + p.doi)).fetchone()
         if prior:
             pid = prior['paper_id']
             p.paper_id = pid  # Preserve canonical local identifier on DOI matches.
             # Prefer the richer abstract, preserve user flags and local files.
-            effective_abstract = p.abstract or prior['abstract']
-            changed = effective_abstract != prior['abstract']
+            effective_abstract = richer_abstract(prior['abstract'], p.abstract)
+            effective_title = richer_title(prior['title'], p.title)
+            changed = (effective_abstract != prior['abstract'] or effective_title != prior['title'])
             fields = {
-                'title': p.title or prior['title'], 'abstract':effective_abstract,
+                'title': effective_title, 'abstract':effective_abstract,
                 'authors':p.authors or prior['authors'],
                 'published':p.published or prior['published'],
                 'updated':p.updated or prior['updated'],
@@ -236,6 +330,8 @@ def save_papers(conn: sqlite3.Connection, papers: list[Paper]) -> list[Paper]:
                 'oa_license':p.oa_license or prior['oa_license'],
                 'download_url':p.download_url or prior['download_url'],
                 'summary': '' if changed else prior['summary'],
+                'summary_fingerprint': '' if changed else prior['summary_fingerprint'],
+                'summary_model': '' if changed else prior['summary_model'],
             }
             assignments = ','.join(f'{k}=?' for k in fields)
             conn.execute(f'UPDATE papers SET {assignments} WHERE paper_id=?', (*fields.values(),pid))
@@ -244,7 +340,8 @@ def save_papers(conn: sqlite3.Connection, papers: list[Paper]) -> list[Paper]:
             keys = ('paper_id','title','abstract','authors','published','updated','category','url',
                     'pdf_url','score','summary','first_seen','is_starred','reading_status',
                     'source','doi','venue','is_oa','oa_license','download_url',
-                    'local_file','download_status','download_error','downloaded_at')
+                    'local_file','download_status','download_error','downloaded_at',
+                    'summary_fingerprint','summary_model')
             conn.execute(f'INSERT INTO papers ({",".join(keys)}) VALUES ({",".join("?" for _ in keys)})',
                          tuple(getattr(p,k) for k in keys))
             inserted.append(p)
@@ -286,14 +383,16 @@ def annotate_papers(conn: sqlite3.Connection, config: dict, logger=print, now: d
     """Summaries are best effort; errors do not prevent Word export."""
     if not config["ai_enabled"]:
         return 0
-    from .cloud_api import get_api_key, summarize_paper
+    from .cloud_api import get_api_key, summarize_paper, summary_fingerprint, validate_summary_evidence
     if not get_api_key(config["api_provider"]):
         logger("未配置 API Key，本次跳过中文速览。")
         return 0
     recent = get_recent(conn, days=config["lookback_days"],
                         limit=max(config["report_limit"], config["ai_limit"]),
                         keywords=config["keywords"], now=now, sort_mode=config.get("sort_mode", "relevance"),ranker=ranker)
-    candidates = [p for p in recent if not p.summary and p.abstract][:config["ai_limit"]]
+    candidates = [p for p in recent if p.abstract and (
+        not p.summary or p.summary_fingerprint != summary_fingerprint(p, config)
+    )][:config["ai_limit"]]
     successes = 0
     if progress:
         progress(0, len(candidates), '正在准备中文速览')
@@ -302,8 +401,18 @@ def annotate_papers(conn: sqlite3.Connection, config: dict, logger=print, now: d
             logger(f"生成中文速览 {i}/{len(candidates)}：{paper.title[:40]}")
             result = summarize_paper(paper, config)
             if result:
-                conn.execute("UPDATE papers SET summary=? WHERE paper_id=?",
-                             (result, paper.paper_id))
+                problems = validate_summary_evidence(result, paper)
+                # Reject unsupported quantitative assertions. Older models may
+                # omit section headings; report that separately without
+                # discarding an otherwise useful qualitative explanation.
+                if any(p.startswith('定量信息') for p in problems):
+                    logger('速览包含未经原摘要支持的量化信息，保留原始摘要：' + '；'.join(problems[:3]))
+                    continue
+                if problems:
+                    logger('速览结构需人工核查：' + '；'.join(problems[:2]))
+                conn.execute("UPDATE papers SET summary=?,summary_fingerprint=?,summary_model=? WHERE paper_id=?",
+                             (result, summary_fingerprint(paper, config),
+                              config['api_provider'] + '/' + config['api_model'], paper.paper_id))
                 conn.commit()
                 successes += 1
         except Exception as exc:

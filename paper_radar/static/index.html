@@ -32,7 +32,7 @@
     </div>
     <div class="sidebar-footer">
       <button id="themeToggle" class="theme-button" type="button">◐ <span>切换外观</span></button>
-      <div class="app-version">Paper-Radar v1.9.0</div>
+      <div class="app-version" id="appVersion">Paper-Radar v1.10.0</div>
     </div>
   </aside>
 
@@ -41,6 +41,13 @@
       <div class="breadcrumb"><span>本地工作空间</span><span class="crumb-sep">/</span><strong id="breadcrumbLabel">工作台</strong></div>
       <div class="top-actions"><span class="connection-dot"></span><span>本机运行</span><span id="clock"></span></div>
     </header>
+
+    <section id="updateBanner" class="update-banner" role="status" aria-live="polite" hidden>
+      <div class="update-banner-copy"><strong id="updateBannerTitle">发现新版本</strong>
+        <p id="updateBannerText">请在官方发布页查看更新内容。应用不会自行安装或替换文件。</p></div>
+      <div class="update-banner-actions"><a id="updateReleaseLink" class="button primary" target="_blank" rel="noopener noreferrer" href="https://github.com/QiQiWan/Paper-Radar/releases">查看官方版本</a>
+        <button id="dismissUpdate" class="button secondary" type="button">本版本不再提醒</button></div>
+    </section>
 
     <section id="taskCenter" class="task-center" aria-live="polite" hidden>
       <div class="task-header"><div><strong id="taskStage">准备中</strong><span id="taskMeta">任务进度将在这里显示</span></div><span id="taskPercent" class="task-percent">0%</span></div>
@@ -56,9 +63,32 @@
 
       <section class="panel search-hero" aria-label="开始文献检索">
         <div class="hero-topline"><div><span class="hero-kicker">开始新一轮检索</span><h2>这次想了解什么？</h2></div><span class="pill">默认 30 篇 · 相关性优先</span></div>
+        <div class="topic-switcher" aria-label="研究主题管理">
+          <label class="form-label" for="activeTopic">当前研究主题
+            <select id="activeTopic" class="select" aria-label="选择研究主题"><option value="default">默认研究主题</option></select>
+          </label>
+          <div class="topic-tools"><button id="createTopic" class="button secondary compact" type="button">新建主题</button>
+            <button id="renameTopic" class="text-button" type="button">重命名</button>
+            <button id="deleteTopic" class="text-button danger" type="button">删除</button></div>
+        </div>
+        <p class="hint">各主题分别保存关键词、来源、Zotero 关联和报告；论文库与已下载 PDF 共用。</p>
         <label class="form-label" for="topicKeywords">研究关键词</label>
         <input id="topicKeywords" class="input large search-keywords" placeholder="例如 embankment, slope stability, finite element" autocomplete="off" />
         <p class="hint search-hint">写明研究对象或方法，多个关键词用逗号分开。少用 numerical、simulation 等过宽的词。</p>
+        <details class="search-advanced" id="aiPlannerDisclosure">
+          <summary>用 AI 规划检索词 <span>可选 · 需配置模型 API Key</span></summary>
+          <label class="form-label" for="aiResearchGoal">用自然语言描述研究目标</label>
+          <textarea id="aiResearchGoal" class="input ai-goal" rows="3" maxlength="1500" placeholder="例如：研究神经算子在复杂几何、多物理场和非规则网格上的跨场景泛化，希望关注新方法和对比实验。"></textarea>
+          <p class="hint">点击后会将这一段描述发送至所选云端模型；生成结果仅供参考，检查后再应用。系统将按重要性依次检索多个术语，并依据各来源的查询上限控制调用次数。</p>
+          <div class="primary-actions"><button class="button secondary" type="button" id="aiPlanRequest">生成检索词建议</button><span class="minor" id="aiPlanStatus" role="status"></span></div>
+          <div id="aiPlanResult" class="ai-plan-result" hidden>
+            <div class="form-label" id="aiPlanTopic"></div>
+            <label class="form-label" for="aiPlanWords">建议的英文检索词（可修改）</label>
+            <textarea id="aiPlanWords" class="input ai-goal" rows="3"></textarea>
+            <div class="hint" id="aiPlanNotes"></div>
+            <button class="button secondary" id="aiPlanApply" type="button">应用至研究关键词</button>
+          </div>
+        </details>
         <div class="preset-row"><span>示例主题</span><button class="chip" data-preset="neural operator, operator learning, physics informed">神经算子</button><button class="chip" data-preset="large language model, agent, reasoning">大语言模型</button><button class="chip" data-preset="battery thermal management, heat transfer">热管理</button><button class="chip" data-preset="embankment, slope stability, soil constitutive model">岩土工程</button></div>
         <div class="primary-actions hero-actions"><button class="button primary hero-submit" id="runSearch">开始检索并生成报告 <span aria-hidden="true">→</span></button><button class="button tertiary" id="runExport">仅更新本地报告</button><button class="button secondary" type="button" data-view="reports">查看最近报告</button></div>
         <p class="hint" id="progressLine" hidden><span id="progressText">任务正在运行，进度显示在页面顶部。</span></p>
@@ -67,6 +97,7 @@
           <p class="hint">开放来源可直接使用。出版社来源需要在设置中配置相应 API Key。</p>
           <div class="sources-inline" id="sourceOptions"><span>文献来源</span></div>
           <div id="sourceAccessHelp" class="access-help" hidden></div>
+          <div class="field-grid search-advanced-fields"><label class="form-label">每来源最多查询词数<input id="queryBudget" class="input" type="number" min="1" max="20" value="8"></label><div class="hint">arXiv 使用组合查询；其他来源按词独立查询、去重，并记录失败的子查询。查询更多会增加等待时间及 API 用量。</div></div>
           <div class="field-grid search-advanced-fields"><label class="form-label">最多收录（篇）<input id="quickMaxResults" class="input" type="number" min="1" max="500" value="30"></label><label class="form-label">结果排序<select id="quickSort" class="select"><option value="relevance">相关性优先</option><option value="newest">日期优先</option></select></label></div>
         </details>
       </section>
@@ -114,7 +145,7 @@
           <p class="panel-intro">从收藏夹文献的标题、摘要和标签中提取。结果可以直接编辑。</p>
           <label class="form-label" for="zoteroKeywords">英文关键词（逗号分隔）</label>
           <textarea id="zoteroKeywords" class="input zotero-keyword-input" rows="4" placeholder="分析收藏夹后显示关键词"></textarea>
-          <label class="toggle-line zotero-check"><input type="checkbox" id="zoteroRefresh"/><span>后台更新时重新提取收藏夹关键词</span></label>
+          <label class="toggle-line zotero-check"><input type="checkbox" id="zoteroRefresh"/><span>每次检索前重新提取关键词（会覆盖手工编辑）</span></label>
           <p class="hint">取消勾选时，后台任务使用你保存的关键词，但仍参考选定收藏夹排序。</p>
           <div class="settings-actions"><button id="zoteroApply" class="button primary" type="button">应用到文献检索</button><button id="zoteroApplyRun" class="button secondary" type="button">应用并立即检索</button></div>
           <div class="settings-actions"><button id="zoteroDisable" class="text-button danger" type="button">停止使用 Zotero 收藏夹</button></div>
@@ -159,7 +190,7 @@
           <div id="providerHint" class="hint">以 DeepSeek 为例：注册 API 平台账号，创建密钥后填入。</div>
           <section class="provider-usage"><div class="panel-top"><h3>API 使用记录</h3><button id="refreshProviderUsage" class="text-button" type="button">刷新当前供应商</button></div><div id="providerLocalUsage" class="minor">正在读取本机请求记录…</div><div id="providerBalance" class="minor">官方余额与计费请查看服务商控制台。</div><a id="providerConsole" class="text-button" target="_blank" rel="noopener noreferrer" href="https://platform.deepseek.com/usage">打开供应商用量页面 ↗</a><div id="providerConfigured" class="usage-all">已配置的服务商：正在检查…</div><div id="providerUsageAll" class="usage-all"></div><p class="hint">本机仅统计 Paper-Radar 成功请求的 Token，不能代表账号总账单；其他应用的用量需在官方控制台查看。</p></section>
           <div class="settings-actions"><button id="testApi" class="button secondary">保存并测试连接</button><button id="removeKey" class="text-button danger">删除当前密钥</button></div>
-          <p class="hint">仅向所选 API 服务商发送论文标题和摘要。密钥保存在操作系统凭据管理器。</p>
+          <p class="hint">启用中文速览时发送论文标题和摘要；主动使用 AI 检索词规划时发送输入的研究描述。密钥保存在操作系统凭据管理器。</p>
         </section>
         <section class="panel"><div class="panel-top"><h2>检索范围</h2><span class="pill muted">高级</span></div>
           <label class="form-label">arXiv 分类<input id="categories" class="input" placeholder="cs.LG, cs.AI, math.NA" /></label>
@@ -182,6 +213,17 @@
         <div class="field-grid"><label class="form-label">每次最多下载<input id="downloadLimit" class="input" type="number" min="1" max="20" /></label><label class="form-label">单篇大小上限（MB）<input id="maxPdfMb" class="input" type="number" min="1" max="50" /></label></div>
         <p class="hint">只下载开放获取的 PDF。部分论文只有网页链接，系统不会绕过付费墙。</p>
         <button id="saveDownloadSettings" class="button secondary" type="button">保存下载设置</button>
+      </section>
+      <section class="panel update-settings" style="margin-top:20px" aria-labelledby="updateSettingsTitle">
+        <div class="panel-top"><h2 id="updateSettingsTitle">软件更新检查</h2><span class="pill muted">GitHub Release</span></div>
+        <label class="toggle-line"><input type="checkbox" id="updateEnabled" checked><span>启动后自动检查新版本</span></label>
+        <div class="field-grid"><label class="form-label" for="updateInterval">自动检查间隔（小时）
+          <input id="updateInterval" class="input" type="number" min="6" max="168" value="24"></label>
+          <div><span class="form-label">检查状态</span><div id="updateStatusText" class="hint" role="status">尚未检查。</div></div></div>
+        <div class="settings-actions"><button class="button secondary" id="saveUpdateSettings" type="button">保存更新设置</button>
+          <button class="button secondary" id="checkUpdate" type="button">立即检查更新</button>
+          <a class="text-button" id="updateLatestLink" href="https://github.com/QiQiWan/Paper-Radar/releases" target="_blank" rel="noopener noreferrer">官方发布记录 ↗</a></div>
+        <p class="hint">仅查询公开 Release；后台执行，不需要 GitHub 登录，也不会自动下载或安装。若官方还没有发布 Release，将说明状态，不会声称已经是最新版。升级前请备份 settings.json、data、reports 和 downloads。</p>
       </section>
       <section class="panel" style="margin-top:20px"><div class="panel-top"><h2>运行记录</h2><div class="log-controls"><select id="logSource" class="select"><option value="manual">手动任务</option><option value="scheduled">每日后台任务</option></select><button class="text-button" id="refreshLogs">刷新</button></div></div><pre id="logBox" class="log-box">暂无运行记录。</pre><div class="settings-actions"><button class="text-button danger" id="shutdown">关闭本地工作台</button></div></section>
     </section>

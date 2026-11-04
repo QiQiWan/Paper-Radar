@@ -8,6 +8,7 @@ from urllib import request, parse
 import json
 import re
 import html
+from .. import __version__
 from ..models import Paper
 
 BASE = 'https://api.crossref.org/works'
@@ -47,7 +48,7 @@ class CrossrefSource:
                   'rows':min(50,int(config['max_results'])), 'select':'DOI,title,author,abstract,published,issued,container-title,URL,type',
                   'sort':'published','order':'desc'}
         req=request.Request(BASE+'?'+parse.urlencode(params),headers={'Accept':'application/json',
-            'User-Agent':'Paper-Radar/1.9 (local literature research; https://github.com/QiQiWan/Paper-Radar)'})
+            'User-Agent':f'Paper-Radar/{__version__} (local literature research; https://github.com/QiQiWan/Paper-Radar)'})
         with request.urlopen(req,timeout=35) as resp:
             raw=json.load(resp)
         return [p for item in raw.get('message',{}).get('items',[]) if (p:=parse_item(item))]

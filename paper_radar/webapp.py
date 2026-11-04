@@ -33,6 +33,9 @@ from .run_status import read_status, write_status
 from .progress import TaskProgress
 from .models import Paper
 from .zotero import ZoteroReader, build_profile, detect_database
+from .ai_planner import plan_research
+from .topics import manage_topic, topic_list
+from .updates import checker as update_checker
 
 STATIC = Path(__file__).parent / 'static'
 from . import __version__ as VERSION, __app_id__ as APP_ID
@@ -108,7 +111,7 @@ class Runtime:
             db_version = DB_FILE.stat().st_mtime_ns
         except OSError:
             db_version = 0
-        key = (db_version, tuple(cfg['keywords']), cfg['lookback_days'],
+        key = (db_version, cfg.get('active_topic_id', 'default'), tuple(cfg['keywords']), cfg['lookback_days'],
                cfg['report_limit'], cfg['sort_mode'])
         with self.lock:
             if self.stats_cache_key == key and time.monotonic() - self.stats_cache_at < 15:
@@ -220,7 +223,7 @@ class Runtime:
 runtime = Runtime()
 
 class Handler(BaseHTTPRequestHandler):
-    server_version = 'Paper-Radar/1.9'
+    server_version = 'Paper-Radar/' + VERSION
     protocol_version = 'HTTP/1.0'
 
     def log_message(self, fmt, *args):
@@ -288,6 +291,10 @@ class Handler(BaseHTTPRequestHandler):
                 self.file_response(STATIC / route.lstrip('/'))
             elif route == '/api/health':
                 self.respond(200, {'app':APP_ID,'version':VERSION})
+            elif route == '/api/update':
+                self.respond(200, update_checker.status(read_config()))
+            elif route == '/api/topics':
+                self.respond(200, topic_list())
             elif route == '/api/state':
                 cfg = read_config()
                 stats = runtime.metrics(cfg)
@@ -299,7 +306,8 @@ class Handler(BaseHTTPRequestHandler):
                      'runtime':runtime.state(), 'last_run':read_status(), 'scheduler':runtime.schedule(),
                      'api_presets':PRESETS, 'provider_info':PROVIDER_INFO, 'sources':available_sources(),
                      'source_access':credential_state(), 'downloaders':available_downloaders(),
-                     'api_usage_local':read_usage()})
+                     'api_usage_local':read_usage(), 'topics_info':topic_list(),
+                     'update':update_checker.status(cfg)})
             elif route == '/api/provider-catalog':
                 usage = read_usage()
                 configured = {}
@@ -433,13 +441,43 @@ class Handler(BaseHTTPRequestHandler):
                 self.respond(415, {'error':'只接受 JSON 请求'})
                 return
             data = json.loads(self.rfile.read(content_length) or '{}')
+            if not isinstance(data, dict):
+                raise ValueError('JSON 请求格式错误。')
             route = urlsplit(self.path).path
-            if route == '/api/config':
+            if route == '/api/update/check':
+                launched = update_checker.schedule(read_config(), force=True)
+                self.respond(202, {'ok':True, 'started':launched,
+                                   'status':update_checker.status(read_config())})
+            elif route == '/api/update/dismiss':
+                status = update_checker.status(read_config())
+                tag = str(data.get('tag_name') or '')
+                if status.get('state') != 'available' or tag != status.get('tag_name'):
+                    raise ValueError('当前没有可忽略的新版本通知。')
+                cfg = read_config()
+                cfg['dismissed_update_tag'] = tag
+                save_config(cfg)
+                self.respond(200, {'ok':True,'update':update_checker.status(cfg)})
+            elif route == '/api/topics':
+                if runtime.state()['busy']:
+                    raise ValueError('当前正在执行检索任务，请完成后切换研究主题。')
+                result = manage_topic(str(data.get('action') or ''),
+                                      topic_id=str(data.get('topic_id') or ''),
+                                      name=str(data.get('name') or ''))
+                self.respond(200, {'ok':True, **result})
+            elif route == '/api/ai/plan':
+                cfg = read_config()
+                if not get_api_key(cfg['api_provider']):
+                    raise ValueError('请先在设置页保存模型 API Key，然后再生成检索方案。')
+                result = plan_research(data.get('goal',''), cfg)
+                self.respond(200, {'ok':True, 'plan':result,
+                                   'note':'仅提供建议；请核对检索词后自行应用，系统不会自动提交检索。'})
+            elif route == '/api/config':
                 allowed = {'keywords','categories','lookback_days','max_results','report_limit',
                            'schedule_time','ai_enabled','ai_limit','api_provider','api_base_url','api_model', 'sort_mode',
                            'sources','auto_download','download_limit','max_pdf_mb',
                            'zotero_enabled','zotero_mode','zotero_db_path','zotero_collection_key',
-                           'zotero_include_children','zotero_refresh_keywords','zotero_keyword_limit'}
+                           'zotero_include_children','zotero_refresh_keywords','zotero_keyword_limit',
+                           'max_queries_per_source','update_check_enabled','update_check_interval_hours'}
                 cfg = read_config()
                 cfg.update({k:v for k,v in data.items() if k in allowed})
                 for source in ('springer','elsevier','sciencedirect'):
@@ -447,6 +485,8 @@ class Handler(BaseHTTPRequestHandler):
                     if source in cfg.get('sources',[]) and not get_credential(key_owner):
                         raise ValueError(f'{source} 尚未配置 API Key。请展开对应来源设置并保存密钥后重试。')
                 cfg = save_config(cfg)
+                if cfg.get('update_check_enabled'):
+                    update_checker.schedule(cfg)
                 key = str(data.get('api_key') or '').strip()
                 if key:
                     save_api_key(cfg['api_provider'],key)
@@ -594,9 +634,11 @@ def run_server(port: int = 8765):
     httpd = ThreadingHTTPServer(('127.0.0.1', port), Handler)
     httpd.daemon_threads = True
     httpd.token = secrets.token_urlsafe(24)
+    update_checker.schedule(read_config())  # asynchronous; HTTP remains responsive offline
     def idle_watch():
         while True:
             time.sleep(15)
+            update_checker.schedule(read_config())  # persisted 24h cooldown
             if time.monotonic()-runtime.last_seen > 600 and not runtime.state()['busy']:
                 httpd.shutdown()
                 return

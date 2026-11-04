@@ -28,4 +28,6 @@ class Paper:
     download_status: str = ""
     download_error: str = ""
     downloaded_at: str = ""
+    summary_fingerprint: str = ""
+    summary_model: str = ""
 

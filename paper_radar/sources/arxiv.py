@@ -6,6 +6,7 @@ from urllib import parse, request, error
 import re
 import time
 import xml.etree.ElementTree as ET
+from .. import __version__
 from ..models import Paper
 
 ATOM = "{http://www.w3.org/2005/Atom}"
@@ -82,7 +83,7 @@ def fetch_arxiv(config: dict, logger=print, now: datetime | None = None) -> list
         })
         url = "https://export.arxiv.org/api/query?" + params
         req = request.Request(url, headers={
-            "User-Agent": "Paper-Radar/1.9 (local literature research; arXiv API)",
+            "User-Agent": f"Paper-Radar/{__version__} (local literature research; arXiv API)",
             "Accept": "application/atom+xml",
         })
         logger(f"检索 arXiv（第 {start // page_size + 1} 页）")

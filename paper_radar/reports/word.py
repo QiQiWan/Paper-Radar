@@ -104,6 +104,7 @@ def write_report(path: Path, title: str, papers, config: dict, count: int, *, de
                       f"    范围：最近{config['lookback_days']}天    来源：{', '.join(config.get('sources', ['arxiv']))}", style='MetaLocal')
     if config.get('_source_results'):
         source_info = '  ·  '.join(f"{r['name']}：{'成功 '+str(r['count'])+' 篇' if r['ok'] else '失败'}"
+                                   + ('（部分子检索失败）' if r.get('partial') else '') + (f"（{r['seconds']}秒）" if r.get('seconds') is not None else '')
                                    for r in config['_source_results'])
         doc.add_paragraph('来源检索结果：' + source_info, style='MetaLocal')
     if config.get('zotero_collection_label'):

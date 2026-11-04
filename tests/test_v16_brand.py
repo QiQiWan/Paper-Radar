@@ -1,5 +1,5 @@
 # Copyright (c) 2026 @EatRice. SPDX-License-Identifier: MIT
-"""Branding and release safety tests for Paper-Radar v1.9.0."""
+"""Branding and release safety tests for Paper-Radar v1.10.0."""
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest.mock import patch
@@ -13,7 +13,7 @@ from paper_radar.launcher import health
 class BrandTests(unittest.TestCase):
     def test_new_app_marker(self):
         self.assertEqual(__app_id__, 'paper-radar')
-        self.assertEqual(__version__, '1.9.0')
+        self.assertEqual(__version__, '1.10.0')
 
     def test_legacy_api_key_lookup(self):
         class OldKeyring:
@@ -46,6 +46,6 @@ class BrandTests(unittest.TestCase):
         root=Path(__file__).resolve().parent.parent
         self.assertIn('QiQiWan/Paper-Radar',(root/'README.md').read_text('utf-8'))
         html=(root/'paper_radar/static/index.html').read_text('utf-8')
-        self.assertIn('Paper-Radar v1.9.0',html)
+        self.assertIn(f'Paper-Radar v{__version__}',html)
 
 if __name__=='__main__': unittest.main()

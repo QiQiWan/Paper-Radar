@@ -12,13 +12,18 @@ git branch -M main
 git remote add origin https://github.com/QiQiWan/Paper-Radar.git
 git add .
 git status
-git commit -m "Release Paper-Radar v1.8.0"
+git commit -m "Release Paper-Radar v1.10.0"
 git push -u origin main
 ```
 
 如果已经设置过远程，使用 `git remote set-url origin https://github.com/QiQiWan/Paper-Radar.git`。如果远程已经有提交，先拉取并协调差异，避免强推覆盖。
 
-4. 在 **Releases → Draft a new release** 创建标签 `v1.8.0`，上传本地源码 ZIP 与需要提供给用户的附件。公众号下载链接应指向最终 Release 地址，如 `https://github.com/QiQiWan/Paper-Radar/releases/tag/v1.8.0`；确认创建后再用于公开文章。
+4. 在 **Releases → Draft a new release** 创建标签 `v1.10.0`，上传本地源码 ZIP 与需要提供给用户的附件。公众号下载链接应指向最终 Release 地址，如 `https://github.com/QiQiWan/Paper-Radar/releases/tag/v1.10.0`；发布时点击 **Publish release**，确保是公开的正式 Release（无 Draft/Prerelease 标记）；确认创建后再用于公开文章。**只有 Git Tag 或未发布的草稿不会触发软件内更新提醒**。
 5. 在正式发布前确认 MIT License 授权资格和第三方代码来源；外部出版社 API、真实 Zotero 及 Windows 计划任务仍需实机验证。
 
 目前本交付仅生成本地发布包；**没有自动推送 GitHub 或创建 Release**。
+
+
+## 更新提醒与发行版本一致性（v1.10.0）
+
+发布者每次提升版本时，应同步 `paper_radar/__init__.py`、根目录 `CHANGELOG.md`、`README.md`、使用手册和源码 ZIP 文件名。创建公开正式 Release 后访问 `https://api.github.com/repos/QiQiWan/Paper-Radar/releases/latest`，核验 `tag_name`、`published_at` 与实际版本；同时用安装了旧版的软件检查通知及官方跳转。官方 API 的最新正式版可能仍是旧版本，只有成功**发布**新 Release 才会出现在 API 中。完整发布清单见 [RELEASE_CHECKLIST.md](RELEASE_CHECKLIST.md)。

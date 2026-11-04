@@ -15,7 +15,9 @@ def write_markdown(path: Path, papers, config: dict) -> Path:
             f"统计范围：最近 {config['lookback_days']} 天 | 文献 {len(papers)} 篇", "",
             "## 本期研究综述", "", describe_research(papers, config), "", "## 优先阅读", ""]
     if config.get('_source_results'):
-        state = '；'.join(f"{r['name']} {'完成 '+str(r['count'])+' 篇' if r['ok'] else '失败'}" for r in config['_source_results'])
+        state = '；'.join(f"{r['name']} {'完成 '+str(r['count'])+' 篇' if r['ok'] else '失败'}"
+                         + (f"（{sum(1 for q in r.get('queries',[]) if q['ok'])}/{len(r['queries'])}组，部分失败）" if r.get('partial') else '') + (f"（{r['seconds']} 秒）" if r.get('seconds') is not None else '')
+                         for r in config['_source_results'])
         text[5:5] = ['本次来源检索：' + state, '']
     if config.get('zotero_collection_label'):
         text[5:5] = [f"参考收藏夹：Zotero / {config['zotero_collection_label']}（{config.get('zotero_reference_count',0)} 篇）", ""]

@@ -1,6 +1,6 @@
 # 研究报告、检索综述与 Markdown 预览
 
-一次检索完成后，系统把本期选中的论文生成 `reports/近期文献汇总.docx` 和 `reports/近期文献汇总.md`，并导出文献索引 CSV。左侧 **研究报告** 可重新从本地数据生成文件，或导出包含所有历史文献的 CSV。
+一次检索完成后，默认主题生成 `reports/近期文献汇总.docx` 和 `reports/近期文献汇总.md`，并导出文献索引 CSV；v1.10.0 新增研究主题分别写入 `reports/themes/<主题ID>/`，互不覆盖。左侧 **研究报告** 可重新从本地数据生成文件，或导出包含所有历史文献的 CSV。
 
 ## Word / Markdown 结构
 
@@ -21,7 +21,7 @@
 
 Word 可用于阶段性文献记录与科研汇报，Markdown 适合维护课题笔记，CSV 用于 Excel 排序、筛选与后续分析。论文库历史记录可能比本期30篇多，**本期索引 CSV** 和 **全部历史索引 CSV** 的范围不同。
 
-所有文件保存在项目根目录 `reports/`，备份时同时保存 `data/papers.sqlite3` 及个人需要的 PDF；不要将带有个人研究记录的报告上传公共 GitHub 仓库。
+默认主题文件保存在 `reports/`，其他主题文件保存在 `reports/themes/<主题ID>/`。备份时同时保存 `data/papers.sqlite3` 及个人需要的 PDF；不要将带有个人研究记录的报告上传公共 GitHub 仓库。
 
 ## v1.9.0 日期与相关性复核
 
@@ -34,3 +34,8 @@ python tools/offline_review.py --input reports/文献索引.csv --keywords "emba
 ```
 
 上述日期为演示基准；日常复核请改成实际检索日期。
+
+
+## v1.10.0 多主题报告归档
+
+切换活动研究主题时，**研究报告**页面会打开当前主题的报告子目录。报告沿用既有 Word、Markdown、CSV 格式和来源状态说明。论文 SQLite、PDF 文件在主题间共享，删除某个主题的配置不会连带删除已经导出的报告。若要长期保留某次结果，建议备份完整的 `reports/` 与 `data/papers.sqlite3`，避免误以为切换主题会创建隔离的论文数据库。

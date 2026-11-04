@@ -9,6 +9,7 @@ from urllib.error import HTTPError
 from unittest.mock import patch
 import unittest
 from paper_radar.webapp import Handler, runtime
+from paper_radar import __version__
 
 class LocalHttpContract(unittest.TestCase):
     @classmethod
@@ -34,7 +35,7 @@ class LocalHttpContract(unittest.TestCase):
         # A local import inside do_GET used to shadow get_api_key and caused 500.
         with patch.object(runtime,'metrics',return_value={'archived':0,'matched':0,'downloaded':0,'starred':0,'unread':0}):
             state=self.read('/api/state')
-        self.assertEqual(state['version'],'1.9.0')
+        self.assertEqual(state['version'],__version__)
         self.assertTrue(any(x['name']=='sciencedirect' for x in state['sources']))
         catalog=self.read('/api/provider-catalog')
         self.assertIn('configured',catalog)

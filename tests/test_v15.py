@@ -134,7 +134,8 @@ class TestV15(unittest.TestCase):
             request=Request(target,headers={'Host':'attacker.example'})
             with self.assertRaises(HTTPError) as ctx:urlopen(request)
             self.assertEqual(ctx.exception.code,403)
-            self.assertEqual(json.load(urlopen(target))['version'],'1.9.0')
+            from paper_radar import __version__
+            self.assertEqual(json.load(urlopen(target))['version'],__version__)
         finally:
             server.shutdown();server.server_close();thread.join(2)
 
@@ -165,6 +166,7 @@ class TestV15(unittest.TestCase):
             self.assertIn(f'id="{ident}"',html)
         for route in ('/api/papers?','/api/downloads?status=','export_all'):
             self.assertIn(route,js)
-        self.assertIn('Paper-Radar v1.9.0',html)
+        from paper_radar import __version__
+        self.assertIn(f'Paper-Radar v{__version__}',html)
 
 if __name__=='__main__':unittest.main()
