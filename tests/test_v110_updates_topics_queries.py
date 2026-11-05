@@ -61,7 +61,7 @@ class ReleaseMetadataTests(unittest.TestCase):
             calls=[]
             def fake():
                 calls.append('called')
-                return {'state':'available','tag_name':'v1.12.1', 'latest_version':'1.12.1',
+                return {'state':'available','tag_name':'v1.99.2', 'latest_version':'1.99.2',
                         'release_url':'https://github.com/QiQiWan/Paper-Radar/releases/tag/v1.10.1'}
             cfg={**DEFAULTS,'update_check_enabled':True,'update_check_interval_hours':24}
             checker=UpdateChecker(loc, fetcher=fake, now=lambda:now[0])
@@ -74,7 +74,7 @@ class ReleaseMetadataTests(unittest.TestCase):
             new_checker=UpdateChecker(loc,fetcher=fake, now=lambda:now[0])
             self.assertFalse(new_checker.schedule(cfg))
             self.assertEqual(len(calls),1)
-            self.assertTrue(new_checker.status({**cfg,'dismissed_update_tag':'v1.12.1'})['dismissed'])
+            self.assertTrue(new_checker.status({**cfg,'dismissed_update_tag':'v1.99.2'})['dismissed'])
             now[0]+=timedelta(hours=25)
             self.assertTrue(new_checker.schedule(cfg))
             for _ in range(100):
@@ -112,8 +112,8 @@ class ReleaseMetadataTests(unittest.TestCase):
     def test_offline_preserves_known_release_and_returns_quickly(self):
         with TemporaryDirectory() as td:
             loc=Path(td)/'state.json'
-            loc.write_text(json.dumps({'state':'available','tag_name':'v1.12.2',
-                                       'latest_version':'1.12.2','checked_at':'2026-11-03T00:00:00+00:00'}))
+            loc.write_text(json.dumps({'state':'available','tag_name':'v1.99.2',
+                                       'latest_version':'1.99.2','checked_at':'2026-11-03T00:00:00+00:00'}))
             checker=UpdateChecker(loc,fetcher=lambda: (_ for _ in ()).throw(RuntimeError('offline')))
             cfg={**DEFAULTS,'update_check_enabled':True}
             self.assertTrue(checker.schedule(cfg,force=True))

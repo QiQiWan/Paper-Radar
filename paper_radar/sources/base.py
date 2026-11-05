@@ -62,56 +62,103 @@ def _balanced_merge(batches: list[list[Paper]], limit: int) -> list[Paper]:
     return result
 
 
-def fetch_enabled(config: dict, logger=print, now=None, progress=None) -> list[Paper]:
+class AllSourcesUnavailable(RuntimeError):
+    """Every configured source failed; attach safe diagnostics for the UI."""
+    def __init__(self, message: str, source_results: list[dict]):
+        super().__init__(message)
+        self.source_results = source_results
+
+
+def fetch_enabled(config: dict, logger=print, now=None, progress=None, *,
+                  supervised: bool = False, checkpoint=None) -> list[Paper]:
+    """Continue healthy sources even when others are unreachable.
+
+    In an actual task, `supervised` isolates each official source query in a
+    terminable subprocess. Tests and custom injected adapters retain the
+    synchronous protocol by default. The total budget bounds the search step.
+    """
+    from .supervisor import fetch_isolated, SourceTimeout
+    from ..agents.contracts import AgentCancelled, AgentDeadlineExceeded
     found = []
     succeeded = 0
     errors = []
     status_rows = []
     selected = config.get('sources', ['arxiv'])
+    query_budget = max(3.0, min(90.0, float(config.get('source_query_timeout_seconds',10))))
+    total_budget = max(query_budget, min(600.,float(config.get('source_total_timeout_seconds',75))))
+    deadline=monotonic()+total_budget
     if progress:
         progress(0, len(selected), '等待来源连接')
     for index, name in enumerate(selected, 1):
+        if checkpoint: checkpoint()
         if name not in _REGISTRY:
             raise ValueError(f'未知检索来源：{name}')
-        logger(f'开始检索 {_REGISTRY[name].label}')
+        logger(f'开始检索 {_REGISTRY[name].label}（单组最多 {query_budget:g} 秒，总预算 {total_budget:g} 秒）')
         started = monotonic()
         plans = query_plan(config, name)
         batches = []
         query_statuses = []
         for qindex, plan in enumerate(plans):
+            if checkpoint: checkpoint()
+            remaining=deadline-monotonic()
+            if remaining <= 0:
+                errors.append(f'{name}：达到本次检索总时间上限')
+                query_statuses.append({'keyword':plan['label'],'ok':False,'count':0,
+                                       'error':'检索总时限已用尽','timed_out':True})
+                break
             if qindex and name != 'arxiv':
-                # Avoid a burst of repeated requests; official provider limits
-                # can be stricter and are also enforced by each source adapter.
-                sleep(0.45)
+                sleep(min(.45, max(0,deadline-monotonic())))
             local_config = dict(config)
             local_config.update(keywords=plan['keywords'], max_results=plan['max_results'])
+            if progress:
+                progress(index-1,len(selected),f'{name} 第 {qindex+1}/{len(plans)} 组：正在连接（最多 {min(query_budget,remaining):.0f} 秒）')
             try:
-                papers = _REGISTRY[name]().fetch(local_config, logger=logger, now=now)
+                if supervised:
+                    def on_wait(left):
+                        if progress: progress(index-1,len(selected),f'{name} 第 {qindex+1}/{len(plans)} 组：网络等待中，约 {left:.0f} 秒后跳过')
+                    papers=fetch_isolated(name,local_config,now=now,
+                        timeout_seconds=min(query_budget,max(.2,deadline-monotonic())),
+                        checkpoint=checkpoint,heartbeat=on_wait)
+                else:
+                    papers = _REGISTRY[name]().fetch(local_config, logger=logger, now=now)
                 if not isinstance(papers, list) or any(not isinstance(p, Paper) for p in papers):
                     raise TypeError('来源返回格式错误（要求 Paper 列表）')
                 batches.append(papers)
                 query_statuses.append({'keyword': plan['label'], 'ok': True, 'count': len(papers)})
+            except (AgentCancelled, AgentDeadlineExceeded):
+                # A user cancellation/deadline belongs to the whole task. Do not
+                # downgrade it into a per-provider failure and continue waiting.
+                raise
             except Exception as exc:
-                errors.append(f'{name} / {plan["label"]}: {exc}')
+                # Avoid printing transport URLs or model/provider credentials.
+                timed_out=isinstance(exc, SourceTimeout)
+                message=('网络连接超时，已跳过此组检索' if timed_out else
+                         ('来源连接失败或权限不可用' if supervised else str(exc)[:160]))
+                errors.append(f'{name} / {plan["label"]}: {message}')
                 query_statuses.append({'keyword': plan['label'], 'ok': False, 'count': 0,
-                                       'error': str(exc)[:160]})
-                logger(f'{name} 子检索“{plan["label"]}”失败：{exc}')
+                                       'error': message, 'timed_out':timed_out})
+                logger(f'{name} 子检索“{plan["label"]}”失败：{message}，继续后续来源。')
+                if timed_out:
+                    # A timed-out endpoint is likely still inaccessible; skip its
+                    # remaining keyword groups instead of repeating long waits.
+                    break
         ok = bool(batches)
         partial = ok and len(batches) != len(plans)
         unique = _balanced_merge(batches, int(config.get('max_results', 30))) if ok else []
         status_rows.append({'name': name, 'ok': ok, 'partial': partial,
                             'count': len(unique), 'queries': query_statuses,
-                            'seconds': round(monotonic()-started, 1)})
+                            'seconds': round(monotonic()-started, 1),
+                            'timed_out':any(x.get('timed_out') for x in query_statuses)})
         if ok:
             succeeded += 1
             found.extend(unique)
             logger(f'{_REGISTRY[name].label}：{len(batches)}/{len(plans)} 组检索成功，去重后获取 {len(unique)} 篇')
         if progress:
-            detail = f'{name} 完成 {len(batches)}/{len(plans)} 组查询' if ok else f'{name} 检索失败'
+            detail = f'{name} 完成 {len(batches)}/{len(plans)} 组查询' if ok else f'{name} 检索失败，已跳过'
             progress(index, len(selected), detail)
     config['_source_results'] = status_rows
     if not succeeded:
-        raise RuntimeError('所有文献来源均检索失败：' + '; '.join(errors)[:400])
+        raise AllSourcesUnavailable('所有文献来源均无法连接或查询失败。请检查网络或更换检索来源；详情：'+'; '.join(errors)[:260],status_rows)
     if errors:
-        logger('部分来源或子检索未完成；报告将保留逐来源执行状态。')
+        logger('部分文献来源不可用，已跳过并继续；可在来源诊断中查看原因。')
     return found

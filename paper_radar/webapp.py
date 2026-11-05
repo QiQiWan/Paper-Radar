@@ -165,9 +165,12 @@ class Runtime:
         try:
             if mode == 'search':
                 result = run_cycle(cfg, logger=self.push, progress=on_progress)
-                output = {'retrieved':result['retrieved'], 'new':result['new'], 'selected':result['selected']}
-                self.push(f"完成：检索 {result['retrieved']} 篇，新增 {result['new']} 篇，报告已更新。")
-                try:record_run(cfg['active_topic_id'],'search','success',result=result,started_at=status['started_at'])
+                output = {'retrieved':result['retrieved'], 'new':result['new'],
+                          'selected':result['selected'], 'source_results':result.get('source_results',[])}
+                agent_state=result.get('agent_run',{}).get('state','success')
+                self.push(f"完成：检索 {result['retrieved']} 篇，新增 {result['new']} 篇，报告已更新。" +
+                          ('；部分辅助 Agent 执行失败，可在设置中检查。' if agent_state=='partial' else ''))
+                try:record_run(cfg['active_topic_id'],'search',agent_state if agent_state=='partial' else 'success',result=result,started_at=status['started_at'])
                 except Exception as exc:self.push('检索成功，但运行历史保存失败：'+str(exc)[:100])
             elif mode == 'search_all':
                 result=run_all_topics(cfg,logger=self.push,progress=on_progress)
@@ -219,6 +222,29 @@ class Runtime:
                         output=analyze_paper(db,ids[0],cfg)
                 self.push(f"全文阅读卡片：{ids[0][:60]}，有效证据 {output.get('claims',0)} 条。")
                 task.emit(100,'已完成',detail='全文阅读卡片已更新，可在论文库查看')
+            elif mode == 'analyze_experiments':
+                from .agents.research.pipeline import run_experiment_pipeline
+                task.emit(8,'实验信息分析',detail='本地准备 PDF，再调用模型提取实验候选项')
+                with single_instance(LOCK_FILE):
+                    output=run_experiment_pipeline(ids[0],cfg,db_path=DB_FILE,task=task,logger=self.push)
+                self.push(f"实验信息分析：{ids[0][:60]}，校验通过 {output.get('findings',0)} 条。")
+                task.emit(100,'已完成',detail='结构化实验信息已更新；请返回全文证据核对')
+            elif mode == 'synthesis':
+                from .agents.research.synthesis import run_synthesis_pipeline
+                task.emit(10,'科研进展分析',detail='核验已下载 PDF 的实验原文证据')
+                with single_instance(LOCK_FILE):
+                    output=run_synthesis_pipeline(cfg,db_path=DB_FILE,logger=self.push)
+                task.emit(100,'已完成',detail='跨论文比较已生成，请到研究报告页预览')
+                self.push('已生成当前研究主题的跨论文实验比较报告。')
+            elif mode == 'export_experiments':
+                from .experiments import export_experiment_index
+                with single_instance(LOCK_FILE):
+                    with open_database() as db:
+                        folder=get_output_dir(cfg)
+                        output=export_experiment_index(db,topic_id=cfg['active_topic_id'],
+                            db_path=DB_FILE,destination=folder/'实验结果证据索引.csv')
+                self.push(f"当前主题实验结果证据索引：{output['rows']} 条，失效 PDF {output['skipped_stale']} 篇未导出。")
+                task.emit(100,'已完成',detail=f"已导出 {output['rows']} 条实验信息")
             elif mode == 'export_all':
                 from .reports.text import write_csv
                 with single_instance(LOCK_FILE):
@@ -249,7 +275,9 @@ class Runtime:
             else:
                 raise ValueError('未知操作')
             task.emit(100, '已完成', detail='任务已完成')
-            final_state='partial' if ((mode=='search_all' and output.get('topics_failed',0)>0) or (mode=='index_fulltext' and output.get('failed',0)>0)) else 'success'
+            final_state='partial' if ((mode=='search' and any(not x.get('ok') or x.get('partial') for x in result.get('source_results',[]))) or (mode=='search_all' and (output.get('topics_failed',0)>0 or result.get('topics_partial',0)>0)) or
+                (mode=='search' and result.get('agent_run',{}).get('state')=='partial') or
+                (mode=='index_fulltext' and output.get('failed',0)>0)) else 'success'
             write_status({**status,'state':final_state,'finished_at':datetime.now().astimezone().isoformat(timespec='seconds'), 'result':output, 'progress':dict(self.progress)})
             with self.lock:
                 self.last_result = output
@@ -257,12 +285,17 @@ class Runtime:
             # Error messages come from source wrappers and should never contain credentials.
             message = str(exc)[:500]
             self.push('执行失败：' + message)
+            task.emit(100, '任务失败', detail=message[:160])
+            failure_results = getattr(exc, 'source_results', None)
+            failure_output = {'source_results': failure_results} if isinstance(failure_results, list) else {}
+            with self.lock:
+                self.last_result = failure_output
             if mode in ('search','export'):
                 try:
                     record_run(cfg['active_topic_id'],mode,'failed',error=message,started_at=status['started_at'])
                 except Exception:
                     pass
-            write_status({**status,'state':'failed','finished_at':datetime.now().astimezone().isoformat(timespec='seconds'), 'error':message, 'progress':dict(self.progress)})
+            write_status({**status,'state':'failed','finished_at':datetime.now().astimezone().isoformat(timespec='seconds'), 'error':message, 'result':failure_output, 'progress':dict(self.progress)})
         finally:
             with self.lock:
                 self.busy = False
@@ -356,6 +389,17 @@ class Handler(BaseHTTPRequestHandler):
                      'source_access':credential_state(), 'downloaders':available_downloaders(),
                      'api_usage_local':read_usage(), 'topics_info':topic_list(),
                      'update':update_checker.status(cfg)})
+            elif route == '/api/agents':
+                from .agents.catalog import build_registry, ON_DEMAND
+                from .agents.research.pipeline import research_registry
+                from .agents.research.synthesis import registry as synthesis_registry
+                from .agents.trace import read_traces
+                topic=read_config().get('active_topic_id','default')
+                self.respond(200, {'pipeline':build_registry().manifest(),
+                    'research_pipeline':research_registry().manifest(),
+                    'synthesis_pipeline':synthesis_registry().manifest(),
+                    'on_demand':ON_DEMAND,
+                    'recent_runs':read_traces(DB_FILE.parent/'agent_traces.sqlite3',topic_id=topic,limit=5)})
             elif route == '/api/history':
                 query=parse_qs(parts.query)
                 scope=(query.get('scope') or ['topic'])[0]
@@ -447,6 +491,16 @@ class Handler(BaseHTTPRequestHandler):
                         paper_id=pid,limit=20)
                 self.respond(200,{'results':results,'total':len(results),
                     'note':'结果只来自已建立本地全文索引的 PDF，片段和页码需要在 PDF 原文中核查。'})
+            elif route == '/api/experiments/status':
+                from .experiments import read_findings
+                pid=(parse_qs(parts.query).get('paper_id') or [''])[0]
+                if not pid or len(pid)>150:
+                    self.respond(400,{'error':'论文 ID 无效'});return
+                with open_database() as db:
+                    if not db.execute('SELECT 1 FROM papers WHERE paper_id=?',(pid,)).fetchone():
+                        self.respond(404,{'error':'论文不存在'});return
+                    result=read_findings(db,pid,db_path=DB_FILE)
+                self.respond(200,result)
             elif route == '/api/downloads':
                 q = parse_qs(parts.query)
                 status = (q.get('status') or ['all'])[0]
@@ -564,7 +618,7 @@ class Handler(BaseHTTPRequestHandler):
                            'sources','auto_download','download_limit','max_pdf_mb',
                            'zotero_enabled','zotero_mode','zotero_db_path','zotero_collection_key',
                            'zotero_include_children','zotero_refresh_keywords','zotero_keyword_limit',
-                           'max_queries_per_source','update_check_enabled','update_check_interval_hours',
+                           'max_queries_per_source','source_query_timeout_seconds','source_total_timeout_seconds','update_check_enabled','auto_update_on_startup','update_check_interval_hours',
                            'research_goal','ai_rerank_enabled','ai_rerank_limit','schedule_all_topics'}
                 cfg = read_config()
                 cfg.update({k:v for k,v in data.items() if k in allowed})
@@ -600,13 +654,13 @@ class Handler(BaseHTTPRequestHandler):
                 self.respond(200, {'ok':True})
             elif route == '/api/job':
                 mode = str(data.get('mode','search'))
-                if mode not in {'search','search_all','export','export_all','test_api','download','index_fulltext','analyze_fulltext'}:
+                if mode not in {'search','search_all','export','export_all','test_api','download','index_fulltext','analyze_fulltext','analyze_experiments','export_experiments','synthesis'}:
                     raise ValueError('不支持的任务')
-                ids = data.get('ids', []) if mode in ('download','index_fulltext','analyze_fulltext') else []
+                ids = data.get('ids', []) if mode in ('download','index_fulltext','analyze_fulltext','analyze_experiments') else []
                 if mode=='download':
                     if not isinstance(ids,list) or len(ids)>20 or not ids or any(not isinstance(x,str) or len(x)>150 for x in ids):
                         raise ValueError('请选择 1 至 20 篇论文下载')
-                if mode in ('index_fulltext','analyze_fulltext'):
+                if mode in ('index_fulltext','analyze_fulltext','analyze_experiments'):
                     upper=10 if mode=='index_fulltext' else 1
                     if (not isinstance(ids,list) or not 1<=len(ids)<=upper or
                             any(not isinstance(x,str) or not x or len(x)>150 for x in ids)):

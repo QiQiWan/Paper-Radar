@@ -34,6 +34,8 @@ DEFAULTS = {
     "api_provider": "DeepSeek",
     "api_base_url": "https://api.deepseek.com",
     "api_model": "deepseek-flash",
+    "llm_input_usd_per_million": 0.0,
+    "llm_output_usd_per_million": 0.0,
     "output_dir": "reports",
     "sort_mode": "relevance",
     "sources": ["arxiv", "openalex", "crossref"],
@@ -48,11 +50,14 @@ DEFAULTS = {
     "zotero_refresh_keywords": False,
     "zotero_keyword_limit": 8,
     "max_queries_per_source": 8,
+    "source_query_timeout_seconds": 10,
+    "source_total_timeout_seconds": 75,
     "research_goal": "",
     "ai_rerank_enabled": False,
     "ai_rerank_limit": 15,
     "schedule_all_topics": False,
     "update_check_enabled": True,
+    "auto_update_on_startup": True,
     "update_check_interval_hours": 24,
     "dismissed_update_tag": "",
     "active_topic_id": "default",
@@ -104,8 +109,18 @@ def validate_config(config: dict) -> dict:
         raise ValueError("请输入关键词或 arXiv 分类。")
     for k, lo, hi in (("lookback_days", 1, 60), ("max_results", 1, 500),
                       ("report_limit", 1, 100), ("interval_hours", 1, 168),
-                      ("ai_limit", 1, 30), ("ai_rerank_limit", 1, 30), ("download_limit", 1, 20), ("max_pdf_mb", 1, 50), ("zotero_keyword_limit", 1, 15), ("max_queries_per_source", 1, 20), ("update_check_interval_hours", 6, 168)):
+                      ("ai_limit", 1, 30), ("ai_rerank_limit", 1, 30), ("download_limit", 1, 20), ("max_pdf_mb", 1, 50), ("zotero_keyword_limit", 1, 15), ("max_queries_per_source", 1, 20), ("source_query_timeout_seconds", 4, 60),
+                      ("source_total_timeout_seconds", 20, 240), ("update_check_interval_hours", 6, 168)):
         c[k] = max(lo, min(hi, int(c.get(k, DEFAULTS[k]))))
+    for rate_key in ('llm_input_usd_per_million', 'llm_output_usd_per_million'):
+        try:
+            rate = float(c.get(rate_key, 0.0))
+        except (ValueError, TypeError):
+            raise ValueError('模型费用单价必须为非负数。') from None
+        from math import isfinite
+        if not isfinite(rate) or not 0 <= rate <= 10000:
+            raise ValueError('模型费用单价必须为0至10000美元/百万 Token。')
+        c[rate_key] = rate
     c["ai_enabled"] = bool(c.get("ai_enabled", False))
     c["ai_rerank_enabled"] = bool(c.get("ai_rerank_enabled", False))
     c["schedule_all_topics"] = bool(c.get("schedule_all_topics", False))
@@ -136,6 +151,7 @@ def validate_config(config: dict) -> dict:
     c["output_dir"] = str(c.get("output_dir", "reports")).strip() or "reports"
     c["sort_mode"] = "newest" if c.get("sort_mode") == "newest" else "relevance"
     c['update_check_enabled'] = bool(c.get('update_check_enabled', True))
+    c['auto_update_on_startup'] = bool(c.get('auto_update_on_startup', True))
     c['dismissed_update_tag'] = str(c.get('dismissed_update_tag') or '')[:40]
     from copy import deepcopy
     raw_topics = c.get('topics') or []
@@ -252,6 +268,8 @@ def connect(db_path: Path = DB_FILE) -> sqlite3.Connection:
     db_path.parent.mkdir(parents=True, exist_ok=True)
     conn = sqlite3.connect(db_path, timeout=30)
     conn.row_factory = sqlite3.Row
+    from .migrations import assert_compatible
+    assert_compatible(conn,'research')
     conn.execute("""CREATE TABLE IF NOT EXISTS papers (
       paper_id TEXT PRIMARY KEY, title TEXT NOT NULL, abstract TEXT NOT NULL,
       authors TEXT, published TEXT, updated TEXT, category TEXT,
@@ -315,6 +333,8 @@ def connect(db_path: Path = DB_FILE) -> sqlite3.Connection:
           SELECT 'default',paper_id,score,is_starred,reading_status,first_seen FROM papers""")
         conn.execute("INSERT INTO app_meta VALUES ('topic_migrated_v111','1')")
     conn.commit()
+    from .migrations import migrate
+    migrate(conn,'research')
     return conn
 
 
@@ -677,123 +697,14 @@ def update_paper_flags(conn: sqlite3.Connection, paper_id: str, *, starred=None,
 def run_cycle(config: dict | None = None, logger=print, *,
               db_path: Path = DB_FILE, fetcher=fetch_arxiv, now: datetime | None = None,
               progress=None) -> dict:
-    """One automated cycle; network failure never creates a false-success report."""
-    from .report import write_report, write_markdown, write_csv
-    from .progress import TaskProgress
-    task = TaskProgress(progress)
-    task.emit(1, "准备运行", detail="检查检索范围与报告目录")
-    config = validate_config(config or read_config())
-    folder = get_output_dir(config)
-    folder.mkdir(parents=True, exist_ok=True)
-    with single_instance(db_path.parent / "running.lock"):
-        task.emit(5, "Zotero 收藏夹", detail="正在读取参考文献；无需 Zotero 时将直接跳过")
-        config, profile_ranker = prepare_zotero(config,logger=logger)
-        task.emit(12, "检索文献", detail="正在连接文献来源")
-        new: list[Paper] = []
-        if fetcher is fetch_arxiv:
-            from .sources import fetch_enabled
-            def source_progress(done, total, detail):
-                task.emit(12 + 33 * done / max(1, total), '检索文献',
-                          current=done, total=total, detail=detail)
-            retrieved = fetch_enabled(config, logger=logger, now=now, progress=source_progress)
-        else:
-            retrieved = fetcher(config, logger=logger, now=now)
-        task.emit(45, '整理文献', detail=f'检索完成，共获取 {len(retrieved)} 条记录')
-        original_count = len(retrieved)
-        retrieved = [p for p in retrieved if valid_recent_publication(
-            p.published, now, config['lookback_days'])]
-        dropped_dates = original_count - len(retrieved)
-        if dropped_dates:
-            logger(f'日期质量检查：{dropped_dates} 篇未来、过期或日期不完整的题录不进入本期结果。')
-        if profile_ranker is not None:
-            count_before=len(retrieved)
-            retrieved=[paper for paper in retrieved if not profile_ranker.already_collected(paper)]
-            if count_before>len(retrieved):
-                logger(f'已排除 Zotero 收藏夹中已有的 {count_before-len(retrieved)} 篇论文。')
-        for paper in retrieved:
-            paper.score = rank(paper, config["keywords"], profile_ranker)
-            if (paper.score <= 0 and 'openalex_semantic' in paper.source.split(',')
-                    and paper.abstract):
-                # Clearly flagged exploratory candidates. Semantic similarity
-                # alone is insufficient for claims about research contributions.
-                paper.score=0.35
-        if config.get('ai_rerank_enabled'):
-            from .recommend import rerank_papers
-            try:
-                with open_database(db_path) as rank_db:
-                    config['_ai_rerank_results']=rerank_papers(retrieved,config,rank_db,logger)
-            except Exception as exc:
-                logger('AI 推荐排序已降级为关键词排序：'+str(exc)[:180])
-        if config['keywords']:
-            before_rank = len(retrieved)
-            retrieved = [p for p in retrieved if p.score > 0]
-            removed = before_rank - len(retrieved)
-            if removed:
-                logger(f'研究相关性检查：{removed} 篇仅匹配宽泛词或缺少研究主题证据的题录已排除。')
-        config['_quality_filters'] = {'date_removed': dropped_dates,
-                                      'topic_removed': original_count - dropped_dates - len(retrieved)}
-        retrieved.sort(key=lambda p: (p.score,p.published), reverse=True)
-        if len(retrieved) > config['max_results']:
-            logger(f"综合相关度排序后保留前 {config['max_results']} 篇，其他结果不写入本次论文库。")
-            retrieved = retrieved[:config['max_results']]
-        with open_database(db_path) as conn:
-            new = save_papers(conn, retrieved, topic_id=config.get("active_topic_id", "default"))
-            task.emit(55, "整理文献", detail=f"写入本地文献库；新增 {len(new)} 篇")
-            new.sort(key=lambda x: (x.score, x.published), reverse=True)
-            task.emit(58, '中文速览', detail='检查需要生成速览的论文')
-            if config["ai_enabled"]:
-                try:
-                    annotate_papers(conn, config, logger=logger, now=now, ranker=profile_ranker,
-                        progress=lambda done, total, detail: task.emit(
-                            58 + 16 * done / max(1,total), '中文速览',
-                            current=done, total=total, detail=detail))
-                except RuntimeError as exc:
-                    logger(f"云端 AI 跳过：{exc}")
-            task.emit(75, 'PDF 下载', detail='检查自动下载设置')
-            if config.get('auto_download'):
-                from .downloads.manager import download_selected
-                targets = [p.paper_id for p in sorted(retrieved, key=lambda x:x.score, reverse=True)
-                           if p.download_url][:config['download_limit']]
-                if targets:
-                    results = download_selected(conn, targets, config, logger=logger, db_path=db_path,
-                        progress=lambda done,total,detail: task.emit(
-                            75 + 11 * done / max(1,total), 'PDF 下载',
-                            current=done, total=total, detail=detail))
-                    logger(f"PDF：成功 {sum(r['status']=='downloaded' for r in results)} / {len(results)} 篇")
-            recent = get_recent(conn, days=config["lookback_days"], limit=config["report_limit"],
-                                keywords=config["keywords"], now=now, sort_mode=config.get("sort_mode", "relevance"), ranker=profile_ranker,
-                                topic_id=config.get("active_topic_id", "default"),
-                                rerank_enabled=config.get("ai_rerank_enabled",False))
-            if new:
-                new_papers = get_selected(conn, [p.paper_id for p in new[:config["report_limit"]]], topic_id=config.get("active_topic_id", "default"))
-                new_papers.sort(key=lambda x: (x.score, x.published), reverse=True)
-            else:
-                new_papers = []
-            from .fulltext import load_report_cards
-            config['_fulltext_cards']=load_report_cards(conn,
-                [p.paper_id for p in recent]+[p.paper_id for p in new_papers])
-        task.emit(87, "整理研究报告", detail="正在生成 Word、Markdown 和 CSV")
-        file_new = None
-        if new_papers:
-            file_new = folder / (datetime.now().strftime("%Y%m%d_%H%M%S") + "_新增论文.docx")
-            write_report(file_new, "本次新增论文", new_papers, config, len(new), demo=False)
-        task.emit(90, '生成 Word', detail='写入研究综述、优先阅读和论文详目')
-        file_weekly = folder / "近期文献汇总.docx"
-        write_report(file_weekly, "近期文献汇总", recent, config, len(recent), demo=False)
-        task.emit(95, '生成 Markdown', detail='正在整理可预览的 Markdown 报告')
-        file_md = folder / "近期文献汇总.md"
-        file_csv = folder / "文献索引.csv"
-        write_markdown(file_md, recent, config)
-        task.emit(98, '生成 CSV', detail='正在保存文献索引')
-        write_csv(file_csv, recent)
-        task.emit(100, '已完成', detail=f'共检索 {len(retrieved)} 篇；报告收录 {len(recent)} 篇')
-        logger(f"已检索 {len(retrieved)} 篇，新增 {len(new)} 篇。")
-        logger(f"汇总文档：{file_weekly}")
-        return {"retrieved": len(retrieved), "new": len(new), "selected": len(recent),
-                "source_results":config.get('_source_results',[]),
-                "ai_rerank":config.get('_ai_rerank_results',{}),
-                "weekly": file_weekly, "markdown": file_md, "csv": file_csv,
-                "new_file": file_new}
+    """Backward-compatible public API; specialist stages live in agents/.
+
+    Do not move this wrapper: CLI, scheduled jobs, webapp and earlier tests
+    import the historical core.run_cycle function.
+    """
+    from .agents.pipeline import run_research_cycle
+    return run_research_cycle(config, logger, db_path=db_path, fetcher=fetcher,
+                              now=now, progress=progress)
 
 
 def report_from_cache(config: dict | None = None, logger=print, db_path: Path = DB_FILE, progress=None) -> Path:

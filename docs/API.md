@@ -1,3 +1,35 @@
+## v1.17.0 公网接口更新（优先阅读）
+
+公网路由独立于桌面接口，所有写操作要求 HttpOnly 会话 Cookie、相同 Origin、自定义操作头及 CSRF Token。
+
+| 方法 | 路径 | 内容 |
+| --- | --- | --- |
+| POST | `/api/public/search` | 202 返回 `{state:"queued",job_id}`；提交时原子校验24h配额与活动任务数 |
+| GET | `/api/public/jobs` | 最近一个任务（仅当前登录账号） |
+| GET | `/api/public/jobs/history?limit=10` | 最近任务列表（1—30条） |
+| POST | `/api/public/jobs/cancel` | 取消当前账号任务；可选传 `{job_id:整数}` |
+| GET | `/api/public/admin/jobs` | 管理员可读的全站状态数量及过去24h任务统计 |
+| GET | `/api/public/papers?topic_id=default&limit=30&offset=0` | 返回 `{papers,total,limit,offset}`，`limit=1..100`，`offset=0..5000` |
+
+公网服务绑定 loopback，经可信 Nginx 才能对公网访问，不能将桌面 `/api/config`、`/api/zotero/*` 和本地文件接口反向代理。
+
+---
+
+## v1.16.0 新增接口和安全边界
+
+本地桌面版保留原先仅 loopback 的 API，`POST /api/job` 增加 `mode=synthesis`，可生成当前研究主题 `跨论文实验比较.md`；设置面板的 Agent 清单增加 `synthesis_pipeline`。
+
+公网版以 `python -m paper_radar.public_portal serve` 独立启动，所有接口以 `/api/public` 为前缀，**绝不能将桌面 Web 服务或 `/api/config`、`/api/zotero/*`、本地 PDF/下载器及更新接口代理到公网**。
+
+- 无需登录：`GET /api/public/health`、`POST /api/public/register`、`POST /api/public/login`。
+- 登录后：`GET /api/public/me`、`GET /api/public/topics`、`POST /api/public/topics`、`GET /api/public/papers?topic_id=`、`POST /api/public/search`、`GET /api/public/jobs`、`POST /api/public/import`、`GET /api/public/synthesis?topic_id=`、`POST /api/public/password`、`POST /api/public/logout`。
+- 管理员：`GET /api/public/admin/accounts`、`POST /api/public/admin/account`。
+- 写操作需严格同源 Origin、`X-Portal-Action: 1`，登录后还需服务器生成的 `X-CSRF-Token`；会话 Cookie 不包含可读的账号资料和密钥。敏感账号/主题与文件路径由服务器会话决定，不信任前端传入文件路径。
+
+公网版目前为受控功能集，不含完整 LLM 凭据管理、PDF 自动下载、Zotero、本地 OS 系统控制和全文问答。部署和额度说明见 [公网部署文档](PUBLIC_DEPLOYMENT_V1.16.0.md)。
+
+---
+
 # Paper-Radar 本地 HTTP 接口
 
 工作台由本机 Python 服务提供。仅用于当前电脑，默认绑定 loopback 地址，并校验本地 Host；修改操作需要页面中的本地访问令牌。不要把服务暴露到公网。
@@ -94,3 +126,35 @@ python -m paper_radar.evaluation --db data/papers.sqlite3 --labels reports/推�
 ```
 
 CSV 标注最少应含 `topic_id,paper_id,label`。模板另带 `rank,title,source,published,url,notes` 便于人工判断；只需填写 `label` 列。未标注 Top-K 位置计入保守下界且单独报告覆盖率，Recall 分母仅为已标注相关文献。
+
+
+## v1.13.0 Agent 工作流与运行记录
+
+`GET /api/agents` 返回 `{pipeline, on_demand, recent_runs}`。`pipeline` 为九个已注册的主流程 Agent（名称、职责、版本、输入输出及故障策略）；`on_demand` 为现有按需功能清单；`recent_runs` 返回当前主题的最近五条阶段统计。仅向本地工作台提供，遵守 Host 校验，不返回 API Key、模型提示词或 PDF 原文。
+
+独立命令 `python -m paper_radar.agents list|graph|traces` 可查看同一组定义与本机最小化运行轨迹。配置、检索、报告相关旧版 HTTP 路由没有变化。
+
+## v1.13.1 Agent 诊断字段及模型费用
+
+`GET /api/agents` 的 `pipeline[]` 新增 `capabilities`、`max_attempts`、`retry_backoff_seconds`、`time_budget_seconds`；`recent_runs[].steps[]` 可包含 `attempts`、`budget_exceeded`、`api_usage` 和 `estimated_cost_usd`。`recent_runs[]` 汇总 `api_usage`，只有用户设置价格时才包含费用估算。运行轨迹不包含完整提示词、密钥或论文全文。
+
+`POST /api/config` 可选设置 `llm_input_usd_per_million`、`llm_output_usd_per_million`，单位为美元/百万 Token；默认均为 0，表示未配置单价。此接口沿用本地 Token 校验。程序没有自动实时获取供应商价格，也不会据此预测真实账单。
+
+`python -m paper_radar.agents doctor` 是本机只读诊断，不占用外部配额。当前不提供 HTTP 故障注入接口。
+
+
+## v1.14.0 实验指标分析接口
+
+| 方法 | 路径 / 模式 | 返回值及约束 |
+|---|---|---|
+| GET | `/api/experiments/status?paper_id=<已入库ID>` | 已核验的 `kind/dataset/metric/value/baseline/setting/chunk_id/page/quote`；PDF 变更时 `status=stale`、`findings=[]`；论文不存在返回404 |
+| POST | `/api/job`，`{"mode":"analyze_experiments","ids":["paper-id"]}` | 用户确认后的单篇实验分析后台任务；发送最多16个有界 PDF 片段到指定模型，可能收费；需要 CSRF Token |
+| POST | `/api/job`，`{"mode":"export_experiments"}` | 导出当前主题已核验且 PDF 未变更的实验结果 CSV，无模型费用；需 CSRF Token |
+
+HTTP 202 仅表示任务已入队，应继续轮询 `/api/state`，任务完成后再刷新状态或报告文件列表。此接口只接受已管理的本地 PDF，禁止任意路径及未授权网页抓取。模型回答经过逐字连续引文校验，但不能替代科学性审查。
+
+## v1.15.0 启动更新状态
+
+`GET /api/update` 或 `GET /api/state` 中的 `update.startup_update` 现在返回本机上次启动更新的部分状态信息：`state`、`message`、`at`、`installed_version`、`previous_version`、`attempted_version`（视实际情况存在）。不返回数据库内容、备份路径或密钥。`POST /api/update/check` 仍只执行**后台版本提示检查**，不会在线安装或重启正在运行的应用。自动安装只发生在下次经 `startup.py` 进行的完整启动前。
+
+新增全局配置项 `auto_update_on_startup`（布尔值，默认 true）。可通过原有 `POST /api/config` 保存。后台运行版本检查由 `update_check_enabled` 控制；关闭它时也会跳过启动自动更新。用户资料不参与源代码更新。

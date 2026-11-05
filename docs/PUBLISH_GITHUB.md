@@ -1,37 +1,70 @@
-# 上传 Paper-Radar 到 GitHub
+# v1.16.0 起：发布者独立签名的三件套发布流程
 
-**目标仓库：** https://github.com/QiQiWan/Paper-Radar
+正式更新必须在 `https://github.com/QiQiWan/Paper-Radar` 发布公开、非预发布 Release，Tag 形如 `v1.16.0`。每个 Release 同时上传：
 
-1. 下载并解压本版本 GitHub Source ZIP，确认根目录是 `Paper-Radar/`，根目录下应有 `README.md`、`LICENSE`、`.gitignore`、`main.py`、`paper_radar/` 和 `tests/`。
-2. 检查 `.gitignore`，并执行 `git status`，确认没有 `settings.json`、`.env`、`data/`、`downloads/`、`reports/`、`logs/`、个人 Zotero 数据库或 PDF。
-3. 在仓库根目录执行：
+1. `Paper-Radar_v1.16.0_Source.zip`：固定根目录 `Paper-Radar/` 的发布源码 ZIP；
+2. `Paper-Radar_v1.16.0_release.json`：含仓库、版本、文件名、SHA-256、归档大小和启动协议的签名清单；
+3. `Paper-Radar_v1.16.0_release.sig`：对上述清单原始字节计算的 Ed25519 独立签名。
+
+实际发布时，将文件名中的版本号替换为新版本。源码中 `paper_radar/release_public_keys.json` 为客户端固定公钥信任库，签名私钥只能放在发布者离线受控位置，**不得上传仓库、Release 附件、公网服务器或交付 ZIP**。
+
+准备工作（建议在发布者自己的离线电脑生成正式密钥）：
 
 ```bash
-git init
-git branch -M main
-git remote add origin https://github.com/QiQiWan/Paper-Radar.git
-git add .
-git status
-git commit -m "Release Paper-Radar v1.12.0"
-git push -u origin main
+python tools/sign_release.py keygen --output /secure/offline/paperradar_ed25519.pem
 ```
 
-如果已经设置过远程，使用 `git remote set-url origin https://github.com/QiQiWan/Paper-Radar.git`。如果远程已经有提交，先拉取并协调差异，避免强推覆盖。
+命令输出 public key ID 与 Base64 公钥。将此公钥填写到**首发时**客户端 `paper_radar/release_public_keys.json` 的 `keys` 列表中（先完成源码编译测试，之后再生成压缩包）。该步骤建立信任根；后续更换私钥应通过已经受信任的版本完成公钥轮换，不能只在 GitHub 替换公钥。
 
-4. 在 **Releases → Draft a new release** 创建标签 `v1.12.0`，上传本地源码 ZIP 与需要提供给用户的附件。公众号下载链接应指向最终 Release 地址，如 `https://github.com/QiQiWan/Paper-Radar/releases/tag/v1.12.0`；发布时点击 **Publish release**，确保是公开的正式 Release（无 Draft/Prerelease 标记）；确认创建后再用于公开文章。**只有 Git Tag 或未发布的草稿不会触发软件内更新提醒**。
-5. 在正式发布前确认 MIT License 授权资格和第三方代码来源；外部出版社 API、真实 Zotero 及 Windows 计划任务仍需实机验证。
+生成签名资产：
 
-目前本交付仅生成本地发布包；**没有自动推送 GitHub 或创建 Release**。
+```bash
+python tools/package_release.py --out dist/Paper-Radar_v1.16.0_Source.zip
+python tools/sign_release.py sign --source dist/Paper-Radar_v1.16.0_Source.zip --version 1.16.0 --key /secure/offline/paperradar_ed25519.pem --output dist
+```
 
+用 `paper_radar.release_signatures.verify_manifest(...)` 离线验证签名与 ZIP 哈希，再上传三个附件。GitHub Release API 的 `digest` 只提供传输一致性信息，独立 Ed25519 验证提供单独的发布者信任边界。
 
-## 更新提醒与发行版本一致性（v1.10.0）
+**首次迁移限制：** v1.15.0 启动器没有固定公钥信任，只能手动升级到具备信任根的 v1.16.0，之后同协议的版本才可通过签名自动更新。v1.16.0 的自动安装禁止覆盖正在运行的公网服务，必须停机、备份并在维护窗口升级。
 
-发布者每次提升版本时，应同步 `paper_radar/__init__.py`、根目录 `CHANGELOG.md`、`README.md`、使用手册和源码 ZIP 文件名。创建公开正式 Release 后访问 `https://api.github.com/repos/QiQiWan/Paper-Radar/releases/latest`，核验 `tag_name`、`published_at` 与实际版本；同时用安装了旧版的软件检查通知及官方跳转。官方 API 的最新正式版可能仍是旧版本，只有成功**发布**新 Release 才会出现在 API 中。完整发布清单见 [RELEASE_CHECKLIST.md](RELEASE_CHECKLIST.md)。
+**预先发布的本次示范签名**使用了当前生成的临时开发密钥，仅用于验证流程。正式对公众发布前应当在发布者控制的离线机器生成独立私钥、重新配置信任公钥、重建 ZIP 并重新签名。
 
-## v1.12.0 发布新增确认
+---
 
-- `requirements.txt` 和 `pyproject.toml` 新增 `pypdf>=5,<7`，并在 `NOTICE.md` 声明第三方许可。
-- 发版前用真实可公开使用的 PDF 检查按页索引，但 Release 源码 ZIP **不得包含真实论文 PDF 或自动生成的全文数据库**。
-- Release 说明应明确区分“本地 PDF 索引”（无模型费用）和“AI 阅读卡片”（用户确认后可能有模型费用）。
-- 更新公众号安装指南与全文证据入口截图，截图中的模拟论文必须注明示例。
-- 如果实际 GitHub Release 尚未发布，用户客户端不会提示已经存在 v1.12.0 远程更新。
+## 旧版发布说明（历史）
+
+# Paper-Radar 正式发布及自动更新附件说明
+
+## 固定仓库与版本
+
+项目仓库：https://github.com/QiQiWan/Paper-Radar 。升级检查固定使用 GitHub 的公开正式 Release API。发布者需确保 `paper_radar/__init__.py`、`pyproject.toml`、工作台版本、更新日志和 Release Tag（例如 `v1.15.0`）一致。
+
+## 发布步骤
+
+1. 核对代码来源、许可证、版本号；执行 `python -m pytest -q`、`node --check paper_radar/static/app.js`、`python -m paper_radar.agents doctor`。
+2. 执行 `python tools/package_release.py --out dist/Paper-Radar_v1.15.0_Source.zip`。此脚本排除 `.paper_radar_updates/`、数据库、PDF、设置、日志、密钥与虚拟环境，生成 ZIP 和本地 `.zip.sha256`。
+3. 确认 ZIP 经过独立解压与自动更新归档校验，输出只包含程序与公开文档。
+4. 推送经审核的源码至仓库，创建 `v1.15.0` 标签及**已发布的正式 Release**（不选择 Draft 或 Prerelease）。
+5. 上传附件 `Paper-Radar_v1.15.0_Source.zip`。**附件名称和 ZIP 内的版本必须精确一致**。不要依赖 GitHub 的 Source code (zip) 自动附件。
+6. 使用公开 GitHub Release API 复查 `tag_name`、`assets[].name`、`assets[].size`、`assets[].digest` 是否符合。GitHub 文档提供 `sha256:` 摘要；若缺失，客户端会拒绝自动安装。
+7. 使用真实低版本客户端做升级演练：联网自动更新、断网启动、损坏 ZIP 回退、用户资料保留、启动失败回滚。Windows、macOS、Linux 分别验收。
+
+## 上线风险与恢复
+
+启动器只信任上述仓库；HTTPS、GitHub 元数据与 SHA-256 可减少传输损坏和来源混淆。发布者账号若被攻破，仍可能推送恶意代码；正式使用应保护账号、启用双重验证和 Tag/Release 审批制度。企业场景可进一步引入独立签名与更新批准策略。
+
+v1.14.0 及更旧的启动器不能自动安装，用户需手动更新到 v1.15.0。v1.15.0 启动协议为 1，未来发行版应保持兼容，若破坏兼容应人工升级。
+
+## 发布 v1.17.0 的具体附件
+
+先运行 `python tools/package_release.py --out /your/output/Paper-Radar_v1.17.0_Source.zip`，使用已受信任的离线 Ed25519 私钥执行：
+
+```bash
+python tools/sign_release.py sign \
+  --source /your/output/Paper-Radar_v1.17.0_Source.zip \
+  --version 1.17.0 \
+  --key /secure/offline/paperradar_ed25519.pem \
+  --output /your/output
+```
+
+核对 `release_public_keys.json` 内的公钥 ID 与签名私钥派生公钥匹配。上传 `Paper-Radar_v1.17.0_Source.zip`、`Paper-Radar_v1.17.0_release.json` 和 `Paper-Radar_v1.17.0_release.sig` 到对应公开正式 Release。不要将私钥导入公网部署服务器。本次迭代仅生成本地源码，正式签名需要由持有私钥的发布者完成。

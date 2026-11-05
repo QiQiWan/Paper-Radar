@@ -12,15 +12,11 @@ if not exist ".venv\Scripts\python.exe" (
     exit /b 1
   )
 )
-".venv\Scripts\python.exe" -c "import docx, keyring" >nul 2>nul
+rem Startup update runs before normal dependencies are imported.
+rem The bootstrap skips networking if disabled or GitHub is unreachable.
+".venv\Scripts\python.exe" startup.py %*
 if errorlevel 1 (
-  echo First run: installing dependencies...
-  ".venv\Scripts\python.exe" -m pip install -r requirements.txt
-  if errorlevel 1 (
-    echo Dependency installation failed.
-    pause
-    exit /b 1
-  )
+  echo Paper-Radar could not start. Read .paper_radar_updates\status.json or logs\web_server.log.
+  pause
+  exit /b 1
 )
-".venv\Scripts\python.exe" main.py
-if errorlevel 1 pause

@@ -77,6 +77,10 @@ if __name__=='__main__':
             import threading, webbrowser, time
             threading.Thread(target=lambda:(time.sleep(.8),webbrowser.open(f'http://127.0.0.1:{port}')),daemon=True).start()
         run_server(port)
-    else:
+    elif '--launch' in sys.argv:
         from paper_radar.launcher import main
         main()
+    else:
+        # Plain `python main.py` also runs the safe pre-launch update check.
+        from startup import main as startup_main
+        raise SystemExit(startup_main())

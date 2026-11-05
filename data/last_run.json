@@ -1,0 +1,21 @@
+{
+  "state": "success",
+  "started_at": "2026-11-05T16:01:25+08:00",
+  "mode": "search",
+  "finished_at": "2026-11-05T16:03:20+08:00",
+  "result": {
+    "retrieved": 4,
+    "new": 4,
+    "selected": 4
+  },
+  "progress": {
+    "percent": 100,
+    "stage": "已完成",
+    "current": null,
+    "total": null,
+    "detail": "任务已完成",
+    "elapsed_seconds": 114,
+    "updated_at": "2026-11-05T16:03:20+08:00"
+  },
+  "timestamp": "2026-11-05T16:03:20+08:00"
+}

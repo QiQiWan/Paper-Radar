@@ -1,6 +1,65 @@
-# Paper-Radar 文档
+# Paper-Radar 文档总览
+
+## v1.20.0 当前版本（优先阅读）
+
+- [完整功能架构与 UX 审查](DESIGN_V1.20.0.md)：公网五入口页面、桌面任务中心、按主题阅读状态、账号边界、浏览器审阅、遗留项。
+- [五入口工作台操作手册](PORTAL_GUIDE_V1.20.0.md)：从登录到论文筛选、任务执行、报告阅读的完整流程。
+- [升级与数据库迁移](UPDATING_V1.20.0.md)：停机备份、工作区 v3→v4、回滚和签名发布限制。
+- [自动化与多视口测试](TEST_RESULTS_V1.20.0.md)、[发布说明](RELEASE_NOTES_V1.20.0.md)。
+
+- [v1.19.0 独立 Worker 与科研评估完整审查](DESIGN_V1.19.0.md)
+## v1.19.0 历史文档
+
+- [独立科研 Worker 运行与上线验收](WORKER_DEPLOYMENT_V1.19.0.md)
+- [真实学术论文 PDF 评估集与质量指标](REAL_PAPER_EVALUATION_V1.19.0.md)
+- [v1.19.0 发布说明](RELEASE_NOTES_V1.19.0.md)
+- [v1.19.0 测试说明](TEST_RESULTS_V1.19.0.md)
+
+## v1.18.0 历史文档
+
+- [完整安全审查及多用户工作流设计](DESIGN_V1.18.0.md)
+- [公网部署、任务操作、备份与安全检查](PUBLIC_DEPLOYMENT_V1.18.0.md)
+- [v1.18.0 发布说明](RELEASE_NOTES_V1.18.0.md)
+- [本轮自动化及系统检查](TEST_RESULTS_V1.18.0.md)
+- [历史版本更新记录](../CHANGELOG.md)
+
+---
+
+## v1.17.0 历史版本
+
+- [公网持久化任务、科研比较诊断与独立 Agent 边界](DESIGN_V1.17.0.md)
+- [公网账号、端口、Nginx、任务队列及升级使用说明](PUBLIC_DEPLOYMENT_V1.17.0.md)
+- [版本发布说明](RELEASE_NOTES_V1.17.0.md)
+- [完整变更记录](../CHANGELOG.md)
+
+---
+
+## v1.16.0 历史版本
+
+- [完整设计、实现审查与风险边界](DESIGN_V1.16.0.md)
+- [公网账号系统、可配置端口及 Nginx 生成](PUBLIC_DEPLOYMENT_V1.16.0.md)
+- [数据库迁移及备份恢复](MIGRATIONS_V1.16.0.md)
+- [Windows 更新真机验收脚本使用方法](WINDOWS_UPDATE_ACCEPTANCE_V1.16.0.md)
+- [v1.16.0 发布说明](RELEASE_NOTES_V1.16.0.md)
+- [v1.16.0 测试报告](TEST_RESULTS_V1.16.0.md)
+- [Release 发布与离线 Ed25519 签名](PUBLISH_GITHUB.md)
+- [全版本更新日志](../CHANGELOG.md)
+
+---
+
+> **新版启动自动更新：** 请先阅读 [v1.15.0 启动、备份与回滚](UPDATING.md) 和 [发布者附件规范](PUBLISH_GITHUB.md)。
+
+## 其他文档索引
 
 ## 版本与升级
+
+- [v1.14.0 科研实验分析 Agent 设计与验收](AGENT_ARCHITECTURE_V1.14.0.md)：四阶段按需分析、结构化实验指标、逐字引文核验、PDF 版本指纹及数据导出。
+- [v1.14.0 发布说明](RELEASE_NOTES_V1.14.0.md)：功能变化、升级兼容与真实环境验收边界。
+- [v1.14.0 自动化测试与浏览器检查](TEST_RESULTS_V1.14.0.md)：详细验证方法与未覆盖场景。
+
+- [v1.13.0 Agent 模块化完整设计](AGENT_ARCHITECTURE_V1.13.0.md)：九个实际 Agent、固定依赖编排、失败隔离、运行轨迹和后续计划。
+- [Agent 独立研发清单](agents/README.md)：每个 Agent 的下一阶段研发任务、负责模块与验收指标。
+- [v1.13.0 发布说明](RELEASE_NOTES_V1.13.0.md)：面向普通用户的功能变化与兼容性说明。
 
 - [v1.12.0 全文证据精读与评估完整设计](DESIGN_V1.12.0.md)：实际功能、数据流、证据边界、评价方案和路线。
 - [v1.12.0 实施审阅与验收](REVIEW_V1.12.0.md)：实际修改、限制和验收记录。
@@ -33,3 +92,7 @@
 
 - [v1.9.0 全部优化审阅项](IMPROVEMENT_PLAN.md)
 - [真实界面截图补拍清单](REAL_SCREENSHOTS.md)
+
+- [v1.15.0 启动自动更新架构](STARTUP_UPDATE_ARCHITECTURE_V1.15.0.md)
+- [v1.15.0 发布说明](RELEASE_NOTES_V1.15.0.md)
+- [v1.15.0 测试记录](TEST_RESULTS_V1.15.0.md)

@@ -10,6 +10,7 @@ import os
 import re
 from urllib import request, error, parse
 from .provider_usage import record_usage, read_usage
+from . import __version__
 
 SERVICE = "Paper-Radar-API"
 SUMMARY_PROMPT_VERSION = "v1.9.1-evidence-1"
@@ -146,13 +147,13 @@ def chat_completion(config: dict, prompt: str, *, key: str | None = None, timeou
         payload = {"model":model, "system":system_prompt, "messages":[{"role":"user","content":prompt}],
                    "max_tokens":max_tokens, "stream":False}
         headers = {"Content-Type":"application/json", "x-api-key":key,
-                   "anthropic-version":"2023-06-01", "User-Agent":"Paper-Radar/1.9"}
+                   "anthropic-version":"2023-06-01", "User-Agent":f"Paper-Radar/{__version__}"}
     else:
         endpoint = completion_endpoint(config.get('api_base_url',''))
         payload = {"model":model, "messages":[{"role":"system","content":system_prompt},
                    {"role":"user","content":prompt}], "stream":False, "max_tokens":max_tokens}
         headers = {"Content-Type":"application/json", "Authorization":"Bearer " + key,
-                   "User-Agent":"Paper-Radar/1.9"}
+                   "User-Agent":f"Paper-Radar/{__version__}"}
     req = request.Request(endpoint, data=json.dumps(payload, ensure_ascii=False).encode('utf-8'),
                           method='POST', headers=headers)
     try:

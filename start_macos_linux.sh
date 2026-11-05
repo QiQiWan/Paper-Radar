@@ -6,5 +6,4 @@ PYTHON=${PYTHON:-python3}
 if [ ! -x .venv/bin/python ]; then
   "$PYTHON" -m venv .venv
 fi
-.venv/bin/python -c "import docx, keyring" 2>/dev/null || .venv/bin/python -m pip install -r requirements.txt
-.venv/bin/python main.py --web
+exec .venv/bin/python startup.py "$@"

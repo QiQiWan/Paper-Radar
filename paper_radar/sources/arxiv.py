@@ -88,16 +88,18 @@ def fetch_arxiv(config: dict, logger=print, now: datetime | None = None) -> list
         })
         logger(f"检索 arXiv（第 {start // page_size + 1} 页）")
         raw = None
-        for attempt in range(3):
+        for attempt in range(2):
             try:
-                with request.urlopen(req, timeout=35) as resp:
+                with request.urlopen(req, timeout=8) as resp:
                     raw = resp.read()
                 break
             except (error.HTTPError, error.URLError, TimeoutError) as exc:
-                if attempt == 2:
+                if isinstance(exc, error.HTTPError) and 400 <= exc.code < 500 and exc.code != 429:
+                    raise RuntimeError(f"arXiv 拒绝查询（HTTP {exc.code}）") from None
+                if attempt == 1:
                     raise RuntimeError(f"arXiv 检索失败：{exc}") from exc
                 logger("arXiv 暂时无法访问，正在重试。")
-                time.sleep(3.5 * (attempt + 1))
+                time.sleep(1.2 * (attempt + 1))
         batch = parse_atom(raw)
         for paper in batch:
             output[paper.paper_id] = paper

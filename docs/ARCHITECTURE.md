@@ -60,3 +60,28 @@ Paper-Radar 前端为本地 HTML/CSS/JavaScript 工作台，后端为 Python HTT
 `evaluation.py` 从 `topic_papers` 读取主题级排名，可导出人工标注模板，随后计算 P@K、标注集内 Recall@K、NDCG@K、MRR 和标签覆盖率。该模块不修改论文库，不调用网络，也不代替研究人员打标签。
 
 > v1.11 章节中“当前尚未建立全文 PDF 的结构化片段存储”描述的是历史版本；v1.12 已完成以上第一阶段全文索引。真实结构化表格、公式与向量化 RAG 尚未实现。完整决策与局限详见 [v1.12.0 设计](DESIGN_V1.12.0.md)。
+
+## v1.13.0 九 Agent 编排
+
+日常 `core.run_cycle()` 已保留为兼容入口，实际进入 `agents/pipeline.py`。`AgentRegistry` 对每个 Agent 的依赖图、输出所有权和类型做校验，`AgentRunner` 按顺序运行并记录阶段状态。九个执行模块位于 `agents/stages/`，分别由独立文件承载；可选模型与下载故障允许降级，入库和报告等关键阶段失败会停止执行。
+
+`data/agent_traces.sqlite3` 保存每次运行的最小化统计；`GET /api/agents` 用于查看工作流和历史，`python -m paper_radar.agents list/graph/traces` 可离线检查。详细边界见 [v1.13.0 Agent 设计](AGENT_ARCHITECTURE_V1.13.0.md)。
+
+
+## v1.14.0 按需科研实验 Agent 链
+
+新增 `paper_radar/agents/research/`，由 FulltextAgent → ExperimentAgent → EvidenceVerifierAgent → ResearchStorageAgent 按序执行。该链仅响应论文库的用户操作，和每日九 Agent 检索流水线共享 AgentRunner 但不自动耦合。`paper_radar/experiments.py` 实现候选结果字段验证、SHA-256 缓存、实验表 SQLite 存储、跨主题安全导出。完整契约与验收边界见 [科研分析 Agent 设计](AGENT_ARCHITECTURE_V1.14.0.md)。
+
+## v1.15.0 启动更新安全层
+
+`start_windows.bat` / `start_macos_linux.sh` → `startup.py`（标准库监督器） → `paper_radar.startup_update.StartupUpdater`（GitHub Release 检查、附件 SHA-256 校验、路径白名单、程序/数据库快照、事务日志） → Python 依赖校验 → `main.py --launch`（已存在的 Web 启动逻辑）。
+
+升级状态和仅含本机私有备份的事务目录位于 `.paper_radar_updates/`，使用 `.gitignore` 排除。仅 `MANAGED_ITEMS` 中的源码与文档允许替换，两个正在使用的 shell 启动脚本不自动替换。GitHub Release 附件要求 `Paper-Radar_vX.Y.Z_Source.zip` 和兼容的 `__startup_protocol__ = 1`。异常回滚恢复源码以及**尚未成功启动之前**的 SQLite/设置快照；用户主动手动回滚不会恢复旧数据库，以免丢失最新研究记录。
+
+## v1.17.0 公网独立工作流架构
+
+公网服务入口 `paper_radar.public_portal` 只暴露受限认证和研究数据 API。`paper_radar.portal_jobs.PortalJobs` 在 `portal_auth` SQLite 数据库（迁移 v3）中持久化检索任务，以两个受控线程执行 arXiv 元数据抓取；账户目录下的研究数据库只在认证成功且校验主题所有权后访问。
+
+队列遵循 `queued → running → success/failed/cancelled` 状态机；进程重启时将未完成的幂等检索最多重试一次。任务入队和24小时配额位于同一数据库事务，拥有账号级活动任务唯一索引。文件和 PDF、API Key、Zotero 等桌面端能力从未注册到该公网路由上。
+
+完整技术接口和安全限制见 [v1.17.0 设计审查](DESIGN_V1.17.0.md) 与 [公网部署文档](PUBLIC_DEPLOYMENT_V1.17.0.md)。

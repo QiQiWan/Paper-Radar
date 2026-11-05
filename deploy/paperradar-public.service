@@ -1,0 +1,24 @@
+[Unit]
+Description=Paper-Radar isolated public research portal
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=paperradar
+Group=paperradar
+WorkingDirectory=/opt/Paper-Radar
+Environment=PAPERRADAR_PUBLIC_ORIGIN=https://papers.example.com
+Environment=PAPERRADAR_PORTAL_DATA=/var/lib/paperradar/portal
+ExecStart=/opt/Paper-Radar/.venv/bin/python -m paper_radar.public_portal --data-root /var/lib/paperradar/portal serve --host 127.0.0.1 --port 8899 --origin https://papers.example.com
+Restart=on-failure
+RestartSec=5
+UMask=0077
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+ReadWritePaths=/var/lib/paperradar
+
+[Install]
+WantedBy=multi-user.target

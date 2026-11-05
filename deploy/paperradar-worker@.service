@@ -1,0 +1,27 @@
+[Unit]
+Description=Paper-Radar isolated research Agent worker %i
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=paperradar
+Group=paperradar
+WorkingDirectory=/opt/Paper-Radar
+Environment=PAPERRADAR_PORTAL_DATA=/var/lib/paperradar/portal
+ExecStart=/opt/Paper-Radar/.venv/bin/python -m paper_radar.portal_worker --data-root /var/lib/paperradar/portal --lease-seconds 45 --heartbeat-seconds 5 --job-timeout 150 --memory-mb 1536 run
+Restart=on-failure
+RestartSec=5
+UMask=0077
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+ReadWritePaths=/var/lib/paperradar
+MemoryMax=2G
+TasksMax=100
+CPUQuota=150%
+LimitNOFILE=256
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="color-scheme" content="light"><meta name="theme-color" content="#f5f7fa">
+<title>Paper-Radar · 科研工作台</title>
+<link rel="stylesheet" href="/portal.css"><script defer src="/portal.js"></script>
+</head>
+<body>
+<header class="topbar">
+  <div class="brand"><span class="mark" aria-hidden="true">↗</span><div><strong>Paper-Radar</strong><small>研究前沿 · 一站式工作台</small></div></div>
+  <div class="top-actions"><span id="accountLabel"></span><button id="logout" type="button" hidden>退出登录</button></div>
+</header>
+<div id="message" role="status" aria-live="polite" tabindex="-1" class="message" hidden></div>
+<main id="mainContent">
+<section id="authView" class="auth-grid">
+  <div class="intro"><div class="eyebrow">RESEARCH WORKSPACE</div><h1>更清楚地追踪<br>你的研究前沿。</h1><p>从发现论文、验证实验到沉淀研究报告，围绕研究主题组织所有工作。</p><div class="notes"><div>独立账号空间，资料严格隔离</div><div>公开论文检索与科研任务追踪</div><div>证据可追溯，报告可反复阅读</div></div></div>
+  <div class="panel auth-panel"><div class="switch" role="tablist" aria-label="账号入口"><button id="loginTab" class="active" type="button" role="tab" aria-controls="authForm" aria-selected="true">登录</button><button id="registerTab" type="button" role="tab" aria-controls="authForm" aria-selected="false">注册账号</button></div>
+  <form id="authForm"><label for="username">用户名</label><input id="username" type="text" autocomplete="username" minlength="3" maxlength="32" required placeholder="请输入用户名"><label for="password">密码</label><input id="password" type="password" autocomplete="current-password" minlength="12" required placeholder="至少 12 位字符"><button id="authSubmit" class="primary" type="submit">登录账号</button></form><p class="hint auth-note">请通过已配置 HTTPS 的服务访问。你的研究数据仅在当前账号下可见。</p></div>
+</section>
+<section id="appView" hidden>
+<div class="portal-shell">
+  <nav class="primary-nav" id="primaryNav" aria-label="科研业务导航">
+    <div class="nav-label">研究空间</div>
+    <button type="button" data-view="workspace" aria-current="page"><span class="nav-glyph" aria-hidden="true">⌂</span><span>工作台</span></button>
+    <button type="button" data-view="library"><span class="nav-glyph" aria-hidden="true">▤</span><span>论文库</span></button>
+    <button type="button" data-view="tasks"><span class="nav-glyph" aria-hidden="true">◷</span><span>任务中心</span></button>
+    <button type="button" data-view="reports"><span class="nav-glyph" aria-hidden="true">▥</span><span>研究报告</span></button>
+    <div class="nav-spacer"></div>
+    <button type="button" data-view="account"><span class="nav-glyph" aria-hidden="true">◎</span><span>我的账号</span></button>
+    <div class="nav-foot">Paper-Radar <span id="portalVersion">v1.21.0</span><small>科研数据仅限本人可见</small></div>
+  </nav>
+  <div class="page-body">
+    <div class="workspace-toolbar"><div class="toolbar-title"><span class="eyebrow">PAPER RADAR / <span id="currentPageEn">WORKSPACE</span></span><span class="toolbar-breadcrumb" id="currentPageName">工作台</span></div><label class="theme-picker" for="topicSelect">当前研究主题<select id="topicSelect" aria-label="当前研究主题"></select></label></div>
+
+    <section class="portal-page" id="viewWorkspace" data-page="workspace" aria-labelledby="dashboardTitle">
+      <div class="page-heading"><div><p class="page-kicker">TODAY'S RESEARCH</p><h1 id="dashboardTitle">继续你的研究。</h1><p>研究方向、最新文献和正在执行的任务都在这里。</p></div><button type="button" class="primary" id="quickStart">开始文献追踪</button></div>
+      <div class="stat-grid" aria-label="当前研究主题概况">
+        <div class="stat-card"><span>收录论文</span><strong id="metricPapers">—</strong><small>当前主题</small></div>
+        <div class="stat-card"><span>重点关注</span><strong id="metricStarred">—</strong><small>已加星标</small></div>
+        <div class="stat-card"><span>已读论文</span><strong id="metricRead">—</strong><small>阅读已完成</small></div>
+        <div class="stat-card"><span>研究报告</span><strong id="metricReports">—</strong><small>已保存快照</small></div>
+      </div>
+      <div class="dashboard-grid">
+        <div class="panel hero-panel"><div class="section-heading"><h2>近期研究任务</h2><button type="button" class="quiet-link" id="homeOpenTasks">查看任务中心 →</button></div><p class="hint" id="homeJobSummary">正在查询最近任务…</p><div id="homeJobBadge" class="home-status">暂无运行任务</div><p class="support-text">任务在服务器的独立 Worker 中执行。刷新页面不会中断任务。</p></div>
+        <div class="panel hero-panel"><div class="section-heading"><h2>研究方向</h2><span class="section-note">按主题整理文献</span></div><div id="topicQuickSummary" class="topic-quick-summary">选择主题开始研究</div><p class="support-text">新增主题后，可从“任务中心”启动检索和分析。</p></div>
+      </div>
+      <div class="panel"><div class="section-heading"><h2>最近收录</h2><button type="button" class="quiet-link" id="homeOpenLibrary">进入论文库 →</button></div><div id="homeRecentPapers" class="recent-papers"><p class="hint">正在加载最新论文…</p></div></div>
+      <details class="panel disclosure-panel" id="topicSetup"><summary>管理研究主题 <span class="summary-note">添加新的研究方向和检索关键词</span></summary><div class="topic-form"><label for="newTopic">主题名称</label><input id="newTopic" placeholder="例如：复杂几何神经算子" maxlength="80"><label for="newKeywords">英文检索关键词（1—6 组）</label><input id="newKeywords" placeholder="例如：neural operator, geometry" aria-describedby="keywordHelp"><span id="keywordHelp" class="field-help">用逗号分隔关键词；后续可选择该主题独立追踪。</span><button id="topicAdd" type="button" class="primary">添加研究主题</button></div></details>
+    </section>
+
+    <section class="portal-page" id="viewLibrary" data-page="library" hidden aria-labelledby="libraryTitle">
+      <div class="page-heading"><div><p class="page-kicker">RESEARCH LIBRARY</p><h1 id="libraryTitle">论文库</h1><p>检索、筛选和记录阅读进度。星标与反馈只影响你的账号。</p></div><button id="libraryRunSearch" class="primary" type="button">检索新论文</button></div>
+      <div class="panel"><div class="library-filters"><label class="filter-search" for="paperSearch">搜索论文<input id="paperSearch" type="search" placeholder="论文题名、摘要或 DOI" autocomplete="off"></label><label for="paperFilter">阅读状态<select id="paperFilter"><option value="all">全部论文</option><option value="starred">仅星标</option><option value="unread">未阅读</option><option value="reading">阅读中</option><option value="done">已读完</option><option value="liked">推荐有价值</option></select></label><label for="paperSort">排序<select id="paperSort"><option value="recent">最新发表</option><option value="oldest">最早发表</option><option value="title">题名字母序</option></select></label></div><div id="paperList" class="papers" aria-live="polite"><p class="hint">请选择研究主题。</p></div><div class="paper-footer"><span id="paperCount" class="hint"></span><button id="loadPapers" type="button" hidden>加载更多论文</button></div></div>
+      <section class="panel evidence-panel" id="fulltextArea"><div class="section-heading"><h2>全文与实验依据</h2><span class="section-note">按页核查原文</span></div><p class="hint">选择论文的“查看证据”后可阅读已解析正文和实验指标。没有 PDF 时需要先上传或获取开放版本。</p><div id="fulltextPanel" class="summary">在上方论文卡片中选择“查看证据”。</div></section>
+    </section>
+
+    <section class="portal-page" id="viewTasks" data-page="tasks" hidden aria-labelledby="tasksTitle">
+      <div class="page-heading"><div><p class="page-kicker">AGENT TASKS</p><h1 id="tasksTitle">任务中心</h1><p>集中启动研究工作流，查看每一阶段的状态和结果。</p></div><button type="button" id="refreshJob">刷新状态</button></div>
+      <div class="panel task-launch"><div class="section-heading"><h2>启动新任务</h2><span class="section-note">每个账号同时只处理一个任务</span></div><p class="hint">仅检索用于快速收录论文；完整分析会继续尝试开放 PDF、全文与实验核验，并保存比较报告。</p><div class="job-controls"><button id="searchNow" type="button">仅检索 arXiv</button><button class="primary" id="runResearch" type="button">一键完成科研分析</button><button id="cancelJob" type="button" hidden>取消当前任务</button></div><details class="task-options"><summary>分析选项与隐私说明</summary><label class="small-choice"><input id="fetchPdf" type="checkbox" checked> 自动尝试获取最多 2 篇开放 PDF</label><label class="small-choice"><input id="cloudAnalysis" type="checkbox"> 授权将有限正文片段发送至云端模型进行实验提取（可能产生费用）</label><p class="hint">模型由服务器管理员配置。关闭云端分析时仍可执行公开检索和本地全文解析。</p></details></div>
+      <div class="panel"><div class="section-heading"><h2>当前任务进度</h2><span class="section-note">任务运行由独立 Worker 管理</span></div><div id="jobState" class="task-state" role="status" aria-live="polite">正在读取任务状态…</div><div id="researchStage" class="hint" role="status"></div>
+      <section id="jobDetailPanel" class="job-flow" aria-label="科研任务执行详情" hidden><div class="job-flow-head"><strong id="jobDetailTitle">任务执行进度</strong><span id="jobDetailMeta" class="hint"></span></div><p class="hint">只显示实际发生的步骤。阶段数量不代表时间百分比。</p><details id="jobStepsDetail" class="job-step-disclosure"><summary>查看各执行阶段</summary><ol id="jobStages" class="job-stages"></ol></details><div id="jobOutcome" class="job-outcome" role="status"></div><button id="openTaskReport" class="primary" type="button" hidden>阅读本次研究报告</button></section></div>
+      <div class="panel"><div class="section-heading"><h2>历史执行记录</h2><span class="section-note">刷新后仍保留</span></div><div id="jobHistory" class="job-list"><p class="hint">正在查询历史任务…</p></div></div>
+    </section>
+
+    <section class="portal-page" id="viewReports" data-page="reports" hidden aria-labelledby="reportsTitle">
+      <div class="page-heading"><div><p class="page-kicker">RESEARCH REPORTS</p><h1 id="reportsTitle">研究报告</h1><p>复查历史科研结论、实验数据和原始证据来源。</p></div><button id="runSynthesis" class="primary" type="button">生成跨论文比较</button></div>
+      <div class="panel"><div class="section-heading"><h2>最近报告</h2><button id="refreshReports" type="button">刷新列表</button></div><p class="hint">历史报告为生成时的数据快照；再次打开不会重复调用大模型。新分析请到任务中心查看进度。</p><div id="reportHistory" class="report-history" role="region" aria-label="已保存报告"><p class="hint">正在加载历史报告…</p></div></div>
+      <div id="reportReader" class="panel report-reader" hidden aria-label="研究报告在线阅读"><div class="report-reader-top"><div><strong id="reportReaderTitle">研究报告</strong><p id="reportReaderInfo" class="hint"></p></div><div class="report-reader-actions"><button id="reportDownload" type="button">下载 Markdown</button><button id="reportClose" type="button">收起预览</button></div></div><section id="comparisonArea" class="comparison-area" aria-label="跨论文实验比较矩阵" hidden><div class="section-heading"><h2>实验对比矩阵</h2><span class="section-note">同字段候选，需人工复核</span></div><p class="hint">每一行保留原始指标与来源，系统不会自动计算不同论文间的性能排名。点击“原文核查”可打开对应论文页码。</p><label for="comparisonFilter">筛选数据集或指标<input id="comparisonFilter" type="search" placeholder="例如 Darcy / error / benchmark"></label><div id="comparisonMatrix" class="matrix-list" role="region" aria-live="polite"></div></section><div id="reportContent" class="report-content" tabindex="0" role="region" aria-label="Markdown 报告内容"></div></div>
+      <details class="panel disclosure-panel"><summary>实验数据导入与比较摘要 <span class="summary-note">支持桌面版导出的证据 CSV</span></summary><div class="import-content"><p class="hint">导入结果仅属于当前账号。缺少原始 PDF 时标记为“未经过服务器原文复核”。</p><label for="evidenceCsv">实验结果证据 CSV 文件</label><input id="evidenceCsv" type="file" accept=".csv,text/csv"><button id="importEvidence" type="button">导入当前主题</button><p id="importResult" class="hint"></p><div class="report-quick-synth"><button id="downloadSynthesis" type="button" disabled>下载当前报告</button><div id="summary" class="summary">选择历史报告可查看比较概要。</div></div></div></details>
+    </section>
+
+    <section class="portal-page" id="viewAccount" data-page="account" hidden aria-labelledby="accountTitle">
+      <div class="page-heading"><div><p class="page-kicker">YOUR ACCOUNT</p><h1 id="accountTitle">我的账号</h1><p>维护账号安全，了解服务数据保护范围。</p></div></div>
+      <section class="panel account"><h2>账号安全</h2><p class="hint">修改密码后，所有设备的登录会话都会失效。</p><div class="password-row"><label class="password-field" for="oldPassword">当前密码<input id="oldPassword" type="password" placeholder="输入当前密码" autocomplete="current-password"></label><label class="password-field" for="newPassword">新密码（至少 12 位）<input id="newPassword" type="password" placeholder="输入新密码" autocomplete="new-password" minlength="12"></label><button id="changePassword" type="button">修改密码</button></div></section>
+      <section class="panel account"><h2>数据与服务范围</h2><p class="support-text">论文、报告和已保存 PDF 隔离存放在你的账号工作区。公网服务不提供服务器本地文件、Zotero 私有资料或系统更新权限。云端模型分析须在任务中心主动授权。</p></section>
+      <section id="adminView" class="panel account" hidden><h2>用户管理</h2><p class="hint">管理员可停用或恢复账号。停用后，该账号已有登录会话立即失效。</p><div id="adminJobStats" class="hint"></div><div id="accountList"></div></section>
+    </section>
+  </div>
+</div>
+</section>
+</main>
+<footer>Paper-Radar · Online research workspace · 受控公开功能集</footer>
+</body></html>

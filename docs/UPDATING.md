@@ -1,4 +1,62 @@
-# 软件更新检查与升级指南（v1.12.0）
+# v1.16.0 起新增的签名验证与版本迁移要求
+
+**请先手动安装具备可信 Ed25519 公钥的 v1.16.0**。此后自动更新须同时验证 GitHub Release 提供的 ZIP SHA-256 和发布者签名 manifest（`.json` + `.sig`）。只有三件套完整且互相匹配、版本更高、启动协议兼容，才允许执行代码替换。断网、签名错误或缺少签名时，保留旧版启动。
+
+数据库不允许自动静默降级：`schema_migrations` 逐步登记迁移版本、名称、校验值和应用时间。对高于当前代码支持的 schema 或历史记录篡改将拒绝打开。升级前请用 `python tools/migration_cli.py --help` 查看备份/状态命令，并对真实库备份；无需上传个人数据或 API Key。
+
+公网部署需要在维护窗口停止服务、备份账号库与 `storage/portal`，完成签名验证与迁移再启动。正在运行的公网服务会阻止桌面启动器热替换文件。
+
+Windows 自动更新真实验收：`powershell -ExecutionPolicy Bypass -File tools/windows_update_acceptance.ps1`。Linux 模拟测试及离线 UI 检查不能代替 Windows 正式升级、HTTPS 反向代理与数据库回滚现场验收。
+
+---
+
+# v1.15.0 启动前自动更新与回滚（优先阅读）
+
+**启动顺序：** 新版 `start_windows.bat` / `start_macos_linux.sh` → Python 标准库检查 GitHub → 符合条件则下载、验证、备份、安装 → 检查/安装依赖 → 打开新版本工作台。程序在启动前判断 GitHub API 是否可访问，无需单独 Ping；失联在短超时内回退到本地版本。
+
+**首次升级：** v1.14.0 还没有启动时自动安装代码，首次安装 v1.15.0 请先关闭工作台，备份完整原目录并手工替换程序文件和两个启动脚本。保留 `settings.json`、`data/`、`downloads/`、`reports/`、`logs/`、`.venv/` 和本机 API 密钥。
+
+**之后的自动更新：** 用户通过新版启动脚本启动，程序只检查 `QiQiWan/Paper-Radar` 的最新公开正式 GitHub Release，不检查普通 Git 标签。仅当版本更高，发布资产命名为 `Paper-Radar_vX.Y.Z_Source.zip`、提供 GitHub API `digest: sha256:...` 并通过大小、SHA、归档路径及启动协议检查时才会安装。保持 `startup.py`/`paper_radar.startup_update` 启动协议为 1 的后续正式版才允许自动升级。安装时会生成代码备份和 SQLite 快照，修改代码前已排除正在运行的本地 HTTP 工作台。
+
+**自动恢复：** 若新版本依赖检查或工作台启动失败，启动器将恢复旧代码与更新前 SQLite 和 `settings.json` 快照，随后尝试运行旧版。若操作被断电打断，下次启动根据 `.paper_radar_updates/active.json` 继续恢复；若备份损坏，系统停止启动并提示人工处理。只有在升级前无法取得安全快照（例如数据库总量超过 512 MB、磁盘空间不足等）时才跳过升级。
+
+**开发和运维命令：**
+
+```bash
+# Windows（cmd）
+start_windows.bat --no-update
+# macOS / Linux
+sh start_macos_linux.sh --no-update
+# 查看上次更新状态
+python -m paper_radar.startup_update --status
+# 只检查更新，不下载安装
+python -m paper_radar.startup_update --check-only
+# 手动回滚最近一次成功升级，仅回滚程序文件，保留当前文献数据库
+python -m paper_radar.startup_update --rollback-last
+```
+
+**发布者必须做的工作：** 执行 `python tools/package_release.py --out dist/Paper-Radar_vX.Y.Z_Source.zip`（使用当前真实版本替换 X.Y.Z）；将 ZIP 以**完全相同名称**上传到仓库正式 GitHub Release，核对上传后 API 的 `assets[].digest`；客户端不使用 GitHub 自动生成的源码 ZIP。详见 `docs/PUBLISH_GITHUB.md`。
+
+**安全说明：** SHA-256 验证的是 GitHub 发布记录与附件的一致性，并不证明源码绝对可信。启动自动更新默认启用，可在设置中关闭。已经运行的工作台不会被热更新；手动回滚成功运行较久的版本时，默认保留当前用户数据，不会静默丢弃升级之后的研究成果。后台定时检索使用 `main.py --once`，不会在任务执行中修改程序。
+
+---
+
+# v1.13.1 升级至 v1.14.0 的补充步骤
+
+1. 完全关闭运行中的工作台和计划任务，备份整个项目目录，特别是 `settings.json`、`data/`、`downloads/`、`reports/`。
+2. 解压独立源码 ZIP；确认根目录有 `main.py`、`paper_radar/agents/research/`、`paper_radar/experiments.py` 和 `CHANGELOG.md`。
+3. 将程序源码与文档合并到旧目录。保留原有数据与本机系统凭据；新表 `experimental_findings` 只会在首次使用时按需创建。
+4. 启动后先以现有主题执行一次不启用模型的普通检索，核查原有论文及报告。选择已合法下载的文字型 PDF，点击“全文证据”，再点击“提取实验指标”。调用云端模型前需自行确认发送内容与费用。
+5. 检查“研究报告 → 导出实验数据证据索引”，确认导出只包含当前研究主题、有原文引文及页码的指标。跨论文数值仍由人工审核是否可以比较。
+6. 新版已经内置自动检查 GitHub Release 的能力，但程序文件**不会自行更新**。发布者必须先创建公开的正式 `v1.14.0` Release 才会通知旧版本用户。
+
+## v1.13.1 升级说明
+
+从 v1.13.0 更新无需迁移数据库；保留 `settings.json`、`data/`、`downloads/`、`reports/` 和本机凭据管理器中 API Key。新增费用字段默认为 0（未配置），可在设置页填写单价。自动检查更新功能仍以 GitHub 已发布的正式 Release 为准，源码压缩包本身不会触发旧客户端升级提示。
+
+升级后建议运行 `python -m paper_radar.agents doctor` 与 `python -m pytest -q`，并执行一次不启用模型的普通检索检查。Windows 后台任务、真实 Zotero 和模型服务需在目标机器验收。
+
+## 历史版本（v1.10—v1.14）：仅提示更新，不自动安装
 
 Paper-Radar 在本地浏览器工作台运行期间，可以在后台自动检查 GitHub 上是否发布了更新。检查只读取项目的公开 Release 元数据，不需要登录 GitHub，也不会把论文库、Zotero 数据、API Key 或本地配置发送给 GitHub。
 
@@ -67,3 +125,31 @@ Paper-Radar 在本地浏览器工作台运行期间，可以在后台自动检�
 7. 检查“设置 → 软件更新检查”仍能手动执行。**只有仓库创建正式公开 Release 后，旧版本才会收到 v1.12.0 更新提示**。本交付包本身不代表远程 Release 已发布。
 
 如需回滚旧版本，应连同升级前的 `data/papers.sqlite3` 完整备份一并恢复。新旧版本对同一数据库来回运行可能产生兼容差异。
+
+
+## 从 v1.12.0 升级至 v1.13.0
+
+1. 关闭工作台、Windows 定时任务并备份原目录，重点保存 `settings.json`、`data/`、`downloads/`、`reports/` 和 `logs/`。
+2. 将 v1.13.0 源码解压到新目录，核对 `paper_radar/agents/`、`docs/AGENT_ARCHITECTURE_V1.13.0.md` 和版本号；将程序文件合并进旧目录，保留全部个人数据。
+3. 新版会在第一次运行检索后新增 `data/agent_traces.sqlite3`，与旧论文数据库分开，不会覆盖既有索引或主题反馈。
+4. 先关闭 AI 功能执行一次普通检索，确认报告、主题、Zotero 与 PDF 正常。打开“设置 → Agent 工作流”检查步骤状态，再按需逐个启用模型。
+5. 原 GitHub Release 自动检查仍然有效。要让旧客户端发现 v1.13.0，维护者必须将它作为正式公开 Release 发布。
+6. 回滚应使用完整备份，避免把新旧数据库在不同版本程序中来回使用。
+
+
+## 从 v1.13.1 升级至 v1.14.0
+
+1. 停止本地工作台和 Windows 后台任务，完整备份 `settings.json`、`data/`、`downloads/`、`reports/` 与 `logs/`。
+2. 解压新版源码至单独目录，确认 `paper_radar/experiments.py` 和 `paper_radar/agents/research/` 均存在；将程序文件与文档合并到已有目录，保留个人数据文件。
+3. 启动工作台，确认显示 `1.14.0`；核对各研究主题、旧 PDF、已有中文报告和 Zotero 连接状态。
+4. 先执行一次不开启模型的普通检索。再选择已下载 PDF，点击“全文证据 → 提取实验指标”，审核云端发送范围后确认。分析结果需要人工打开 PDF 的相应页码核查。
+5. 到“研究报告”点击“导出实验数据证据索引”，仅保存当前主题的已验证结果。生成的新 CSV 和新增的数据库表不会删除旧报告及元数据。
+6. 如需回滚，请使用升级前完整备份及对应旧版源码，不建议新旧版本反复共享同一个未经备份的数据库。
+
+只有公开发布了相应的 GitHub **正式 Release**，旧客户端才会通过自动更新检查获知 v1.14.0，本地打包并不会自行推送版本。
+
+## v1.17.0 公网队列数据库迁移
+
+从 v1.16.0 升级前，应停机备份整个 `PAPERRADAR_PORTAL_DATA`。升级后的首次公网服务初始化将 `accounts.sqlite3` 的迁移版本从 `portal_auth` v2 升至 v3，并新增持久检索任务表；账号、会话及每个用户的论文数据库继续保留。不要运行多个公网实例共享同一数据根目录。
+
+**自动安装签名限制：** 从具备 Ed25519 公钥固定信任的旧客户端升级到 v1.17.0 时，正式 Release 必须使用旧客户端已信任的公钥所对应的离线签名私钥，生成源码 ZIP / JSON manifest / `.sig` 三件套。如果没有匹配的私钥，请通过受控的手动升级和新信任根部署流程处理，不得声称旧客户端可以安全自动安装未经签名的 ZIP。

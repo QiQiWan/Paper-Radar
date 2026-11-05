@@ -123,6 +123,12 @@ class UpdateChecker:
         link = str(copy.get('release_url') or '')
         if link and not re.fullmatch(r'https://github\.com/QiQiWan/Paper-Radar/releases/tag/[A-Za-z0-9._-]+', link):
             copy.pop('release_url', None)
+        from .startup_update import read_json
+        root_status = read_json(APP_ROOT / '.paper_radar_updates' / 'status.json')
+        # Never expose arbitrary local status fields to the browser.
+        copy['startup_update'] = {key:root_status.get(key) for key in
+            ('state','message','at','installed_version','previous_version','attempted_version')
+            if key in root_status}
         copy.update(current_version=__version__, enabled=bool(cfg.get('update_check_enabled', True)),
                     checking=busy, releases_url=RELEASES_URL)
         copy['dismissed'] = (copy.get('tag_name') and

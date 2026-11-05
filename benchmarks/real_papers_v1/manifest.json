@@ -1,0 +1,38 @@
+{
+  "benchmark_id": "paper-radar-real-pdf-v1",
+  "description": "Public arXiv PDF benchmark. Do not redistribute PDFs; download from original publisher.",
+  "manual_review_date": "2026-11-05",
+  "papers": [
+    {
+      "paper_id": "2010.08895", "version": "v3",
+      "title": "Fourier Neural Operator for Parametric Partial Differential Equations",
+      "authors": "Zongyi Li et al.", "year": 2021,
+      "pdf_url": "https://arxiv.org/pdf/2010.08895v3",
+      "landing_url": "https://arxiv.org/abs/2010.08895",
+      "expected_page_count": 16,
+      "category": "FNO / Fourier operator",
+      "experiment_focus": "Navier-Stokes benchmark Table 1"
+    },
+    {
+      "paper_id": "2109.03697", "version": "v3",
+      "title": "U-FNO -- an enhanced Fourier neural operator-based deep-learning model for multiphase flow",
+      "authors": "Gege Wen et al.", "year": 2022,
+      "pdf_url": "https://arxiv.org/pdf/2109.03697v3",
+      "landing_url": "https://arxiv.org/abs/2109.03697",
+      "expected_page_count": 37,
+      "category": "U-FNO / multiphase flow",
+      "experiment_focus": "CO2 saturation and pressure front prediction Table 2"
+    },
+    {
+      "paper_id": "2111.03794", "version": "v4",
+      "title": "Physics-Informed Neural Operator for Learning Partial Differential Equations",
+      "authors": "Zongyi Li et al.", "year": 2023,
+      "pdf_url": "https://arxiv.org/pdf/2111.03794v4",
+      "landing_url": "https://arxiv.org/abs/2111.03794",
+      "expected_page_count": 27,
+      "category": "PINO / physics-informed operator",
+      "experiment_focus": "Darcy Flow Table 2, cross-resolution setting Table 1",
+      "note": "PDF over 12 MiB; public portal download limit currently excludes it; benchmark fetch allows 45 MiB."
+    }
+  ]
+}
