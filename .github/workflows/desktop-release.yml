@@ -1,0 +1,191 @@
+name: Desktop build and automatic GitHub Release
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: paper-radar-desktop-release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  prepare:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      tag: ${{ steps.version.outputs.tag }}
+      release: ${{ steps.check.outputs.release }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - id: version
+        run: python tools/packaging/release_version.py --github-output "$GITHUB_OUTPUT"
+      - id: check
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.version.outputs.tag }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if git ls-remote --exit-code --tags origin "refs/tags/$TAG" >/dev/null 2>&1; then
+            echo "release=false" >> "$GITHUB_OUTPUT"
+            echo "Tag already exists: skipping publication" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "release=true" >> "$GITHUB_OUTPUT"
+          fi
+
+  test:
+    needs: prepare
+    if: needs.prepare.outputs.release == 'true'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: |
+          python -m pip install -r requirements.txt pytest
+          python -m pytest -q
+          python -m paper_radar.agents doctor
+          python -m compileall -q paper_radar main.py startup.py
+          node --check paper_radar/static/app.js
+          node --check paper_radar/static/portal.js
+
+  build:
+    needs: [prepare, test]
+    if: needs.prepare.outputs.release == 'true'
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            label: windows-x64
+            arch: x64
+          - os: ubuntu-22.04
+            label: ubuntu-amd64
+            arch: amd64
+          - os: macos-15
+            label: macos-arm64
+            arch: arm64
+          - os: macos-15-intel
+            label: macos-intel
+            arch: intel
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Linux packaging dependencies
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y python3-tk dpkg-dev zip
+      - run: python -m pip install -r requirements.txt pyinstaller pytest
+      - run: python tools/packaging/build_desktop.py
+      - name: Windows smoke and archive
+        if: runner.os == 'Windows'
+        shell: pwsh
+        env:
+          APP_VERSION: ${{ needs.prepare.outputs.version }}
+        run: |
+          & .\dist\Paper-Radar\Paper-Radar-Service.exe --doctor-output dist\doctor.json
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+          $doctor = Get-Content dist\doctor.json -Raw | ConvertFrom-Json
+          if ($doctor.version -ne $env:APP_VERSION) { exit 2 }
+          Compress-Archive -Path dist/Paper-Radar -DestinationPath dist/Paper-Radar_Windows_x64.zip
+          python tools/packaging/release_assets.py hash dist/Paper-Radar_Windows_x64.zip
+      - name: Ubuntu smoke and archive
+        if: runner.os == 'Linux'
+        shell: bash
+        env:
+          APP_VERSION: ${{ needs.prepare.outputs.version }}
+        run: |
+          set -euo pipefail
+          ./dist/Paper-Radar/Paper-Radar --doctor-output dist/doctor.json
+          python -c 'import json,os;assert json.load(open("dist/doctor.json"))["version"]==os.environ["APP_VERSION"]'
+          sh tools/packaging/build_ubuntu_deb.sh
+          (cd dist && zip -qr Paper-Radar_Ubuntu_portable_amd64.zip Paper-Radar)
+          python tools/packaging/release_assets.py hash dist/Paper-Radar_Ubuntu_portable_amd64.zip "dist/Paper-Radar_${APP_VERSION}_amd64.deb"
+      - name: macOS smoke and archive
+        if: runner.os == 'macOS'
+        shell: bash
+        env:
+          APP_VERSION: ${{ needs.prepare.outputs.version }}
+          APP_ARCH: ${{ matrix.arch }}
+        run: |
+          set -euo pipefail
+          ./dist/Paper-Radar.app/Contents/MacOS/Paper-Radar --doctor-output dist/doctor.json
+          python -c 'import json,os;assert json.load(open("dist/doctor.json"))["version"]==os.environ["APP_VERSION"]'
+          (cd dist && ditto -c -k --sequesterRsrc --keepParent Paper-Radar.app "Paper-Radar_macOS_${APP_ARCH}.zip")
+          python tools/packaging/release_assets.py hash "dist/Paper-Radar_macOS_${APP_ARCH}.zip"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: paper-radar-${{ matrix.label }}
+          path: |
+            dist/*.zip
+            dist/*.deb
+            dist/*.sha256
+          if-no-files-found: error
+
+  source:
+    needs: [prepare, test]
+    if: needs.prepare.outputs.release == 'true'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install -r requirements.txt
+      - env:
+          VERSION: ${{ needs.prepare.outputs.version }}
+        run: |
+          mkdir -p dist
+          python tools/package_release.py --out "dist/Paper-Radar_v${VERSION}_Source.zip"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: paper-radar-source
+          path: |
+            dist/Paper-Radar_v*_Source.zip
+            dist/Paper-Radar_v*_Source.zip.sha256
+          if-no-files-found: error
+
+  publish:
+    needs: [prepare, test, build, source]
+    if: needs.prepare.outputs.release == 'true' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: paper-radar-*
+          path: release
+          merge-multiple: true
+      - name: Verify all release assets
+        env:
+          VERSION: ${{ needs.prepare.outputs.version }}
+        run: python tools/packaging/release_assets.py verify --release-dir release --version "$VERSION"
+      - name: Publish prerelease only after all artifacts pass verification
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.prepare.outputs.tag }}
+        run: |
+          set -euo pipefail
+          if git ls-remote --exit-code --tags origin "refs/tags/$TAG" >/dev/null 2>&1; then
+            echo "Refusing to overwrite $TAG" >&2
+            exit 1
+          fi
+          gh release create "$TAG" release/* --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --title "Paper-Radar $TAG" --notes "Unsigned desktop builds; install and test before production use." --prerelease --draft
+          gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" --draft=false --prerelease
