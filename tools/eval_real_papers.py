@@ -75,7 +75,7 @@ def fetch(pdf_dir:Path):
     return reports
 
 
-def parse_pdf(pdf:Path,timeout=45)->dict:
+def parse_pdf(pdf:Path,timeout=90)->dict:
     if not pdf.is_file():return {'status':'pdf_missing'}
     if pdf.stat().st_size>MAX_DOWNLOAD:return {'status':'pdf_too_large'}
     try:
@@ -120,8 +120,18 @@ def evaluate_synthesis(manifest,gold):
     labels=gold['pairwise_comparability_gold']
     matched=sum((tuple(sorted((lookup[x['a']]['paper_id'],lookup[x['b']]['paper_id']))) in compare)==x['comparable'] for x in labels)
     positive=sum(x['comparable'] for x in labels)
+    tp=sum(x['comparable'] and
+           tuple(sorted((lookup[x['a']]['paper_id'],lookup[x['b']]['paper_id']))) in compare
+           for x in labels)
+    fp=sum(not x['comparable'] and
+           tuple(sorted((lookup[x['a']]['paper_id'],lookup[x['b']]['paper_id']))) in compare
+           for x in labels)
+    fn=positive-tp
     return result,{'gold_records':len(gold['fields']),
                    'pairwise_cases':len(labels),
+                   'true_positive':tp,'false_positive':fp,'false_negative':fn,
+                   'positive_precision':round(tp/(tp+fp),4) if tp+fp else None,
+                   'positive_recall':round(tp/positive,4) if positive else None,
                    'pairwise_correct':matched,
                    'pairwise_accuracy':round(matched/len(labels),4) if labels else None,
                    'positive_pairs':positive,
@@ -134,7 +144,10 @@ def evaluate_synthesis(manifest,gold):
 
 def evaluate_pdf_pages(manifest,gold,pdf_dir:Path):
     fields_by_id={p['paper_id']:[f for f in gold['fields'] if f['paper_id']==p['paper_id']] for p in manifest['papers']}
+    from paper_radar.portal_evidence_retrieval import select_candidate_pages
     found=0; total=0;available=0;details=[]
+    candidate_pages_found=0;candidate_quote_found=0
+    exact_quote_matches=0;sample_checks=[]
     for paper in manifest['papers']:
         pdf=pdf_dir/(paper['paper_id']+paper['version']+'.pdf')
         parsed=parse_pdf(pdf)
@@ -143,41 +156,101 @@ def evaluate_pdf_pages(manifest,gold,pdf_dir:Path):
         if parsed['status']=='parsed':
             available+=1
             record.update({'page_count':parsed['total_pages'],'sha256':parsed['sha256'],
-                          'exceeds_portal_12mib_limit':pdf.stat().st_size>12*1024*1024})
+                          'exceeds_portal_32mib_limit':pdf.stat().st_size>32*1024*1024})
             index={x['page']:x['text'] for x in parsed['pages']}
+            selected=select_candidate_pages(parsed['pages'])
+            candidate_set=set(selected['candidate_pages'])
+            candidate_index={x['page']:x['text'] for x in selected['pages']}
+            record['retrieval']={'scanned_pages':selected['scanned_pages'],
+                                 'candidate_pages':selected['candidate_pages'],
+                                 'strategy':selected['strategy']}
             checks=[]
             for ann in fields_by_id[paper['paper_id']]:
                 page_text=index.get(ann['page_index']+1,'')
                 anchor_hit=normalized(ann['anchor']) in normalized(page_text)
                 context_hit=normalized(ann['context_anchor']) in normalized(page_text)
+                quote_match=normalized(ann.get('quote','')) in normalized(page_text) if ann.get('quote') else False
+                exact_quote_matches+=bool(quote_match)
+                sample_checks.append({'id':ann['id'],'exact_quote_span_present':bool(quote_match)})
+                hit_page=ann['page_index']+1 in candidate_set
+                snippet=candidate_index.get(ann['page_index']+1,'')
+                hit_quote=(normalized(ann['anchor']) in normalized(snippet) and
+                           normalized(ann['context_anchor']) in normalized(snippet))
                 checks.append({'id':ann['id'],'expected_page':ann['page_index']+1,
                                'value_present':anchor_hit,'method_present':context_hit,
-                               'verified':anchor_hit and context_hit})
+                               'verified':anchor_hit and context_hit,
+                               'exact_quote_span_present':bool(quote_match),
+                               'candidate_page_selected':hit_page,
+                               'candidate_excerpt_contains_anchors':hit_quote})
                 total+=1;found+=anchor_hit and context_hit
+                candidate_pages_found+=hit_page
+                candidate_quote_found+=hit_quote
             record['checks']=checks
         details.append(record)
     return {'real_pdfs_parsed':available,'real_pdfs_in_manifest':len(manifest['papers']),
             'gold_field_matches':int(found),'gold_field_checks':total,
             'page_anchor_recall':round(found/total,4) if total else None,
+            'candidate_page_recall':round(candidate_pages_found/total,4) if total else None,
+            'candidate_excerpt_anchor_recall':round(candidate_quote_found/total,4) if total else None,
+            'candidate_pages_found':candidate_pages_found,
+            'candidate_excerpt_anchor_found':candidate_quote_found,
+            'exact_quote_span_matches':exact_quote_matches,
+            'exact_quote_span_rate':round(exact_quote_matches/total,4) if total else None,
+            'quality_warning':'Page anchor matching is not row-level scientific validation.',
             'measured_on_local_real_pdf':bool(total),'papers':details}
 
 
 def evaluate_predictions(path:Path|None,gold):
+    """Strict full-field matching; never award a metric to the wrong method.
+
+    Only evidence records from real publisher PDFs count as gold. Duplicate
+    model claims count as duplicate predictions, not independent discoveries.
+    """
     if not path:return {'measured':False,'reason':'No model predictions supplied'}
     payload=json.loads(path.read_text(encoding='utf-8'))
-    predictions=payload['findings'] if isinstance(payload,dict) else payload
+    predictions=payload.get('findings') if isinstance(payload,dict) else payload
     if not isinstance(predictions,list):raise ValueError('Predictions must be a JSON array')
     def key(f):
-        return (str(f.get('paper_id','')).strip(),int(f.get('page_index',int(f.get('page',0))-1)),
+        if not isinstance(f,dict):raise ValueError('Prediction must be a JSON object')
+        return (str(f.get('paper_id','')).strip(),
+                int(f.get('page_index',int(f.get('page',0))-1)),
+                normalized(f.get('method','')),normalized(f.get('dataset','')),
                 normalized(f.get('metric','')),normalized(f.get('value','')))
     target={key(f) for f in gold['fields']}
-    found={key(f) for f in predictions}
-    hits=len(target & found)
-    prec=hits/len(found) if found else 0
-    rec=hits/len(target) if target else 0
-    return {'measured':True,'gold_count':len(target),'prediction_count':len(found),
-            'true_positive':hits,'precision':round(prec,4),'recall':round(rec,4),
-            'f1':round(2*prec*rec/(prec+rec),4) if prec+rec else 0}
+    pred_keys=[key(f) for f in predictions]
+    # Repeating the same prediction cannot increase recall or precision.
+    correct=sum(item in target for item in pred_keys)
+    unique_true=len(set(pred_keys)&target)
+    precision=unique_true/len(pred_keys) if pred_keys else 0
+    recall=unique_true/len(target) if target else 0
+    f1=2*precision*recall/(precision+recall) if precision+recall else 0
+    return {'measured':True,'gold_count':len(target),
+            'prediction_count':len(pred_keys),'duplicate_predictions':len(pred_keys)-len(set(pred_keys)),
+            'true_positive':unique_true,'false_positive':len(pred_keys)-unique_true,
+            'false_negative':len(target)-unique_true,
+            'precision':round(precision,4),'recall':round(recall,4),'f1':round(f1,4),
+            'matching_rule':'exact paper+page+method+dataset+metric+value (normalized whitespace)'}
+
+
+def create_annotation_template(output:Path,*,reviewers=('A','B')) -> dict:
+    """Two independent blinded sheets; empty labels are NOT evaluation data."""
+    import csv
+    manifest,_=load()
+    output.mkdir(parents=True,exist_ok=True)
+    cols=['paper_id','version','title','pdf_url','reviewer','page_index',
+          'method','dataset','metric','value','baseline','setting',
+          'quote','table_id','row_id','unit','reviewer_note']
+    for name in reviewers:
+        path=output/f'annotations_{name}.csv'
+        with path.open('w',encoding='utf-8-sig',newline='') as stream:
+            writer=csv.DictWriter(stream,fieldnames=cols)
+            writer.writeheader()
+            for paper in manifest['papers']:
+                writer.writerow({key:paper.get(key,'') for key in cols} | {'reviewer':name})
+    return {'reviewers':list(reviewers),'paper_count':len(manifest['papers']),
+            'template_files':[str(output/f'annotations_{r}.csv') for r in reviewers],
+            'annotation_rows_measured':0,
+            'note':'双盲独立标注；两份表合议前不得计算人工一致性或模型准确率。'}
 
 
 def run(pdf_dir:Path,predictions:Path|None,output:Path):
@@ -191,7 +264,8 @@ def run(pdf_dir:Path,predictions:Path|None,output:Path):
              'limitations':['Real PDFs are not included in this repository.',
                'Manual PDF table entries are initial seed labels, not a large statistically representative sample.',
                'Model precision/recall is not measured unless predictions are provided.',
-               'Negative comparison labels have no positive-case sensitivity measurement.']}
+               'Negative comparison labels have no positive-case sensitivity measurement.',
+               'Candidate-page recall and excerpt anchor coverage are retrieval diagnostics, not model extraction F1.']}
     output.mkdir(parents=True,exist_ok=True)
     # The synthesis report uses REAL manually checked paper records, distinctly
     # labeled as imported/unverified by the local PDF parser.
@@ -211,6 +285,7 @@ def run(pdf_dir:Path,predictions:Path|None,output:Path):
          f'已复核论文来源：{len(manifest["papers"])} 篇；人工证据记录：{len(gold["fields"])} 条。',
          f'可成功解析的本地真实 PDF：{pdf["real_pdfs_parsed"]} 篇 / {pdf["real_pdfs_in_manifest"]} 篇。',
          f'正确定位的实验条目：{pdf["gold_field_matches"]} / {pdf["gold_field_checks"]}；未获取原始 PDF 时不计算全文解析召回率。',
+         f'候选页覆盖率：{pdf["candidate_page_recall"] if pdf["candidate_page_recall"] is not None else "未测量"}；候选片段同时包含两项锚点的比例：{pdf["candidate_excerpt_anchor_recall"] if pdf["candidate_excerpt_anchor_recall"] is not None else "未测量"}。',
          f'跨论文不当对比候选：{quality["unsafe_candidates"]}；共 {quality["pairwise_cases"]} 项人工标注的不可比对照。',
          f'模型抽取质量：{("已评分" if extracted["measured"] else "未执行；尚无真实模型预测输入")}。',
          '', '## 学术质量限制','',
@@ -224,12 +299,13 @@ def run(pdf_dir:Path,predictions:Path|None,output:Path):
 
 def cli(argv=None):
     p=argparse.ArgumentParser(description='Real-paper evidence and synthesis benchmark')
-    p.add_argument('command',choices=('fetch','score'))
+    p.add_argument('command',choices=('fetch','score','template'))
     p.add_argument('--pdf-dir',type=Path,default=BENCH/'pdfs')
     p.add_argument('--predictions',type=Path)
     p.add_argument('--output',type=Path,default=BENCH/'results')
     args=p.parse_args(argv)
     if args.command=='fetch':result=fetch(args.pdf_dir)
+    elif args.command=='template':result=create_annotation_template(args.output)
     else:result=run(args.pdf_dir,args.predictions,args.output)
     print(json.dumps(result,ensure_ascii=False,indent=2))
     return 0

@@ -175,6 +175,67 @@ REGISTRIES: dict[str, tuple[Migration, ...]] = {
                     ON DELETE CASCADE)''',
             'CREATE INDEX IF NOT EXISTS idx_portal_flags_star ON topic_paper_flags(topic_id,is_starred)',
         )),
+        Migration(5,'tracked_source_metadata_refresh',(
+            '''CREATE TABLE IF NOT EXISTS paper_metadata_versions (
+                paper_id TEXT PRIMARY KEY, source_updated TEXT NOT NULL DEFAULT '',
+                observed_at TEXT NOT NULL)''',
+            '''CREATE TABLE IF NOT EXISTS paper_metadata_history (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                paper_id TEXT NOT NULL, observed_at TEXT NOT NULL,
+                source_updated TEXT NOT NULL DEFAULT '',
+                previous_title TEXT NOT NULL, new_title TEXT NOT NULL)''',
+            'CREATE INDEX IF NOT EXISTS idx_paper_metadata_history_paper ON paper_metadata_history(paper_id,id)',
+        )),
+        Migration(6,'pdf_layout_and_batch_checkpoints',(
+            '''CREATE TABLE IF NOT EXISTS pdf_layout_rows (
+                paper_id TEXT NOT NULL,sha256 TEXT NOT NULL,page INTEGER NOT NULL,
+                table_id INTEGER NOT NULL,row_index INTEGER NOT NULL,
+                cells_json TEXT NOT NULL,method TEXT NOT NULL,
+                PRIMARY KEY(paper_id,sha256,page,table_id,row_index))''',
+            'CREATE INDEX IF NOT EXISTS idx_pdf_layout_paper_page ON pdf_layout_rows(paper_id,page)',
+            '''CREATE TABLE IF NOT EXISTS pdf_batch_checkpoints (
+                paper_id TEXT NOT NULL,sha256 TEXT NOT NULL,cache_key TEXT NOT NULL,
+                batch_index INTEGER NOT NULL,material_sha256 TEXT NOT NULL,
+                findings_json TEXT NOT NULL,completed_at INTEGER NOT NULL,
+                PRIMARY KEY(paper_id,sha256,cache_key,batch_index))''',
+            'CREATE INDEX IF NOT EXISTS idx_pdf_batch_paper ON pdf_batch_checkpoints(paper_id)',
+            '''CREATE TABLE IF NOT EXISTS pdf_parse_profiles (
+                paper_id TEXT PRIMARY KEY,sha256 TEXT NOT NULL,diagnostics_json TEXT NOT NULL,
+                parsed_at INTEGER NOT NULL)''',
+        )),
+        Migration(7,'auditable_evidence_and_pair_review', (
+            '''CREATE TABLE IF NOT EXISTS evidence_reviews (
+                evidence_id TEXT PRIMARY KEY,paper_id TEXT NOT NULL,sha256 TEXT NOT NULL,
+                decision TEXT NOT NULL CHECK(decision IN ('approved','rejected','needs_review')),
+                conditions_json TEXT NOT NULL, note TEXT NOT NULL DEFAULT '',
+                reviewer_id TEXT NOT NULL, reviewed_at TEXT NOT NULL)''',
+            'CREATE INDEX IF NOT EXISTS idx_review_paper ON evidence_reviews(paper_id)',
+            '''CREATE TABLE IF NOT EXISTS comparison_pair_reviews (
+                id TEXT PRIMARY KEY,topic_id TEXT NOT NULL,
+                evidence_a_id TEXT NOT NULL,evidence_b_id TEXT NOT NULL,
+                sha_a TEXT NOT NULL,sha_b TEXT NOT NULL,
+                decision TEXT NOT NULL CHECK(decision IN ('comparable','incompatible','needs_review')),
+                note TEXT NOT NULL,reviewer_id TEXT NOT NULL,reviewed_at TEXT NOT NULL)''',
+            'CREATE INDEX IF NOT EXISTS idx_pair_review_topic ON comparison_pair_reviews(topic_id)',
+            '''CREATE TABLE IF NOT EXISTS evidence_review_history (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,evidence_id TEXT NOT NULL,
+                paper_id TEXT NOT NULL,sha256 TEXT NOT NULL,decision TEXT NOT NULL,
+                conditions_json TEXT NOT NULL,note TEXT NOT NULL,
+                reviewer_id TEXT NOT NULL,reviewed_at TEXT NOT NULL)''',
+            'CREATE INDEX IF NOT EXISTS idx_review_history_paper ON evidence_review_history(paper_id,id DESC)',
+            '''CREATE TABLE IF NOT EXISTS comparison_pair_review_history (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,topic_id TEXT NOT NULL,
+                evidence_a_id TEXT NOT NULL,evidence_b_id TEXT NOT NULL,
+                sha_a TEXT NOT NULL,sha_b TEXT NOT NULL,
+                decision TEXT NOT NULL,note TEXT NOT NULL,
+                reviewer_id TEXT NOT NULL,reviewed_at TEXT NOT NULL)''',
+            'CREATE INDEX IF NOT EXISTS idx_pair_history_topic ON comparison_pair_review_history(topic_id,id DESC)',
+        )),
+        Migration(8,'per_topic_public_discovery_sources', (
+            '''CREATE TABLE IF NOT EXISTS topic_sources (
+                topic_id TEXT PRIMARY KEY, sources_json TEXT NOT NULL,
+                FOREIGN KEY(topic_id) REFERENCES topics(id) ON DELETE CASCADE)''',
+        )),
     ),
 }
 

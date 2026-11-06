@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
+import sys
 from threading import Lock, Thread
 from urllib import error, request
 import json
@@ -138,6 +139,10 @@ class UpdateChecker:
         return copy
 
     def schedule(self, config: dict | None = None, *, force: bool = False) -> bool:
+        # A frozen application is updated by its signed native installer, never
+        # by the source ZIP updater (which cannot safely replace .exe/.app).
+        if getattr(sys, 'frozen', False):
+            return False
         cfg = config or read_config()
         if not cfg.get('update_check_enabled', True) and not force:
             return False

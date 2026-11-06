@@ -61,7 +61,7 @@ def encode_bounded_result(payload:dict,limit:int=150000)->bytes:
     return encoded
 
 
-def execute_child(data_root:Path,job_id:int,token:str,output:Path,*,memory_mb=1536,cpu_seconds=120):
+def execute_child(data_root:Path,job_id:int,token:str,output:Path,*,memory_mb=1536,cpu_seconds=240):
     """Only used by the worker process; output is a private JSON result file."""
     _limits(memory_mb,cpu_seconds)
     from .public_portal import Portal
@@ -96,9 +96,24 @@ def execute_child(data_root:Path,job_id:int,token:str,output:Path,*,memory_mb=15
     return 0 if payload['state']=='success' else 1
 
 
+def child_command(data_root: Path, job_id: int, output: Path, memory_mb: int, cpu_seconds: int) -> list[str]:
+    """Spawn a bounded research child in either source or native app mode.
+
+    A PyInstaller executable is not a Python interpreter and cannot accept
+    ``-m paper_radar.portal_worker``. The bundled entry point dispatches the
+    explicit ``--portal-worker`` switch without opening the desktop GUI.
+    """
+    prefix = ([sys.executable, '--portal-worker', '_execute']
+              if getattr(sys, 'frozen', False)
+              else [sys.executable, '-m', 'paper_radar.portal_worker', '_execute'])
+    return prefix + ['--data-root', str(data_root), '--job-id', str(job_id),
+                     '--output', str(output), '--memory-mb', str(memory_mb),
+                     '--cpu-seconds', str(cpu_seconds)]
+
+
 class IsolatedWorker:
     def __init__(self,data_root:Path,*,lease_seconds=45,heartbeat_seconds=5,
-                 job_timeout=150,memory_mb=1536,cpu_seconds=120,poll_seconds=.5,
+                 job_timeout=480,memory_mb=1536,cpu_seconds=240,poll_seconds=.5,
                  worker_id=None):
         if not 6<=lease_seconds<=3600 or not 1<=heartbeat_seconds<lease_seconds/2:
             raise ValueError('Heartbeat must be shorter than half the lease')
@@ -119,7 +134,7 @@ class IsolatedWorker:
     def stop(self):self._stop.set()
 
     def run_one(self):
-        self.queue.recover()
+        self.queue.recover(force=False)
         self.queue.worker_seen(self.worker_id,state='idle')
         job=self.queue._claim(self.worker_id)
         if not job:return False
@@ -130,10 +145,7 @@ class IsolatedWorker:
         run_key=uuid.uuid4().hex
         out=private/('result_'+run_key+'.json')
         err=private/('error_'+run_key+'.log')
-        argv=[sys.executable,'-m','paper_radar.portal_worker','_execute',
-              '--data-root',str(self.portal.root),'--job-id',str(jid),
-              '--output',str(out),'--memory-mb',str(self.memory_mb),
-              '--cpu-seconds',str(self.cpu_seconds)]
+        argv=child_command(self.portal.root,jid,out,self.memory_mb,self.cpu_seconds)
         started=time.monotonic();reason=''
         try:
             with err.open('wb') as err_stream:
@@ -176,7 +188,7 @@ class IsolatedWorker:
         finally:
             out.unlink(missing_ok=True)
             err.unlink(missing_ok=True)
-            self.queue.worker_seen(self.worker_id,state='idle')
+            self.queue.worker_seen(self.worker_id,state='idle',force=True)
         return True
 
     def run_forever(self,*,max_jobs=None):
@@ -202,9 +214,9 @@ def main(argv=None):
     parser.add_argument('--data-root',type=Path,default=Path(os.getenv('PAPERRADAR_PORTAL_DATA','storage/portal')))
     parser.add_argument('--lease-seconds',type=int,default=45)
     parser.add_argument('--heartbeat-seconds',type=int,default=5)
-    parser.add_argument('--job-timeout',type=int,default=150)
+    parser.add_argument('--job-timeout',type=int,default=480)
     parser.add_argument('--memory-mb',type=int,default=1536)
-    parser.add_argument('--cpu-seconds',type=int,default=120)
+    parser.add_argument('--cpu-seconds',type=int,default=240)
     parser.add_argument('--poll-seconds',type=float,default=.5)
     parser.add_argument('--max-jobs',type=int,default=-1,help='-1 means continuous; 0 means idle check only')
     parser.add_argument('command',nargs='?',default='run',choices=['run','_execute'])

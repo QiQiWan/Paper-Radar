@@ -14,6 +14,7 @@ import time
 import re
 from .. import __version__
 from ..models import Paper
+from .request_policy import retry_seconds
 
 BASE = 'https://api.openalex.org/works'
 
@@ -96,8 +97,11 @@ class OpenAlexSource:
                     if isinstance(exc, error.HTTPError) and exc.code in (400,401,403):
                         raise RuntimeError('OpenAlex 查询参数或访问凭证被拒绝') from exc
                     if attempt == 2:
-                        raise RuntimeError(f'OpenAlex 查询失败：{exc}') from exc
-                    time.sleep(1.5 * (attempt + 1))
+                        raise RuntimeError('OpenAlex 公共接口连接失败或已触发限流') from exc
+                    if isinstance(exc,error.HTTPError) and exc.code in (429,503):
+                        time.sleep(retry_seconds(exc.headers.get('Retry-After'),attempt=attempt))
+                    else:
+                        time.sleep(1.5 * (attempt + 1))
             for item in (data or {}).get('results', []):
                 p = parse_work(item)
                 if p: results[p.paper_id] = p

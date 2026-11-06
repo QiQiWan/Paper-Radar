@@ -32,7 +32,7 @@ def create_report(portal, uid: str, topic_id: str, *, job_id: int | None = None)
         db.execute('''INSERT INTO research_reports
             (id,topic_id,job_id,generated_at,schema_version,source_digest,paper_count,finding_count,summary_json,markdown)
             VALUES (?,?,?,?,?,?,?,?,?,?)''',
-            (report_id,topic_id,job_id,created,1,digest,
+            (report_id,topic_id,job_id,created,2,digest,
              int(summary.get('paper_count',0)),int(summary.get('finding_count',0)),raw_summary,markdown))
         # Bounded account history. Never delete a different topic's reports.
         db.execute('''DELETE FROM research_reports WHERE id IN (

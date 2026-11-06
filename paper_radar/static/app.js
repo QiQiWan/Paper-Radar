@@ -81,7 +81,7 @@ function applyResearchPlan(){
   if(!words.length){notice('请保留至少一个检索词',true);return}
   $('topicKeywords').value=words.join(', ');
   $('aiPlannerDisclosure').open=false;
-  notice('已应用检索词。点击“开始检索并生成报告”后才会保存并执行。');
+  notice('已应用检索词。点击“检索论文并更新报告”后才会保存并执行。');
 }
 
 function renderTopics(info){
@@ -575,7 +575,7 @@ window.addEventListener('DOMContentLoaded',()=>{
   $('apiProvider').addEventListener('change',()=>{const preset=providers[$('apiProvider').value];if(preset){$('apiBase').value=preset[0];$('apiModel').value=preset[1]}$('apiKey').value='';$('keyState').textContent='切换服务商后请保存或填写新密钥';refreshProviderLabels()});
   $('libraryScope').addEventListener('change',()=>{selectedPapers.clear();loadLibrary();loadRecent()});$('libraryGroup').addEventListener('change',renderLibraryGroups);$('librarySort').addEventListener('change',()=>loadLibrary());
   $('quickMaxResults').addEventListener('input',()=>{$('maxResults').value=$('quickMaxResults').value});$('maxResults').addEventListener('input',()=>{$('quickMaxResults').value=$('maxResults').value});$('quickSort').addEventListener('change',()=>{$('sortMode').value=$('quickSort').value});$('sortMode').addEventListener('change',()=>{$('quickSort').value=$('sortMode').value});
-  $('sourceOptions').addEventListener('change',()=>{updateSourceHelp();const checked=[...document.querySelectorAll('.source-option:checked')].map(n=>n.value);const missing=sourceDefinitions.filter(x=>checked.includes(x.name)&&x.access!=='public'&&!sourceAccess[x.name]?.key);if(missing.length)notice('已选择需授权来源：'+missing.map(x=>x.label).join('、')+'。请先在设置中保存授权 API Key。',true);});$('sourceAccessHelp').addEventListener('click',e=>{if(e.target.closest('.source-guide-config')){visible('settings');$('publisherPanel').scrollIntoView({behavior:'smooth'});}});
+  $('sourceOptions').addEventListener('change',()=>{updateSourceHelp();const checked=[...document.querySelectorAll('.source-option:checked')].map(n=>n.value);const missing=sourceDefinitions.filter(x=>checked.includes(x.name)&&x.access!=='public'&&!sourceAccess[x.name]?.key);if(missing.length)notice('已选择需授权来源：'+missing.map(x=>x.label).join('、')+'。请先在设置中保存授权 API Key。',true);});$('sourceAccessHelp').addEventListener('click',e=>{if(e.target.closest('.source-guide-config')){visible('settings');$('settings-sources').open=true;$('publisherPanel').scrollIntoView({behavior:'smooth',block:'start'});}});
   hook('refreshProviderUsage',refreshProviderUsage);
   async function savePublisher(name,fields){try{for(const [field,id] of fields){const val=$(id).value.trim();if(val){await api('/api/source-credential',{source:name,field,value:val});$(id).value='';}}const res=await api('/api/state');sourceAccess=res.source_access||{};updateSourceHelp();$('springerState').textContent=sourceAccess.springer?.key?'已保存':'未配置';$('elsevierState').textContent=sourceAccess.elsevier?.key?'已保存':'未配置';notice('授权信息已保存到系统凭据管理器')}catch(e){notice(e.message,true)}}
   hook('saveSpringer',()=>savePublisher('springer',[['key','springerKey']]));hook('saveElsevier',()=>savePublisher('elsevier',[['key','elsevierKey'],['insttoken','elsevierToken']]));

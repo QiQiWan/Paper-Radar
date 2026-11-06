@@ -1,0 +1,31 @@
+{
+  "id": "paper_radar_synthetic_protocol_cases_v1",
+  "label_source": "hand-authored synthetic protocol cases, not annotated scientific PDFs",
+  "definition": "eligible means two human-reviewed evidence statements share every declared evaluation condition without contradiction",
+  "base": {
+    "kind": "metric", "dataset": "SetA", "metric": "Accuracy", "setting": "split1",
+    "baseline": "B0", "value_a": "91%", "value_b": "92%",
+    "conditions": {
+      "dataset_version": "release-1", "split": "test", "unit": "percent",
+      "metric_direction": "higher", "aggregation": "mean over 3 trials",
+      "training_budget": "50 epochs", "evaluation_protocol": "fixed official test"
+    }
+  },
+  "cases": [
+    {"id": "positive_same_protocol", "eligible": true, "delta": {}},
+    {"id": "positive_equivalent_whitespace", "eligible": true, "delta": {"split": "  Test  "}},
+    {"id": "different_dataset", "eligible": false, "delta": {"dataset": "SetB"}},
+    {"id": "different_dataset_version", "eligible": false, "delta": {"dataset_version": "release-2"}},
+    {"id": "different_split", "eligible": false, "delta": {"split": "validation"}},
+    {"id": "different_unit", "eligible": false, "delta": {"unit": "fraction"}},
+    {"id": "different_metric", "eligible": false, "delta": {"metric": "RMSE"}},
+    {"id": "different_direction", "eligible": false, "delta": {"metric_direction": "lower"}},
+    {"id": "different_baseline", "eligible": false, "delta": {"baseline": "B1"}},
+    {"id": "different_training_budget", "eligible": false, "delta": {"training_budget": "20 epochs"}},
+    {"id": "different_evaluation_protocol", "eligible": false, "delta": {"evaluation_protocol": "unofficial validation"}},
+    {"id": "different_aggregation", "eligible": false, "delta": {"aggregation": "best-of-5"}},
+    {"id": "unreviewed_evidence", "eligible": false, "delta": {"review_decision": "needs_review"}},
+    {"id": "missing_split", "eligible": false, "delta": {"split": ""}},
+    {"id": "unmarked_percent", "eligible": false, "delta": {"value": "0.92"}}
+  ]
+}

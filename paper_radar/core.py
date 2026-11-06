@@ -10,6 +10,7 @@ from urllib import parse, request, error
 import html
 import json
 import os
+import sys
 import re
 import sqlite3
 import time
@@ -17,7 +18,13 @@ import xml.etree.ElementTree as ET
 
 ATOM = "{http://www.w3.org/2005/Atom}"
 ARXIV = "{http://arxiv.org/schemas/atom}"
-APP_ROOT = Path(__file__).resolve().parent.parent
+# Portable bundles keep installed code read-only and write all research data
+# into the signed-in operating system user's application data directory.
+if getattr(sys, 'frozen', False):
+    from .desktop_paths import user_data_dir, ensure_data_dir
+    APP_ROOT = ensure_data_dir(user_data_dir())
+else:
+    APP_ROOT = Path(__file__).resolve().parent.parent
 APP_CONFIG = APP_ROOT / "settings.json"
 DB_FILE = APP_ROOT / "data" / "papers.sqlite3"
 LOCK_FILE = APP_ROOT / "data" / "running.lock"

@@ -13,7 +13,7 @@ from paper_radar.launcher import health
 class BrandTests(unittest.TestCase):
     def test_new_app_marker(self):
         self.assertEqual(__app_id__, 'paper-radar')
-        self.assertEqual(__version__, '1.21.0')
+        self.assertRegex(__version__, r'^\d+\.\d+\.\d+$')
 
     def test_legacy_api_key_lookup(self):
         class OldKeyring:

@@ -32,7 +32,7 @@
       "expected_page_count": 27,
       "category": "PINO / physics-informed operator",
       "experiment_focus": "Darcy Flow Table 2, cross-resolution setting Table 1",
-      "note": "PDF over 12 MiB; public portal download limit currently excludes it; benchmark fetch allows 45 MiB."
+      "note": "PDF exceeds the former 12 MiB limit; v1.23 portal allows up to 32 MiB, benchmark fetch up to 45 MiB; test real bytes before claiming coverage."
     }
   ]
 }

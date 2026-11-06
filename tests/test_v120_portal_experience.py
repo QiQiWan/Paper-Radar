@@ -33,10 +33,10 @@ def seed(portal,uid,topic='default'):
 
 
 def test_schema_is_append_only_and_compatible(tmp_path):
-    assert __version__=='1.21.0'
+    assert __version__==__import__('tools.packaging.release_version',fromlist=['read_version']).read_version()
     p=Portal(tmp_path/'data');uid='c'*32
     with p.workspace(uid) as db:
-        assert status(db,'portal_workspace')['version']==4
+        assert status(db,'portal_workspace')['version']==8
         assert db.execute('SELECT name FROM sqlite_master WHERE name="topic_paper_flags"').fetchone()
         db.execute('INSERT INTO papers VALUES (?,?,?,?,?,?,?)',('p','Paper','','','','','now'))
         db.execute('INSERT INTO topic_papers VALUES (?,?)',('default','p'))
@@ -120,7 +120,9 @@ def test_local_task_center_and_advanced_tools_present():
     root=Path(__file__).parents[1]/'paper_radar/static'
     html=(root/'index.html').read_text(encoding='utf-8')
     js=(root/'app.js').read_text(encoding='utf-8')
-    assert 'id="tasks" class="view"' in html
+    import re
+    task_section=re.search(r'<section[^>]*\bid="tasks"[^>]*>',html)
+    assert task_section and 'view' in task_section.group(0)
     assert 'id="taskViewHistory"' in html
     assert 'id="localExtraTools"' in html
     assert 'data-view="zotero"' in html and 'data-view="downloads"' in html
@@ -134,7 +136,7 @@ def test_upgrade_existing_v3_workspace_preserves_papers_reports_and_flags(tmp_pa
     uid = 'e' * 32
     root = tmp_path / 'portal'
     original = migrations.REGISTRIES['portal_workspace']
-    monkeypatch.setitem(migrations.REGISTRIES, 'portal_workspace', original[:-1])
+    monkeypatch.setitem(migrations.REGISTRIES, 'portal_workspace', original[:3])
     portal = Portal(root, embedded_workers=False)
     with portal.workspace(uid) as db:
         assert status(db, 'portal_workspace')['version'] == 3
@@ -150,7 +152,7 @@ def test_upgrade_existing_v3_workspace_preserves_papers_reports_and_flags(tmp_pa
              '{}', '# Previously saved report'))
     monkeypatch.setitem(migrations.REGISTRIES, 'portal_workspace', original)
     with portal.workspace(uid) as db:
-        assert status(db, 'portal_workspace')['version'] == 4
+        assert status(db, 'portal_workspace')['version'] == 8
         assert db.execute('SELECT title FROM papers WHERE id=?',
                           ('legacy-p',)).fetchone()[0] == 'Prior paper'
         assert db.execute('SELECT markdown FROM research_reports WHERE id=?',

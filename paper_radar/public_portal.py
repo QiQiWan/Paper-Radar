@@ -17,6 +17,8 @@ from http.cookies import SimpleCookie
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from io import StringIO
 import json
+import logging
+import traceback
 import os
 from pathlib import Path
 import re
@@ -30,10 +32,13 @@ import uuid
 from . import __version__
 from .portal_auth import (db as auth_db, create_account, check_login, create_session,
     authenticate, delete_session, throttle, set_active,change_password,AuthError)
-from .migrations import migrate
+from .migrations import migrate, REGISTRIES
 from .synthesis import compare_records,to_markdown
 from .portal_jobs import PortalJobs, QueueError, JobCancelled
 from . import portal_research, portal_reports
+from .portal_metadata import merge_arxiv_paper
+from .portal_discovery import (topic_sources, set_topic_sources, validate_sources,
+                               discover, ALLOWED_SOURCES)
 
 ROOT=Path(__file__).resolve().parent.parent
 STATIC=Path(__file__).resolve().parent/'static'
@@ -64,15 +69,23 @@ class Portal:
         self._arxiv_lock=Lock()
         self.pdf_lock=Lock()
         self._audit_lock=Lock()
+        # Migration is done once per workspace/file identity in each process.
+        # Different Worker processes still verify checksums on first access.
+        self._workspace_init_lock=Lock()
+        self._workspace_initialized={}
+        self.source_timeout_seconds=max(2,min(90,int(os.getenv('PAPERRADAR_PUBLIC_SOURCE_TIMEOUT','25'))))
         self.model_callable=None
         self.pdf_downloader=portal_research.fetch_arxiv_pdf
         self.job_queue=PortalJobs(self.auth_path,self.search,
             max_workers=job_workers,max_pending=max_pending_jobs,daily_limit=daily_search_limit,special_worker=self.research_job)
 
-    def audit(self,route:str,method:str,status:int):
+    def audit(self,route:str,method:str,status:int,*,request_id:str=''):
         """Log event types, never bearer tokens, passwords, IP or paper content."""
         if status<400 and method=='GET':return
         payload={'at':utc_now(),'route':route[:90],'method':method,'status':status}
+        if status>=500 and request_id:
+            payload['request_id']=request_id[:32]
+            payload['error_code']='E_INTERNAL'
         with self._audit_lock:
             path=self.root/'audit.jsonl'
             try:
@@ -98,10 +111,19 @@ class Portal:
         p=self.workspace_path(uid)
         conn=sqlite3.connect(p,timeout=15,check_same_thread=False)
         conn.row_factory=sqlite3.Row
-        migrate(conn,'portal_workspace')
-        conn.execute("INSERT OR IGNORE INTO topics VALUES ('default',?,?,?)",
-                     ('默认研究主题',json.dumps(['neural operator','operator learning']),utc_now()))
-        conn.commit()
+        # Avoid BEGIN IMMEDIATE on every report/task poll. Lock first-open
+        # initialization in-process; SQLite migrations still serialize across
+        # processes and reject schema history tampering on first access.
+        with self._workspace_init_lock:
+            st=p.stat()
+            identity=(st.st_dev,st.st_ino,len(REGISTRIES['portal_workspace']),
+                      REGISTRIES['portal_workspace'][-1].checksum)
+            if self._workspace_initialized.get(uid)!=identity:
+                migrate(conn,'portal_workspace')
+                conn.execute("INSERT OR IGNORE INTO topics VALUES ('default',?,?,?)",
+                             ('默认研究主题',json.dumps(['neural operator','operator learning']),utc_now()))
+                conn.commit()
+                self._workspace_initialized[uid]=identity
         try:
             with conn:yield conn
         finally:conn.close()
@@ -119,54 +141,139 @@ class Portal:
         _, topic=self.available(uid,topic_id)
         if should_cancel and should_cancel():raise JobCancelled('Task cancelled')
         keywords=json.loads(topic['keywords'])
+        with self.workspace(uid) as db:
+            sources=topic_sources(db,topic_id)
         from .core import DEFAULTS
-        from .sources.arxiv import fetch_arxiv
         cfg=dict(DEFAULTS)
         cfg.update(keywords=keywords[:6],categories=[],max_results=20,lookback_days=14)
         if self.fetcher:
             # Tests and explicitly supplied fetcher hooks remain deterministic.
+            started=time.monotonic()
             papers=self.fetcher(cfg,logger=lambda _:None)
+            source_results=[{'name':'arxiv','ok':True,'partial':False,
+                             'count':len(papers) if isinstance(papers,list) else 0,
+                             'timed_out':False,'seconds':round(time.monotonic()-started,2),
+                             'mode':'injected_test_fetcher'}]
         else:
-            # The traditional arXiv API requires serial requests and spacing.
-            # Persist the last call in the existing auth_attempts journal so a
-            # service restart does not immediately reset the source throttle.
-            from .portal_resource_locks import exclusive_file_lock
-            with self._arxiv_lock, exclusive_file_lock(self.root/'.arxiv_global.lock',cancelled=should_cancel):
-                for _ in range(80):
-                    if should_cancel and should_cancel():raise JobCancelled('Task cancelled')
-                    with auth_db(self.auth_path) as adb:
-                        allowed=throttle(adb,'source:arxiv_public',limit=1,seconds=4)
-                    if allowed:break
-                    time.sleep(.25)
-                else:
-                    raise PortalError('arXiv 公共接口仍处于访问间隔，请稍后重试')
-                try:
-                    papers=fetch_arxiv(cfg,logger=lambda _:None)
-                finally:
-                    # Also gate from the *end* of the previous HTTP operation;
-                    # the source adapter can retry internally after the first
-                    # request and another worker must not start immediately.
-                    with auth_db(self.auth_path) as adb:
-                        adb.execute("DELETE FROM auth_attempts WHERE identifier='source:arxiv_public'")
-                        adb.execute('INSERT INTO auth_attempts(identifier,occurred_at) VALUES (?,?)',
-                                    ('source:arxiv_public',int(time.time())))
+            # Each approved source is isolated, bounded, and diagnosed. One
+            # unavailable provider does not discard other completed results.
+            papers,source_results=discover(self,cfg,sources,should_cancel)
         if not isinstance(papers,list):raise PortalError('检索来源返回数据无效')
         if should_cancel and should_cancel():raise JobCancelled('Task cancelled')
-        inserted=0
+        inserted=updated=stale=0
         with self.workspace(uid) as db:
-            for paper in papers[:20]:
+            for paper in papers[:40]:
                 if should_cancel and should_cancel():raise JobCancelled('Task cancelled')
                 pid=str(paper.paper_id or '')[:150]
-                title=str(paper.title or '')[:400]
-                if not pid or not title:continue
-                cursor=db.execute('INSERT OR IGNORE INTO papers VALUES (?,?,?,?,?,?,?)',
-                    (pid,title,str(paper.abstract or '')[:10000],str(paper.published or '')[:40],
-                     str(paper.url or '')[:600],str(paper.doi or '')[:200],utc_now()))
-                inserted+=cursor.rowcount
+                if not pid or not str(paper.title or '').strip():continue
+                doi=str(getattr(paper,'doi','') or '').strip().lower()
+                duplicate=db.execute("SELECT id FROM papers WHERE LOWER(doi)=? AND doi<>'' LIMIT 1",
+                                     (doi,)).fetchone() if doi else None
+                if duplicate and duplicate['id']!=pid:
+                    # Preserve the original record and user reading flags.
+                    pid=duplicate['id']
+                else:
+                    outcome=merge_arxiv_paper(db,paper,utc_now())
+                    inserted+=outcome=='inserted'
+                    updated+=outcome=='updated'
+                    stale+=outcome=='stale'
                 db.execute('INSERT OR IGNORE INTO topic_papers VALUES (?,?)',(topic_id,pid))
             if should_cancel and should_cancel():raise JobCancelled('Task cancelled')
             db.commit()
-        return {'retrieved':len(papers),'new':inserted,'topic_id':topic_id}
+        return {'retrieved':len(papers),'new':inserted,'updated':updated,'stale_skipped':stale,
+                'topic_id':topic_id,'source_results':source_results,
+                'state':'partial' if any(not row['ok'] or row.get('degraded') for row in source_results) else 'complete'}
+
+    def _fetch_public_arxiv(self,cfg,checkpoint):
+        """Run official arXiv query in an isolated process with a hard deadline."""
+        from .sources.supervisor import fetch_isolated, SourceTimeout
+        from .source_cache import SourceCache, SourceResponse
+        cache=SourceCache(self.root)
+        cached=cache.get('arxiv',cfg)
+        if cached is not None:
+            return cached,[{'name':'arxiv','ok':True,'partial':False,'count':len(cached),
+                'timed_out':False,'seconds':0.0,'mode':'cache','cache_state':'hit',
+                'cache_age_seconds':cached.cache_age_seconds}]
+        # The source serial lock is already acquired by the caller. Limit the
+        # rate gate wait as well as the actual source sub-process lifetime.
+        for _ in range(80):
+            checkpoint()
+            with auth_db(self.auth_path) as adb:
+                allowed=throttle(adb,'source:arxiv_public',limit=1,seconds=4)
+            if allowed:break
+            time.sleep(.25)
+        else:raise PortalError('arXiv 公共接口仍处于访问间隔，请稍后重试')
+        started=time.monotonic()
+        try:
+            papers=fetch_isolated('arxiv',cfg,timeout_seconds=self.source_timeout_seconds,
+                                  checkpoint=checkpoint,public_metadata=True)
+        except JobCancelled:
+            raise
+        except (SourceTimeout,RuntimeError,ValueError,OSError) as exc:
+            fallback=cache.get('arxiv',cfg,allow_stale=True)
+            if fallback is not None and fallback.cache_state=='stale':
+                return fallback,[{'name':'arxiv','ok':True,'partial':True,
+                    'count':len(fallback),'mode':'cache','cache_state':'stale',
+                    'cache_age_seconds':fallback.cache_age_seconds}]
+            if isinstance(exc,SourceTimeout):
+                raise PortalError(f'arXiv 来源连接超时（最多 {self.source_timeout_seconds} 秒），已停止请求；请稍后重试') from exc
+            raise PortalError('arXiv 来源不可用或拒绝访问，已结束本次检索；请检查网络及来源状态') from exc
+        finally:
+            # The next worker starts >= 4 s after the last request finishes.
+            with auth_db(self.auth_path) as adb:
+                adb.execute("DELETE FROM auth_attempts WHERE identifier='source:arxiv_public'")
+                adb.execute('INSERT INTO auth_attempts(identifier,occurred_at) VALUES (?,?)',
+                            ('source:arxiv_public',int(time.time())))
+        cache.put('arxiv',cfg,papers)
+        papers=SourceResponse(papers,cache_state='miss')
+        return papers,[{'name':'arxiv','ok':True,'partial':False,'count':len(papers),
+                        'timed_out':False,'seconds':round(time.monotonic()-started,2),
+                        'mode':'isolated_process','cache_state':'miss'}]
+
+    def _fetch_public_source(self,name:str,cfg:dict,*,should_cancel=None):
+        """Run a fixed public adapter with its own cross-worker rate gate."""
+        if name not in ('openalex','crossref'):
+            raise PortalError('来源未授权')
+        from .sources.supervisor import fetch_isolated
+        from .portal_resource_locks import exclusive_file_lock
+        from .source_cache import SourceCache, SourceResponse
+        cache=SourceCache(self.root)
+        def checkpoint():
+            if should_cancel and should_cancel():
+                raise JobCancelled('文献检索已取消')
+        try:
+            with exclusive_file_lock(self.root/('.source_'+name+'.lock'),
+                                     cancelled=should_cancel,timeout=35):
+                checkpoint()
+                cached=cache.get(name,cfg)
+                if cached is not None:return cached
+                for _ in range(100):
+                    checkpoint()
+                    with auth_db(self.auth_path) as adb:
+                        allowed=throttle(adb,'source:'+name+'_public',limit=1,seconds=3)
+                    if allowed:break
+                    time.sleep(.15)
+                else:raise PortalError('来源请求过于频繁')
+                try:
+                    try:
+                        papers=fetch_isolated(name,cfg,timeout_seconds=self.source_timeout_seconds,
+                                              checkpoint=checkpoint,public_metadata=True)
+                    except (RuntimeError,OSError,TimeoutError):
+                        # Stale results are marked degraded, never fresh.
+                        fallback=cache.get(name,cfg,allow_stale=True)
+                        if fallback is not None and fallback.cache_state=='stale':
+                            return fallback
+                        raise
+                    cache.put(name,cfg,papers)
+                    return SourceResponse(papers,cache_state='miss')
+                finally:
+                    with auth_db(self.auth_path) as adb:
+                        adb.execute('DELETE FROM auth_attempts WHERE identifier=?',
+                                    ('source:'+name+'_public',))
+                        adb.execute('INSERT INTO auth_attempts(identifier,occurred_at) VALUES (?,?)',
+                                    ('source:'+name+'_public',int(time.time())))
+        except InterruptedError as exc:
+            raise JobCancelled('文献检索已取消') from exc
 
     def research_job(self,uid,topic,kind,pid,options,cancel,progress,job_id=None):
         self.available(uid,topic)
@@ -176,7 +283,8 @@ class Portal:
             try:
                 result=portal_research.analyze(self,uid,topic,pid,cloud=cloud,cancel=cancel)
                 if cloud:progress('evidence')
-                return {'kind':kind,'analysis':result}
+                return {'kind':kind,'state':'partial' if result.get('analysis_state')=='partial' else 'complete',
+                        'analysis':result}
             except InterruptedError:raise JobCancelled('Cancelled')
         if kind=='synthesize':
             progress('synthesis')
@@ -208,7 +316,8 @@ class Portal:
                 except Exception as exc:results.append({'paper_id':pid,'state':'error','reason':type(exc).__name__})
         progress('synthesis');report=portal_reports.create_report(self,uid,topic,job_id=job_id)
         completed=sum(x.get('state')=='indexed' for x in results)
-        partial=not results or completed!=len(results) or (cloud and any(x.get('cloud_analysis') not in ('verified','cached','no_supported_findings') for x in results))
+        partial=(found.get('state')=='partial' or not results or completed!=len(results)
+                 or (cloud and any(x.get('cloud_analysis') not in ('verified','cached','no_supported_findings') for x in results)))
         return {'kind':'research','state':'partial' if partial else 'complete','discovery':found,
                 'analyzed':completed,'papers':results,'report_id':report['id'],
                 'synthesis':{'finding_count':report['finding_count'],
@@ -271,7 +380,8 @@ class Handler(BaseHTTPRequestHandler):
              "frame-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors "+("'self'" if pdf_frame else "'none'"))
 
     def send_json(self,status:int,data:dict,*,cookie:str|None=None):
-        self.server.portal.audit(urlsplit(self.path).path,self.command,status)
+        self.server.portal.audit(urlsplit(self.path).path,self.command,status,
+                                 request_id=str(data.get('request_id','')) if status>=500 else '')
         raw=json.dumps(data,ensure_ascii=False,default=str).encode('utf-8')
         self.send_response(status)
         self.send_header('Content-Type','application/json; charset=utf-8')
@@ -280,6 +390,18 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header('Content-Length',str(len(raw)))
         self.end_headers()
         self.wfile.write(raw)
+
+    def internal_error(self,exc:Exception):
+        # Request identifiers connect the response to a *redacted* audit entry.
+        # Do not log exception text, arguments, cookies, IP addresses or PDFs.
+        request_id=secrets.token_hex(8)
+        frames=traceback.extract_tb(exc.__traceback__)
+        where=(Path(frames[-1].filename).name+':'+str(frames[-1].lineno)) if frames else 'unknown'
+        logging.getLogger('paper_radar.public').error(
+            'E_INTERNAL request_id=%s method=%s route=%r class=%s location=%s',
+            request_id,self.command,urlsplit(self.path).path[:90],type(exc).__name__,where)
+        return self.send_json(500,{'error':'服务器处理失败，请提供错误编号联系管理员',
+                                   'request_id':request_id,'error_code':'E_INTERNAL'})
 
     def send_static(self,path:Path,type_:str):
         data=path.read_bytes()
@@ -333,11 +455,13 @@ class Handler(BaseHTTPRequestHandler):
         # proxy must explicitly overwrite X-Real-IP, never append user input.
         address=self.client_address[0]
         if self.server.portal.trust_proxy_ip and address in ('127.0.0.1','::1'):
+            # Fail closed: treating a missing trusted header as loopback would
+            # merge all users into one rate-limit bucket in production.
             forwarded=self.headers.get('X-Real-IP','').strip()
             try:
                 return str(ipaddress.ip_address(forwarded))
-            except ValueError:
-                pass
+            except ValueError as exc:
+                raise PortalError('反向代理未提供有效的客户端地址，请检查 Nginx X-Real-IP 配置') from exc
         return str(address)
 
     def cookie_value(self):
@@ -362,8 +486,8 @@ class Handler(BaseHTTPRequestHandler):
         try:self._handle_get()
         except (PortalError,AuthError,ValueError,KeyError,TypeError) as exc:
             self.send_json(400,{'error':str(exc)[:180]})
-        except Exception:
-            self.send_json(500,{'error':'服务器处理失败，请联系管理员查看服务器日志'})
+        except Exception as exc:
+            self.internal_error(exc)
 
     def _handle_get(self):
         if not self.guard_host():return self.send_json(403,{'error':'Host mismatch'})
@@ -375,11 +499,14 @@ class Handler(BaseHTTPRequestHandler):
             file,type_=names[route]
             return self.send_static(STATIC/file,type_)
         if route=='/api/public/health':
-            return self.send_json(200,{'name':'Paper-Radar Public','version':__version__})
+            return self.send_json(200,{'name':'Paper-Radar Public','version':__version__,
+                                       'registration_enabled':self.server.portal.allow_registration})
         user=self.session()
         if not user:return self.send_json(401,{'error':'请先登录'})
         if route=='/api/public/me':
             return self.send_json(200,{'user':{k:user[k] for k in ('id','username','role')},'csrf':user['csrf']})
+        if route=='/api/public/quotas':
+            return self.send_json(200,{'quotas':self.server.portal.job_queue.quota_status(user['id'])})
         if route=='/api/public/jobs':
             return self.send_json(200,self.server.portal.job(user['id']))
         if route=='/api/public/jobs/history':
@@ -407,9 +534,13 @@ class Handler(BaseHTTPRequestHandler):
             return self.send_json(200,record)
         if route=='/api/public/topics':
             with self.server.portal.workspace(user['id']) as db:
-                rows=db.execute('SELECT id,name,keywords,created_at FROM topics ORDER BY created_at').fetchall()
+                rows=db.execute('''SELECT t.id,t.name,t.keywords,t.created_at,s.sources_json
+                    FROM topics t LEFT JOIN topic_sources s ON s.topic_id=t.id
+                    ORDER BY CASE WHEN t.id='default' THEN 0 ELSE 1 END,t.created_at,t.rowid''').fetchall()
             return self.send_json(200,{'topics':[{'id':r['id'],'name':r['name'],
-                'keywords':json.loads(r['keywords'])} for r in rows]})
+                'keywords':json.loads(r['keywords']),
+                'sources':validate_sources(json.loads(r['sources_json'])) if r['sources_json'] else ['arxiv']}
+                for r in rows], 'supported_sources':list(ALLOWED_SOURCES)})
         if route=='/api/public/dashboard':
             q=parse_qs(urlsplit(self.path).query)
             topic=(q.get('topic_id') or ['default'])[0]
@@ -422,11 +553,30 @@ class Handler(BaseHTTPRequestHandler):
                     ON f.topic_id=tp.topic_id AND f.paper_id=tp.paper_id
                     WHERE tp.topic_id=?''',(topic,)).fetchone()
                 reports=db.execute('SELECT COUNT(*) FROM research_reports WHERE topic_id=?',(topic,)).fetchone()[0]
+                todo=db.execute('''SELECT COUNT(*) FROM topic_papers tp
+                    LEFT JOIN topic_paper_flags f ON f.topic_id=tp.topic_id AND f.paper_id=tp.paper_id
+                    WHERE tp.topic_id=? AND COALESCE(f.is_starred,0)=1
+                    AND COALESCE(f.reading_status,'unread')<>'done' ''',(topic,)).fetchone()[0]
+                pending=db.execute('''SELECT COUNT(DISTINCT v.id) FROM verified_evidence v
+                    JOIN topic_papers tp ON tp.paper_id=v.paper_id AND tp.topic_id=?
+                    JOIN pdf_documents d ON d.paper_id=v.paper_id AND d.sha256=v.sha256
+                    LEFT JOIN evidence_reviews r ON r.evidence_id=v.id AND r.sha256=v.sha256
+                    WHERE r.decision IS NULL OR r.decision='needs_review' ''',(topic,)).fetchone()[0]
+                pending_papers=db.execute('''SELECT p.id,p.title,MIN(v.page) AS first_page,
+                    COUNT(*) AS pending_count FROM verified_evidence v
+                    JOIN topic_papers tp ON tp.paper_id=v.paper_id AND tp.topic_id=?
+                    JOIN papers p ON p.id=v.paper_id
+                    JOIN pdf_documents d ON d.paper_id=v.paper_id AND d.sha256=v.sha256
+                    LEFT JOIN evidence_reviews r ON r.evidence_id=v.id AND r.sha256=v.sha256
+                    WHERE r.decision IS NULL OR r.decision='needs_review'
+                    GROUP BY p.id,p.title ORDER BY pending_count DESC,p.id LIMIT 5''',(topic,)).fetchall()
                 latest=db.execute('''SELECT p.id,p.title,p.published
-                    FROM papers p JOIN topic_papers tp ON tp.paper_id=p.id
+                    FROM papers p JOIN topic_papers tp ON p.id=tp.paper_id
                     WHERE tp.topic_id=? ORDER BY p.published DESC,p.id DESC LIMIT 3''',(topic,)).fetchall()
             return self.send_json(200,{'papers':counts['papers'],'starred':counts['starred'],
-                'read':counts['read'],'reports':reports,'recent':[dict(r) for r in latest]})
+                'read':counts['read'],'reports':reports,'to_read':todo,'pending_review':pending,
+                'pending_papers':[dict(r) for r in pending_papers],
+                'recent':[dict(r) for r in latest]})
         if route=='/api/public/papers':
             q=parse_qs(urlsplit(self.path).query)
             topic=(q.get('topic_id') or ['default'])[0]
@@ -440,17 +590,21 @@ class Handler(BaseHTTPRequestHandler):
             search=(q.get('q') or [''])[0].strip()
             filter_=(q.get('filter') or ['all'])[0]
             sort=(q.get('sort') or ['recent'])[0]
-            if len(search)>120 or filter_ not in ('all','starred','unread','reading','done','liked') \
+            paper_id=(q.get('paper_id') or [''])[0]
+            if len(paper_id)>150 or len(search)>120 or filter_ not in ('all','starred','to_read','unread','reading','done','liked') \
                     or sort not in ('recent','oldest','title'):
                 raise PortalError('Invalid search or filter')
             where=['tp.topic_id=?'];params=[topic]
+            if paper_id:
+                where.append('p.id=?');params.append(paper_id)
             if search:
                 pattern='%'+search.lower().replace('\\','\\\\').replace('%','\\%').replace('_','\\_')+'%'
                 where.append('''(LOWER(p.title) LIKE ? ESCAPE '\\' OR
                     LOWER(p.abstract) LIKE ? ESCAPE '\\' OR
                     LOWER(p.doi) LIKE ? ESCAPE '\\')''')
                 params.extend((pattern,)*3)
-            if filter_=='starred':where.append('COALESCE(f.is_starred,0)=1')
+            if filter_ in ('starred','to_read'):where.append('COALESCE(f.is_starred,0)=1')
+            if filter_=='to_read':where.append("COALESCE(f.reading_status,'unread')<>'done'")
             if filter_ in ('unread','reading','done'):
                 where.append("COALESCE(f.reading_status,'unread')=?");params.append(filter_)
             if filter_=='liked':where.append('COALESCE(f.feedback,0)=1')
@@ -468,6 +622,18 @@ class Handler(BaseHTTPRequestHandler):
                     ' LIMIT ? OFFSET ?',(*params,limit,offset)).fetchall()
             return self.send_json(200,{'papers':[dict(r) for r in rows],
                 'total':total,'limit':limit,'offset':offset})
+        if route=='/api/public/evidence/export':
+            from .portal_export import export_evidence
+            q=parse_qs(urlsplit(self.path).query)
+            topic=(q.get('topic_id') or ['default'])[0]
+            raw=export_evidence(self.server.portal,user['id'],topic)
+            self.send_response(200)
+            self.send_header('Content-Type','text/csv; charset=utf-8')
+            self.security_headers()
+            self.send_header('Content-Disposition','attachment; filename="paper-radar-evidence.csv"')
+            self.send_header('Content-Length',str(len(raw)))
+            self.end_headers();self.wfile.write(raw)
+            return
         if route=='/api/public/pdf/view':
             q=parse_qs(urlsplit(self.path).query)
             topic=(q.get('topic_id') or ['default'])[0]
@@ -479,8 +645,16 @@ class Handler(BaseHTTPRequestHandler):
             pid=(q.get('paper_id') or [''])[0]
             try:page=int((q.get('page') or ['1'])[0])
             except ValueError:raise PortalError('Invalid page')
-            if not 1<=page<=40:raise PortalError('Page limit 1-40')
+            if not 1<=page<=120:raise PortalError('Page limit 1-120')
             return self.send_json(200,portal_research.preview(self.server.portal,user['id'],topic,pid,page))
+        if route=='/api/public/reviews/history':
+            from .portal_reviews import review_history
+            q=parse_qs(urlsplit(self.path).query)
+            topic=(q.get('topic_id') or ['default'])[0]
+            pid=(q.get('paper_id') or [''])[0]
+            try:limit=int((q.get('limit') or ['100'])[0])
+            except (ValueError,TypeError):raise PortalError('Invalid review history limit')
+            return self.send_json(200,review_history(self.server.portal,user['id'],topic,pid,limit))
         if route=='/api/public/research/report':
             q=parse_qs(urlsplit(self.path).query)
             topic=(q.get('topic_id') or ['default'])[0]
@@ -557,15 +731,38 @@ class Handler(BaseHTTPRequestHandler):
                 words=payload.get('keywords')
                 if not name or not isinstance(words,list) or not 1<=len(words)<=6:
                     raise PortalError('请输入主题名称及 1—6 组关键词')
-                keywords=[str(word).strip()[:80] for word in words if str(word).strip()]
-                if not keywords:raise PortalError('至少需要一组关键词')
+                if any(type(word) is not str or not 1<=len(word.strip())<=80 for word in words):
+                    raise PortalError('每组关键词必须是 1—80 个字符')
+                keywords=[word.strip() for word in words]
+                sources=validate_sources(payload.get('sources',['arxiv']))
                 uid=uuid.uuid4().hex[:16]
                 with self.server.portal.workspace(user['id']) as db:
                     if db.execute('SELECT COUNT(*) FROM topics').fetchone()[0]>=30:
                         raise PortalError('主题数量上限为 30')
-                    db.execute('INSERT INTO topics VALUES (?,?,?,?)',
+                    db.execute('INSERT INTO topics(id,name,keywords,created_at) VALUES (?,?,?,?)',
                                (uid,name,json.dumps(keywords,ensure_ascii=False),utc_now()))
-                return self.send_json(201,{'id':uid,'name':name,'keywords':keywords})
+                    set_topic_sources(db,uid,sources)
+                return self.send_json(201,{'id':uid,'name':name,'keywords':keywords,'sources':sources})
+            if route=='/api/public/topics/update':
+                topic=payload.get('topic_id')
+                if not isinstance(topic,str) or not TOPIC_ID.fullmatch(topic):
+                    raise PortalError('研究主题不存在')
+                name=payload.get('name')
+                words=payload.get('keywords')
+                if not isinstance(name,str) or not 1<=len(name.strip())<=80:
+                    raise PortalError('主题名称应为 1—80 个字符')
+                if not isinstance(words,list) or not 1<=len(words)<=6 or any(
+                    type(word) is not str or not 1<=len(word.strip())<=80 for word in words):
+                    raise PortalError('请输入 1—6 组关键词，每组不超过 80 个字符')
+                keywords=[word.strip() for word in words]
+                sources=validate_sources(payload.get('sources',['arxiv']))
+                with self.server.portal.workspace(user['id']) as db:
+                    result=db.execute('UPDATE topics SET name=?,keywords=? WHERE id=?',
+                        (name.strip(),json.dumps(keywords,ensure_ascii=False),topic))
+                    if not result.rowcount:raise PortalError('研究主题不存在')
+                    set_topic_sources(db,topic,sources)
+                return self.send_json(200,{'id':topic,'name':name.strip(),
+                    'keywords':keywords,'sources':sources})
             if route=='/api/public/papers/flags':
                 topic=payload.get('topic_id','default')
                 pid=payload.get('paper_id')
@@ -599,6 +796,19 @@ class Handler(BaseHTTPRequestHandler):
                         feedback=excluded.feedback,updated_at=excluded.updated_at''',
                         (topic,pid,int(result['is_starred']),result['reading_status'],result['feedback'],utc_now()))
                 return self.send_json(200,{'paper_id':pid,'topic_id':topic,**result})
+            if route=='/api/public/evidence/review':
+                from .portal_reviews import review_evidence
+                result=review_evidence(self.server.portal,user['id'],
+                    payload.get('topic_id','default'),payload.get('paper_id'),
+                    payload.get('evidence_id'),payload.get('decision'),
+                    payload.get('conditions',{}),payload.get('note',''))
+                return self.send_json(200,result)
+            if route=='/api/public/comparisons/review':
+                from .portal_reviews import review_pair
+                result=review_pair(self.server.portal,user['id'],
+                    payload.get('topic_id','default'),payload.get('evidence_a_id'),
+                    payload.get('evidence_b_id'),payload.get('decision'),payload.get('note',''))
+                return self.send_json(200,result)
             if route=='/api/public/search':
                 topic=str(payload.get('topic_id','default'))
                 self.server.portal.available(user['id'],topic)
@@ -617,6 +827,12 @@ class Handler(BaseHTTPRequestHandler):
                 try:job=self.server.portal.research_async(user['id'],topic,kind=kind,pid=pid,options=options)
                 except (PortalError,QueueError) as exc:return self.send_json(429,{'error':str(exc)})
                 return self.send_json(202,{'job_id':job['id'],'kind':kind,'state':'queued'})
+            if route=='/api/public/jobs/retry':
+                jid=payload.get('job_id')
+                if type(jid) is not int or jid<1:raise PortalError('任务编号不正确')
+                try:job=self.server.portal.job_queue.retry_safe(user['id'],jid)
+                except QueueError as exc:return self.send_json(429,{'error':str(exc)})
+                return self.send_json(202,{'job_id':job['id'],'retry_of':jid,'state':'queued'})
             if route=='/api/public/jobs/cancel':
                 job_id=payload.get('job_id')
                 if job_id is not None and (type(job_id) is not int or job_id<1):
@@ -672,20 +888,20 @@ class Handler(BaseHTTPRequestHandler):
             return self.send_json(404,{'error':'No public endpoint'})
         except (PortalError,AuthError,ValueError,KeyError,TypeError,UnicodeError,json.JSONDecodeError) as exc:
             self.send_json(400,{'error':str(exc)[:180]})
-        except Exception:
-            self.send_json(500,{'error':'服务器处理失败，请联系管理员查看服务器日志'})
+        except Exception as exc:
+            self.internal_error(exc)
 
 
     def do_PUT(self):
-        if not self.guard_host():return self.send_json(403,{'error':'Host mismatch'})
-        if urlsplit(self.path).path!='/api/public/pdf':return self.send_json(404,{'error':'Unknown API'})
-        if self.headers.get('Origin','')!=self.server.portal.origin or self.headers.get('X-Portal-Action','')!='1':
-            return self.send_json(403,{'error':'Origin mismatch'})
-        user=self.session()
-        if not user:return self.send_json(401,{'error':'Please log in'})
-        if self.headers.get('X-CSRF-Token','')!=user['csrf']:return self.send_json(403,{'error':'CSRF mismatch'})
-        if self.headers.get('Content-Type','').split(';')[0]!='application/pdf':return self.send_json(415,{'error':'PDF only'})
         try:
+            if not self.guard_host():return self.send_json(403,{'error':'Host mismatch'})
+            if urlsplit(self.path).path!='/api/public/pdf':return self.send_json(404,{'error':'Unknown API'})
+            if self.headers.get('Origin','')!=self.server.portal.origin or self.headers.get('X-Portal-Action','')!='1':
+                return self.send_json(403,{'error':'Origin mismatch'})
+            user=self.session()
+            if not user:return self.send_json(401,{'error':'Please log in'})
+            if self.headers.get('X-CSRF-Token','')!=user['csrf']:return self.send_json(403,{'error':'CSRF mismatch'})
+            if self.headers.get('Content-Type','').split(';')[0]!='application/pdf':return self.send_json(415,{'error':'PDF only'})
             if self.headers.get('Transfer-Encoding'):return self.send_json(400,{'error':'Chunked uploads disabled'})
             count=int(self.headers.get('Content-Length','0'))
             if not 256<=count<=portal_research.MAX_PDF:return self.send_json(413,{'error':'Upload exceeds limit'})
@@ -697,6 +913,7 @@ class Handler(BaseHTTPRequestHandler):
                 if not throttle(db,'pdf:'+user['id'],limit=12,seconds=86400):return self.send_json(429,{'error':'Upload limit'})
             return self.send_json(201,portal_research.save_pdf(self.server.portal,user['id'],topic,pid,self.rfile.read(count)))
         except (ValueError,PortalError,OSError) as exc:return self.send_json(400,{'error':str(exc)[:160]})
+        except Exception as exc:return self.internal_error(exc)
 
 
 class PortalHTTPServer(ThreadingHTTPServer):
@@ -772,6 +989,7 @@ def cli(argv=None):
     parser=argparse.ArgumentParser(description='Paper-Radar isolated public research portal')
     sub=parser.add_subparsers(dest='command')
     admin=sub.add_parser('admin-create');admin.add_argument('--username',required=True)
+    member=sub.add_parser('user-create');member.add_argument('--username',required=True)
     run=sub.add_parser('serve');run.add_argument('--host',default='127.0.0.1');run.add_argument('--port',type=int,default=8899)
     run.add_argument('--origin',default=os.environ.get('PAPERRADAR_PUBLIC_ORIGIN',''))
     run.add_argument('--disable-registration',action='store_true')
@@ -786,13 +1004,14 @@ def cli(argv=None):
                      default=int(os.getenv('PAPERRADAR_DAILY_SEARCH_LIMIT','10')))
     parser.add_argument('--data-root',type=Path,default=Path(os.environ.get('PAPERRADAR_PORTAL_DATA',ROOT/'storage'/'portal')))
     args=parser.parse_args(argv)
-    if args.command=='admin-create':
+    if args.command in ('admin-create','user-create'):
         from getpass import getpass
         portal=Portal(args.data_root)
-        value=getpass('设置管理员密码（至少 12 位）：')
+        value=getpass('设置账号密码（至少 12 位）：')
         with auth_db(portal.auth_path) as db:
-            user=create_account(db,args.username,value,role='admin')
-        print('管理员已建立：'+user['username'])
+            user=create_account(db,args.username,value,
+                                role='admin' if args.command=='admin-create' else 'user')
+        print('账号已建立：'+user['username']+'（'+user['role']+'）')
         return 0
     if args.command=='serve':
         if not 1<=args.workers<=4 or not 1<=args.max_pending<=1000 or not 1<=args.daily_search_limit<=100:
@@ -803,20 +1022,25 @@ def cli(argv=None):
                       daily_search_limit=args.daily_search_limit,
                       embedded_workers=args.embedded_workers)
         with make_server(args.host,args.port,portal) as server:
-            marker=ROOT/'.paper_radar_updates'/'public_service.active'
-            marker.parent.mkdir(parents=True,exist_ok=True)
+            # The source/install tree is read-only under ProtectSystem=strict.
+            # make_server already owns the process-wide exclusive lock, so a
+            # stale diagnostic marker cannot block a clean service restart.
+            runtime=portal.root/'runtime'
+            runtime.mkdir(mode=0o700,exist_ok=True)
+            marker=runtime/'public_service.active'
+            temp=runtime/('.active-'+secrets.token_hex(8)+'.tmp')
             try:
-                fd=os.open(marker,os.O_CREAT|os.O_EXCL|os.O_WRONLY,0o600)
-            except FileExistsError:
-                raise SystemExit('已有公网服务锁，检查服务是否正在运行；确认已停止后可手动清理锁文件。')
-            try:
-                with os.fdopen(fd,'w',encoding='utf-8') as out:
+                with temp.open('x',encoding='utf-8') as out:
                     out.write(json.dumps({'pid':os.getpid(),'port':server.server_port,
                         'at':utc_now()})+'\n')
+                if os.name!='nt':os.chmod(temp,0o600)
+                os.replace(temp,marker)
                 print(f'Paper-Radar Public v{__version__} serving on {args.host}:{server.server_port}',flush=True)
                 print('Public origin:',portal.origin,flush=True)
                 server.serve_forever(poll_interval=.5)
-            finally:marker.unlink(missing_ok=True)
+            finally:
+                temp.unlink(missing_ok=True)
+                marker.unlink(missing_ok=True)
         return 0
     parser.print_help();return 2
 

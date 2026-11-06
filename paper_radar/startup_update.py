@@ -276,6 +276,49 @@ class StartupUpdater:
             pass
         return value
 
+    def public_service_running(self) -> bool:
+        """Refuse hot replacement while a public server may use this source tree.
+
+        v1.22.1 moved its runtime marker into the writable portal-data root to
+        permit read-only systemd installations. Retain the old marker guard,
+        check standard/configured data roots, and detect Linux services whose
+        data root was configured in a *different* environment. A stale marker
+        conservatively blocks updates until an operator clears it.
+        """
+        if (self.base/'public_service.active').exists():
+            return True
+        paths = [self.root/'storage'/'portal', self.root/'data'/'portal']
+        configured = os.environ.get('PAPERRADAR_PORTAL_DATA','').strip()
+        if configured:
+            paths.insert(0,Path(configured).expanduser())
+        for data_root in paths:
+            if (data_root/'runtime'/'public_service.active').exists():
+                return True
+        # systemd may set PAPERRADAR_PORTAL_DATA for the service only, not for
+        # the local desktop updater. Checking /proc protects Linux installations
+        # sharing a code tree across user accounts without relying on a source
+        # directory writable by the public service.
+        proc=Path('/proc')
+        if os.name=='posix' and proc.is_dir():
+            try:
+                processes=proc.iterdir()
+                for process in processes:
+                    if not process.name.isdecimal():
+                        continue
+                    try:
+                        argv=(process/'cmdline').read_bytes().split(b'\0')
+                        if b'paper_radar.public_portal' not in argv:
+                            continue
+                        cwd=(process/'cwd').resolve(strict=True)
+                        if cwd==self.root or self.root in cwd.parents:
+                            return True
+                    except (OSError,RuntimeError):
+                        # /proc entries are transient and may be inaccessible.
+                        continue
+            except OSError:
+                pass
+        return False
+
     def local_version(self):
         try:
             text = (self.root / 'paper_radar' / '__init__.py').read_text(encoding='utf-8')
@@ -627,7 +670,7 @@ class StartupUpdater:
                          release_url=previous.get('release_url'))
                 if not enabled:
                     return self.status('disabled', '已在配置中关闭启动自动更新。')
-                if (self.base/'public_service.active').exists():
+                if self.public_service_running():
                     return self.status('running', '公网服务仍在运行或锁未清理，已禁止覆盖程序文件。')
                 if (self.root/'data'/'running.lock').exists():
                     return self.status('running', '检测到后台检索任务正在运行，跳过本次更新。')

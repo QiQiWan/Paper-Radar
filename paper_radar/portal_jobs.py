@@ -18,6 +18,7 @@ import uuid
 from pathlib import Path
 from typing import Callable
 from .portal_auth import db as auth_db, throttle
+from .portal_evidence_retrieval import CLOUD_CALL_DAILY_LIMIT
 
 class QueueError(ValueError):pass
 class JobCancelled(RuntimeError):pass
@@ -38,6 +39,8 @@ class PortalJobs:
         self._stop=threading.Event()
         self._wake=threading.Event()
         self._threads=[]
+        self._last_auto_recovery=0.0
+        self._worker_seen_cache={}
         with auth_db(self.path):pass
 
     def enqueue(self, account_id:str, topic_id:str, *, kind='search',paper_id='',options=None)->dict:
@@ -60,8 +63,15 @@ class PortalJobs:
                 raise QueueError('已有正在等待或执行的检索，请等待完成或取消后再提交')
             if db.execute("SELECT COUNT(*) FROM portal_jobs WHERE state IN ('queued','running')").fetchone()[0]>=self.max_pending:
                 raise QueueError('任务队列已满，请稍后重试')
-            if not throttle(db,'search:'+account_id,limit=self.daily_limit,seconds=86400):
-                raise QueueError('已达到过去 24 小时的检索配额')
+            # Search and full research share the source quota. Re-reading an
+            # uploaded PDF or generating a report must not exhaust searches.
+            quota_class = 'search' if kind in ('search','research') else kind
+            quota_limit = (self.daily_limit if quota_class == 'search' else
+                           max(12,self.daily_limit*3) if quota_class == 'analyze'
+                           else max(30,self.daily_limit*6))
+            if not throttle(db,quota_class+':'+account_id,limit=quota_limit,seconds=86400):
+                raise QueueError('已达到过去 24 小时的'+{
+                    'search':'文献检索','analyze':'单篇分析','synthesize':'报告生成'}[quota_class]+'配额')
             cur=db.execute('''INSERT INTO portal_jobs
                 (account_id,topic_id,state,created_at,max_attempts,kind,paper_id,options_json,resume_allowed)
                 VALUES (?,?,'queued',?,2,?,?,?,?)''',
@@ -70,8 +80,56 @@ class PortalJobs:
         self._wake.set()
         return {'id':job_id,'state':'queued','topic_id':topic_id,'kind':kind,'created_at':t}
 
-    def recover(self)->None:
-        """Reconcile only expired/legacy claims; never steal a healthy lease."""
+    @staticmethod
+    def _safe_retry(row) -> bool:
+        if not row or row['state'] not in ('failed','cancelled'):
+            return False
+        if row['kind'] in ('search','synthesize'):
+            return True
+        if row['kind']=='analyze':
+            try:options=json.loads(row['options_json'] or '{}')
+            except (ValueError,TypeError):return False
+            # 'analyze' operates on an already available PDF; its fetch_pdf
+            # option is ignored by the execution branch.
+            return not options.get('cloud_analysis',False)
+        return False
+
+    def retry_safe(self,account_id:str,job_id:int)->dict:
+        """Explicit, quota-accounted retry of only non-billable failed work.
+
+        A full research task can fetch PDF and incur model charges; it must
+        always be resubmitted via the visible research options instead.
+        """
+        with auth_db(self.path) as db:
+            row=db.execute('''SELECT id,account_id,topic_id,kind,paper_id,options_json,state
+                FROM portal_jobs WHERE id=? AND account_id=?''',(job_id,account_id)).fetchone()
+        if not row:raise QueueError('任务不存在或无权访问')
+        if not self._safe_retry(row):
+            raise QueueError('此任务需人工确认选项后重新提交，禁止自动重复收费分析')
+        return self.enqueue(account_id,row['topic_id'],kind=row['kind'],paper_id=row['paper_id'],
+                            options=json.loads(row['options_json'] or '{}'))
+
+    def quota_status(self,account_id:str)->dict:
+        """Separate 24 h task class limits; never report global provider quotas."""
+        t=int(time.time()); classes={
+            'search':self.daily_limit,
+            'analyze':max(12,self.daily_limit*3),
+            'synthesize':max(30,self.daily_limit*6),
+            'model_calls':CLOUD_CALL_DAILY_LIMIT}
+        with auth_db(self.path) as db:
+            rows=db.execute("""SELECT identifier,COUNT(*) n FROM auth_attempts
+                WHERE occurred_at>=? AND identifier IN (?,?,?,?) GROUP BY identifier""",
+                (t-86400,*[(('public_llm' if c=='model_calls' else c)+':'+account_id) for c in classes])).fetchall()
+        usage={r['identifier'].split(':',1)[0]:r['n'] for r in rows}
+        return {c:{'limit':lim,
+                   'used':usage.get('public_llm' if c=='model_calls' else c,0),
+                   'remaining':max(0,lim-usage.get('public_llm' if c=='model_calls' else c,0))}
+                for c,lim in classes.items()}
+
+    def recover(self,*,force=True)->None:
+        """Reconcile expired claims; background pollers avoid SQLite write churn."""
+        if not force and time.monotonic()-self._last_auto_recovery<5:
+            return
         t=int(time.time())
         with auth_db(self.path) as db:
             db.execute('BEGIN IMMEDIATE')
@@ -101,6 +159,7 @@ class PortalJobs:
                 db.execute('INSERT INTO portal_job_events(job_id,stage,status,recorded_at) VALUES (?,?,?,?)',
                            (job['id'],job['stage'] or 'starting',status,t))
             db.execute('DELETE FROM portal_workers WHERE last_seen<?',(t-7*86400,))
+        self._last_auto_recovery=time.monotonic()
 
     def _claim(self,worker_id=None):
         owner=worker_id or self.instance
@@ -143,14 +202,18 @@ class PortalJobs:
                     (worker_id,t,'running',job_id,os.getpid()))
             return bool(cur.rowcount)
 
-    def worker_seen(self,worker_id:str,*,active_job=0,state='idle'):
+    def worker_seen(self,worker_id:str,*,active_job=0,state='idle',force=False):
         if state not in ('idle','running','stopping'):raise ValueError('Invalid worker state')
         t=int(time.time())
+        previous=self._worker_seen_cache.get(worker_id)
+        if not force and previous and previous[:2]==(state,int(active_job)) and t-previous[2]<10:
+            return
         with auth_db(self.path) as db:
             db.execute('''INSERT INTO portal_workers(id,last_seen,state,active_job,process_id)
                 VALUES (?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET last_seen=excluded.last_seen,
                 state=excluded.state,active_job=excluded.active_job,process_id=excluded.process_id''',
                 (worker_id,t,state,int(active_job),os.getpid()))
+        self._worker_seen_cache[worker_id]=(state,int(active_job),t)
 
     def is_cancelled(self,job_id:int)->bool:
         with auth_db(self.path) as db:
@@ -272,7 +335,7 @@ class PortalJobs:
     def _loop(self):
         while not self._stop.is_set():
             try:
-                self.recover()
+                self.recover(force=False)
                 job=self._claim()
                 if job:self._execute_embedded(job);continue
             except (sqlite3.Error,OSError):pass
@@ -334,6 +397,7 @@ class PortalJobs:
 
     def _format(self,row):
         if not row:return {'state':'idle'}
+        record_retryable=self._safe_retry(row)
         record=dict(row)
         raw=record.pop('result_json',None)
         for private in ('options_json','lease_token','lease_until','worker_id','heartbeat_at'):
@@ -342,6 +406,7 @@ class PortalJobs:
         except (ValueError,TypeError):record['result']=None
         record['started_at']=record.get('started_at') or None
         record['finished_at']=record.get('finished_at') or None
+        record['retryable']=record_retryable
         if record['state']=='queued':
             with auth_db(self.path) as db:
                 record['queue_position']=db.execute("SELECT COUNT(*) FROM portal_jobs WHERE state='queued' AND id<=?",(record['id'],)).fetchone()[0]

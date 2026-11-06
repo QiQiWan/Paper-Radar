@@ -1,6 +1,6 @@
 [project]
 name = "paper-radar-local"
-version = "1.21.0"
+version = "1.27.0"
 description = "Local research paper discovery, Zotero topic matching, local PDF evidence reading and reports"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -15,6 +15,7 @@ Issues = "https://github.com/QiQiWan/Paper-Radar/issues"
 Documentation = "https://github.com/QiQiWan/Paper-Radar/tree/main/docs"
 
 [project.optional-dependencies]
+pdf_layout = ["PyMuPDF>=1.24,<2"]
 dev = ["pytest>=8"]
 
 [build-system]

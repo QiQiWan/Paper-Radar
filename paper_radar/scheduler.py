@@ -20,12 +20,12 @@ def _quote_ps(value: str) -> str:
     return "'" + value.replace("'", "''") + "'"
 
 
-def build_install_script(time_str: str, python_exe: str, main_file: str) -> str:
+def build_install_script(time_str: str, python_exe: str, main_file: str, *, frozen=False) -> str:
     import datetime
     datetime.datetime.strptime(time_str, "%H:%M")
     exe = _quote_ps(python_exe)
-    args = _quote_ps(f'"{main_file}" --once')
-    workdir = _quote_ps(str(Path(main_file).parent))
+    args = _quote_ps('--once' if frozen else f'"{main_file}" --once')
+    workdir = _quote_ps(str(Path(python_exe if frozen else main_file).parent))
     name = _quote_ps(TASK_NAME)
     legacy = _quote_ps(LEGACY_TASK_NAME)
     return (
@@ -68,7 +68,8 @@ def install(time_str: str, python_exe: str | None = None, main_file: str | None 
         executable = possible_pythonw
     if not main_file:
         main_file = str((Path(__file__).resolve().parent.parent / "main.py").resolve())
-    _ps(build_install_script(time_str, executable, main_file))
+    _ps(build_install_script(time_str, executable, main_file,
+                             frozen=getattr(sys,'frozen',False)))
     return status()
 
 

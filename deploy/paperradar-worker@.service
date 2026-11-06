@@ -9,7 +9,9 @@ User=paperradar
 Group=paperradar
 WorkingDirectory=/opt/Paper-Radar
 Environment=PAPERRADAR_PORTAL_DATA=/var/lib/paperradar/portal
-ExecStart=/opt/Paper-Radar/.venv/bin/python -m paper_radar.portal_worker --data-root /var/lib/paperradar/portal --lease-seconds 45 --heartbeat-seconds 5 --job-timeout 150 --memory-mb 1536 run
+StateDirectory=paperradar
+StateDirectoryMode=0700
+ExecStart=/opt/Paper-Radar/.venv/bin/python -m paper_radar.portal_worker --data-root /var/lib/paperradar/portal --lease-seconds 45 --heartbeat-seconds 5 --job-timeout 480 --cpu-seconds 240 --memory-mb 1536 run
 Restart=on-failure
 RestartSec=5
 UMask=0077

@@ -4,7 +4,9 @@ Copyright (c) 2026 @EatRice. SPDX-License-Identifier: MIT
 """
 from __future__ import annotations
 from datetime import datetime, timedelta, timezone
-from urllib import request, parse
+from urllib import request, parse, error
+import time
+from .request_policy import retry_seconds
 import json
 import re
 import html
@@ -49,6 +51,17 @@ class CrossrefSource:
                   'sort':'published','order':'desc'}
         req=request.Request(BASE+'?'+parse.urlencode(params),headers={'Accept':'application/json',
             'User-Agent':f'Paper-Radar/{__version__} (local literature research; https://github.com/QiQiWan/Paper-Radar)'})
-        with request.urlopen(req,timeout=35) as resp:
-            raw=json.load(resp)
-        return [p for item in raw.get('message',{}).get('items',[]) if (p:=parse_item(item))]
+        raw=None
+        for attempt in range(3):
+            try:
+                with request.urlopen(req,timeout=22) as resp:
+                    raw=json.load(resp)
+                break
+            except error.HTTPError as exc:
+                if exc.code not in (429,503) or attempt==2:
+                    raise RuntimeError('Crossref 公共接口暂时拒绝请求') from exc
+                time.sleep(retry_seconds(exc.headers.get('Retry-After'),attempt=attempt))
+            except (error.URLError,TimeoutError) as exc:
+                if attempt==2:raise RuntimeError('Crossref 暂时无法访问') from exc
+                time.sleep(retry_seconds(None,attempt=attempt))
+        return [p for item in (raw or {}).get('message',{}).get('items',[]) if (p:=parse_item(item))]

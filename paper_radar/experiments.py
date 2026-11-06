@@ -15,6 +15,7 @@ from pathlib import Path
 import csv
 
 from .quality import normalized
+from .evidence_relations import attribution_assessment
 from . import fulltext
 
 EXPERIMENT_VERSION = 'experimental-extraction-v1.14.0-1'
@@ -120,8 +121,8 @@ def validate_experiments(raw: str, by_id: dict[int,dict]) -> list[dict]:
     """EvidenceVerifierAgent: strict continuous quote and exact field support.
 
     Values/metrics/datasets/baselines must appear verbatim in one quote. This
-    deliberately rejects inferred percentages, conversions and table cross-row
-    associations. It cannot verify correctness of the original paper itself.
+    rejects inferred percentages, conversions and clearly detectable
+    table cross-row mistakes. Ambiguous layouts require human review.
     """
     payload = _json_payload(raw)
     if not isinstance(payload,dict) or not isinstance(payload.get('findings'),list):
@@ -146,6 +147,13 @@ def validate_experiments(raw: str, by_id: dict[int,dict]) -> list[dict]:
                for k in ('dataset','metric','value','baseline','setting') if fields[k]):
             continue
         if not NUMBER.search(fields['value']):
+            continue
+        # A multi-row quote can contain every requested field while assigning
+        # another row's value to the chosen dataset/baseline. Reject provable
+        # mismatches; successful substring checking never verifies table layout.
+        attribution=attribution_assessment(quote,dataset=fields['dataset'],
+                 value=fields['value'],baseline=fields['baseline'])
+        if not attribution['accepted']:
             continue
         quote_numbers={re.sub(r'\s+','',number.group().casefold()) for number in NUMBER.finditer(quote)}
         if any(re.sub(r'\s+','',number.group().casefold()) not in quote_numbers

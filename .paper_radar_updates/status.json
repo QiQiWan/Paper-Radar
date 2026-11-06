@@ -1,6 +1,6 @@
 {
-  "state": "unpublished",
-  "message": "仓库尚无公开正式 Release，启动本地程序。",
-  "at": "2026-11-05T08:00:51+00:00",
-  "installed_version": "1.17.0"
+  "state": "running",
+  "message": "检测到后台检索任务正在运行，跳过本次更新。",
+  "at": "2026-11-06T03:30:05+00:00",
+  "installed_version": "1.27.0"
 }

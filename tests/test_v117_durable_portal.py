@@ -353,7 +353,9 @@ def test_forwarded_ip_must_be_opted_in_and_must_be_valid(tmp_path):
     portal.trust_proxy_ip=True
     assert handler.client_ip()=='203.0.113.9'
     header.replace_header('X-Real-IP','not-an-ip')
-    assert handler.client_ip()=='127.0.0.1'
+    from paper_radar.public_portal import PortalError
+    with pytest.raises(PortalError,match='反向代理'):
+        handler.client_ip()
 
 
 def test_disable_account_cancels_running_search_before_database_write(tmp_path):
@@ -396,18 +398,18 @@ def test_completed_history_retention_cleans_only_old_finished_jobs(tmp_path):
 
 
 def test_real_arxiv_adapter_serial_gate_persists_last_request(tmp_path,monkeypatch):
-    from paper_radar.sources import arxiv
+    from paper_radar.sources import supervisor
     root=tmp_path/'portal'
     portal=Portal(root)
     with auth_db(portal.auth_path) as db:
         uid=create_account(db,'AliceResearch',SECRET)['id']
     seen=[]
-    def pretend(cfg,logger):
-        seen.append(cfg['max_results'])
+    def pretend(name,cfg,**kwargs):
+        seen.append((name,cfg['max_results']))
         return []
-    monkeypatch.setattr(arxiv,'fetch_arxiv',pretend)
+    monkeypatch.setattr(supervisor,'fetch_isolated',pretend)
     assert portal.search(uid,'default')['retrieved']==0
-    assert seen==[20]
+    assert seen==[('arxiv',20)]
     with auth_db(portal.auth_path) as db:
         row=db.execute("SELECT occurred_at FROM auth_attempts WHERE identifier='source:arxiv_public'").fetchone()
         assert row and row[0]>=int(time.time())-2

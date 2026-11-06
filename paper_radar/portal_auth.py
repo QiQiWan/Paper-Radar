@@ -13,13 +13,17 @@ import re
 import secrets
 import sqlite3
 import time
+from threading import Lock
 from pathlib import Path
-from .migrations import migrate
+from .migrations import migrate, REGISTRIES
 
 USERNAME = re.compile(r'^[A-Za-z][A-Za-z0-9_-]{2,31}$')
 SESSION_SECONDS=7*86400
 IDLE_SECONDS=12*3600
 
+
+_schema_cache_lock=Lock()
+_schema_cache={}
 
 class AuthError(ValueError):pass
 
@@ -45,7 +49,13 @@ def db(path: Path):
     conn.row_factory=sqlite3.Row
     try:
         conn.execute('PRAGMA foreign_keys=ON')
-        migrate(conn,'portal_auth')
+        with _schema_cache_lock:
+            st=path.stat()
+            identity=(st.st_dev,st.st_ino,len(REGISTRIES['portal_auth']),
+                      REGISTRIES['portal_auth'][-1].checksum)
+            if _schema_cache.get(str(path.resolve()))!=identity:
+                migrate(conn,'portal_auth')
+                _schema_cache[str(path.resolve())]=identity
         yield conn
         conn.commit()
     finally:conn.close()
@@ -97,10 +107,13 @@ def authenticate(conn,token:str) -> dict|None:
         s.csrf,s.expires_at,s.last_seen FROM sessions s
         JOIN accounts a ON a.id=s.account_id WHERE s.token_hash=?''',(digest,)).fetchone()
     t=now()
-    if not row or not row['is_active'] or row['expires_at']<=t or row['last_seen']+IDLE_SECONDS<=t:
+    if not row:return None
+    if not row['is_active'] or row['expires_at']<=t or row['last_seen']+IDLE_SECONDS<=t:
         conn.execute('DELETE FROM sessions WHERE token_hash=?',(digest,))
         return None
-    conn.execute('UPDATE sessions SET last_seen=? WHERE token_hash=?',(t,digest))
+    # Session polling should not rewrite SQLite pages every 2.3 seconds.
+    if t-row['last_seen']>=60:
+        conn.execute('UPDATE sessions SET last_seen=? WHERE token_hash=?',(t,digest))
     return {k:row[k] for k in ('id','username','role','csrf')}
 
 

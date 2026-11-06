@@ -237,6 +237,6 @@ def test_project_and_agent_versions_consistent():
     from paper_radar.agents.catalog import VERSION
     from pathlib import Path
     root=Path(__file__).resolve().parent.parent
-    assert __version__==VERSION=='1.21.0'
-    assert 'version = "1.21.0"' in (root/'pyproject.toml').read_text(encoding='utf-8')
-    assert 'Paper-Radar v1.21.0' in (root/'paper_radar/static/index.html').read_text(encoding='utf-8')
+    assert __version__==VERSION
+    assert f'version = "{__version__}"' in (root/'pyproject.toml').read_text(encoding='utf-8')
+    assert f'Paper-Radar v{__version__}' in (root/'paper_radar/static/index.html').read_text(encoding='utf-8')

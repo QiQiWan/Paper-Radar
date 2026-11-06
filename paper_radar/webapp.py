@@ -371,7 +371,8 @@ class Handler(BaseHTTPRequestHandler):
             elif route in {'/app.css', '/app.js'}:
                 self.file_response(STATIC / route.lstrip('/'))
             elif route == '/api/health':
-                self.respond(200, {'app':APP_ID,'version':VERSION})
+                self.respond(200, {'app':APP_ID,'version':VERSION,
+                    'desktop_instance':getattr(self.server,'desktop_instance',None)})
             elif route == '/api/update':
                 self.respond(200, update_checker.status(read_config()))
             elif route == '/api/topics':
@@ -570,6 +571,20 @@ class Handler(BaseHTTPRequestHandler):
         runtime.last_seen = time.monotonic()
         origin = self.headers.get('Origin', '')
         expected = f'http://127.0.0.1:{self.server.server_port}'
+        if urlsplit(self.path).path == '/api/desktop/stop':
+            # Only a manager holding this OS user's private on-disk key may
+            # stop an attached instance. Never accept another user's service.
+            supplied=self.headers.get('X-Desktop-Supervision-Key','')
+            actual=getattr(self.server,'desktop_supervision_key','')
+            if origin and origin != expected or not actual or not secrets.compare_digest(supplied,actual):
+                self.respond(403, {'error':'桌面服务管理身份校验未通过'})
+                return
+            if runtime.state()['busy']:
+                self.respond(409, {'error':'科研任务执行中，请任务完成后再停止服务'})
+                return
+            self.respond(200, {'ok':True})
+            threading.Thread(target=self.server.shutdown, daemon=True).start()
+            return
         if (origin and origin != expected) or self.headers.get('X-Local-Token','') != self.server.token:
             self.respond(403, {'error':'请求未通过本地安全校验'})
             return
@@ -783,6 +798,9 @@ def run_server(port: int = 8765):
     httpd = ThreadingHTTPServer(('127.0.0.1', port), Handler)
     httpd.daemon_threads = True
     httpd.token = secrets.token_urlsafe(24)
+    from .desktop_identity import read_or_create_secret, instance_fingerprint
+    httpd.desktop_supervision_key=read_or_create_secret(APP_ROOT/'data')
+    httpd.desktop_instance=instance_fingerprint(httpd.desktop_supervision_key)
     update_checker.schedule(read_config())  # asynchronous; HTTP remains responsive offline
     def idle_watch():
         while True:

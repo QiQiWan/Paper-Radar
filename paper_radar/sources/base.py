@@ -5,6 +5,7 @@ from typing import Protocol
 from datetime import datetime
 from time import monotonic, sleep
 from math import ceil
+import sys
 from ..models import Paper
 
 class SourceAdapter(Protocol):
@@ -113,18 +114,40 @@ def fetch_enabled(config: dict, logger=print, now=None, progress=None, *,
             if progress:
                 progress(index-1,len(selected),f'{name} 第 {qindex+1}/{len(plans)} 组：正在连接（最多 {min(query_budget,remaining):.0f} 秒）')
             try:
+                cache_state='disabled'
                 if supervised:
-                    def on_wait(left):
-                        if progress: progress(index-1,len(selected),f'{name} 第 {qindex+1}/{len(plans)} 组：网络等待中，约 {left:.0f} 秒后跳过')
-                    papers=fetch_isolated(name,local_config,now=now,
-                        timeout_seconds=min(query_budget,max(.2,deadline-monotonic())),
-                        checkpoint=checkpoint,heartbeat=on_wait)
+                    # Only native desktop installations use the per-user
+                    # on-disk cache here. The public portal has its own
+                    # cross-tenant rate gate and independent per-source cache.
+                    cache=None
+                    if getattr(sys,'frozen',False) and name in ('arxiv','openalex','crossref'):
+                        from ..source_cache import SourceCache
+                        from ..core import APP_ROOT
+                        cache=SourceCache(APP_ROOT/'data')
+                    cached=cache.get(name,local_config) if cache else None
+                    if cached is not None:
+                        papers=cached
+                        cache_state='hit'
+                    else:
+                        if qindex and getattr(sys,'frozen',False):
+                            # Conservative per-provider pacing for desktop
+                            # searches: arXiv slower than metadata indexes.
+                            sleep(min(3.0 if name=='arxiv' else 1.0,
+                                      max(0,deadline-monotonic())))
+                        def on_wait(left):
+                            if progress: progress(index-1,len(selected),f'{name} 第 {qindex+1}/{len(plans)} 组：网络等待中，约 {left:.0f} 秒后跳过')
+                        papers=fetch_isolated(name,local_config,now=now,
+                            timeout_seconds=min(query_budget,max(.2,deadline-monotonic())),
+                            checkpoint=checkpoint,heartbeat=on_wait)
+                        if cache:cache.put(name,local_config,papers)
+                        cache_state='miss'
                 else:
                     papers = _REGISTRY[name]().fetch(local_config, logger=logger, now=now)
                 if not isinstance(papers, list) or any(not isinstance(p, Paper) for p in papers):
                     raise TypeError('来源返回格式错误（要求 Paper 列表）')
                 batches.append(papers)
-                query_statuses.append({'keyword': plan['label'], 'ok': True, 'count': len(papers)})
+                query_statuses.append({'keyword': plan['label'], 'ok': True, 'count': len(papers),
+                                       'cache_state':cache_state})
             except (AgentCancelled, AgentDeadlineExceeded):
                 # A user cancellation/deadline belongs to the whole task. Do not
                 # downgrade it into a per-provider failure and continue waiting.
