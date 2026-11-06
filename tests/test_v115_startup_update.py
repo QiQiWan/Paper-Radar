@@ -277,7 +277,7 @@ def test_startup_runner_falls_back_after_failure(tmp_path):
     class Result:
         returncode=0
     def runner(cmd,**kwargs):
-        if cmd[-1]=='--launch':
+        if cmd[-1] in ('--web','--launch'):
             outcomes.append('launch')
             return SimpleNamespace(returncode=1 if outcomes.count('launch')==1 else 0)
         return Result()
@@ -326,7 +326,7 @@ def test_config_auto_update_switch_roundtrip():
     from paper_radar.core import validate_config, DEFAULTS
     cfg=validate_config({**DEFAULTS,'auto_update_on_startup':False})
     assert cfg['auto_update_on_startup'] is False
-    assert validate_config(DEFAULTS)['auto_update_on_startup'] is True
+    assert validate_config(DEFAULTS)['auto_update_on_startup'] is False
 
 
 def test_db_snapshot_too_large_cancels_update(installation,monkeypatch):

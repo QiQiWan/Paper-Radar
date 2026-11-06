@@ -130,7 +130,7 @@ class UpdateChecker:
         copy['startup_update'] = {key:root_status.get(key) for key in
             ('state','message','at','installed_version','previous_version','attempted_version')
             if key in root_status}
-        copy.update(current_version=__version__, enabled=bool(cfg.get('update_check_enabled', True)),
+        copy.update(can_install=not getattr(sys,'frozen',False),current_version=__version__, enabled=bool(cfg.get('update_check_enabled', True)),
                     checking=busy, releases_url=RELEASES_URL)
         copy['dismissed'] = (copy.get('tag_name') and
                              copy.get('tag_name') == cfg.get('dismissed_update_tag')) or False

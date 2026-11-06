@@ -308,3 +308,18 @@ html[data-theme="dark"] .settings-section{background:var(--surface)}
 .library-more-filters .library-organize{margin:12px 0}
 .zotero-advanced>.zotero-guide{margin:12px 0}
 .library-more-filters>summary:focus-visible,.zotero-advanced>summary:focus-visible{outline:3px solid #5e89d7;outline-offset:2px}
+/* v1.28.0: focused first-run onboarding and clear manual update controls. */
+.welcome-wizard{border:1px solid #d7e5eb;border-radius:18px;padding:28px;max-width:min(92vw,520px);width:100%;box-shadow:0 28px 90px rgba(16,53,71,.26);color:#1b3a49;background:#fff}
+.welcome-wizard::backdrop{background:rgba(12,32,43,.55)}
+.welcome-header{display:flex;align-items:center;gap:10px;font-weight:700;color:#195b70}
+.welcome-mark{display:inline-grid;place-items:center;width:31px;height:31px;border-radius:8px;background:#e5f2f5;font-size:20px}
+.welcome-progress{display:flex;align-items:center;justify-content:space-between;margin:23px 0 12px;color:#617b88;font-size:13px}
+.welcome-wizard h2{font-size:25px;line-height:1.45;margin:0 0 12px}
+.welcome-wizard p{color:#476372;line-height:1.8;min-height:75px}
+.welcome-actions{display:flex;justify-content:space-between;align-items:center;gap:15px;margin-top:25px}
+.welcome-actions a{color:#146a80;font-weight:600;font-size:13px;text-decoration:none}
+.help-nav-link{text-decoration:none}
+.update-banner-actions{display:flex;align-items:center;flex-wrap:wrap;gap:8px}
+.update-banner-actions .button{white-space:nowrap}
+#handoffStatusText:empty{display:none}
+@media(max-width:620px){.welcome-wizard{padding:22px}.welcome-wizard h2{font-size:22px}.update-banner-actions{width:100%}}

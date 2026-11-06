@@ -33,15 +33,44 @@ def ensure_dependencies(root: Path, *, updated=False, runner=None) -> None:
         raise RuntimeError('升级后仍缺少所需依赖，启动被阻止。')
 
 
-def launch(root: Path, *, runner=None) -> None:
+def launch(root: Path, *, runner=None, mode=None) -> None:
     runner = runner or subprocess.run
-    outcome = runner([sys.executable,str(root/'main.py'),'--launch'],cwd=str(root))
+    mode = mode or read_startup_settings(root)['service_run_mode']
+    if mode not in ('foreground','background'):
+        raise ValueError('Invalid service run mode')
+    # A second shell invocation must not bind the same port twice.
+    free_foreground_port=None
+    if runner is subprocess.run:
+        from paper_radar.desktop_manager import find_service, free_port
+        from paper_radar.desktop_identity import read_or_create_secret, instance_fingerprint
+        owner=instance_fingerprint(read_or_create_secret(root/'data'))
+        if find_service(owner) is not None:
+            from paper_radar.launcher import main as open_existing
+            print('检测到本用户已有本地服务，正在打开现有工作台。',flush=True)
+            open_existing()
+            return
+        if mode=='foreground':
+            free_foreground_port=free_port()
+            if free_foreground_port is None:
+                raise RuntimeError('本机服务端口都已占用，请关闭其他实例后重试。')
+    entry = '--web' if mode == 'foreground' else '--launch'
+    print(('前台运行：按 Ctrl+C 停止本地服务。' if mode == 'foreground' else
+           '后台运行：可在网页设置或桌面管理器中停止服务。'), flush=True)
+    command=[sys.executable,str(root/'main.py'),entry]
+    if mode=='foreground' and free_foreground_port is not None and free_foreground_port!=8765:
+        command.extend(['--port',str(free_foreground_port)])
+    try:
+        outcome = runner(command,cwd=str(root))
+    except KeyboardInterrupt:
+        # Terminal users must be able to Ctrl+C without a Python traceback.
+        print('已收到中断请求，本地工作台已停止。',flush=True)
+        return
     if outcome.returncode:
         raise RuntimeError('本地工作台未启动，请查看 logs/web_server.log。')
 
 
 def startup(root: Path = ROOT, *, updater=None, do_update=True,
-            runner=None) -> int:
+            runner=None, mode=None) -> int:
     root=Path(root).resolve()
     updater=updater or StartupUpdater(root)
     settings=read_startup_settings(root)
@@ -54,7 +83,7 @@ def startup(root: Path = ROOT, *, updater=None, do_update=True,
     updated=result.get('state')=='updated'
     try:
         ensure_dependencies(root,updated=updated,runner=runner)
-        launch(root,runner=runner)
+        launch(root,runner=runner,mode=mode)
         if updated:
             updater.status('success','新版依赖检查及本地工作台启动均已通过。',
                            previous_version=result.get('previous_version'),
@@ -69,7 +98,7 @@ def startup(root: Path = ROOT, *, updater=None, do_update=True,
                 if updater.mark_failed_and_rollback(failed_version=updater.local_version(),reason=str(exc)):
                     print('已恢复更新前程序，尝试使用原版本启动。',flush=True)
                     ensure_dependencies(root,updated=False,runner=runner)
-                    launch(root,runner=runner)
+                    launch(root,runner=runner,mode=mode)
                     return 0
             except Exception as recovery:
                 print('回滚启动失败：'+str(recovery),file=sys.stderr,flush=True)
@@ -80,8 +109,12 @@ def main(argv=None):
     import argparse
     parser=argparse.ArgumentParser(description='Paper-Radar 离线优先的安全启动器')
     parser.add_argument('--no-update',action='store_true',help='本次跳过自动检查')
+    mode=parser.add_mutually_exclusive_group()
+    mode.add_argument('--foreground',action='store_true',help='本次在终端前台运行；Ctrl+C 停止')
+    mode.add_argument('--background',action='store_true',help='本次在后台启动，由界面管理服务')
     args=parser.parse_args(argv)
-    return startup(do_update=not args.no_update)
+    override='foreground' if args.foreground else 'background' if args.background else None
+    return startup(do_update=not args.no_update,mode=override)
 
 
 if __name__ == '__main__':

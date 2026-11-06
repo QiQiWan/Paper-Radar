@@ -1,5 +1,7 @@
 # Paper-Radar GitHub Actions 自动构建与 Release 发布指南
 
+**GitHub Actions 中看不到工作流？** 请先阅读 [工作流可见性与安装检查](GITHUB_WORKFLOW_VISIBILITY.md)。源码更新 ZIP 内的 `Paper-Radar/` 一级目录需要剥除后，`.github/workflows` 才能成为远端仓库根目录。
+
 本仓库支持 **main 分支推送新版本后自动构建 4 组原生桌面包，并自动上传到 GitHub Releases**。版本发布不再需要手工进入 Actions 下载并逐个上传安装包。
 
 ## 1. 发布条件

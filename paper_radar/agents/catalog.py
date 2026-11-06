@@ -4,7 +4,7 @@ from .contracts import Agent, AgentSpec
 from .runtime import AgentRegistry
 from .stages import profile, discovery, quality, ranking, storage, summary, download, selection, report
 
-VERSION = '1.27.0'
+VERSION = '1.28.0'
 
 
 def build_registry() -> AgentRegistry:

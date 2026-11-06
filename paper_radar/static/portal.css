@@ -398,3 +398,7 @@ button,select,input{transition:border-color .12s ease,background-color .12s ease
  .workspace-toolbar .theme-picker{flex:1 1 auto;min-width:0}
  .workspace-toolbar #openTopicSettings{flex:0 0 auto}
 }
+/* Public guide access uses the same visual language as navigation. */
+.primary-nav a.help-nav-link{display:flex;align-items:center;gap:10px;width:100%;padding:11px 14px;border-radius:10px;color:inherit;font-size:inherit;text-decoration:none}
+.primary-nav a.help-nav-link:hover{background:rgba(45,116,137,.08)}
+.portal-help-link{font-size:13px;font-weight:600;color:#246e83;text-decoration:none;margin-right:14px}

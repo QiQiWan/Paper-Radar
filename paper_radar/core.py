@@ -64,7 +64,9 @@ DEFAULTS = {
     "ai_rerank_limit": 15,
     "schedule_all_topics": False,
     "update_check_enabled": True,
-    "auto_update_on_startup": True,
+    "auto_update_on_startup": False,
+    "service_run_mode": "foreground",
+    "onboarding_completed": False,
     "update_check_interval_hours": 24,
     "dismissed_update_tag": "",
     "active_topic_id": "default",
@@ -158,7 +160,12 @@ def validate_config(config: dict) -> dict:
     c["output_dir"] = str(c.get("output_dir", "reports")).strip() or "reports"
     c["sort_mode"] = "newest" if c.get("sort_mode") == "newest" else "relevance"
     c['update_check_enabled'] = bool(c.get('update_check_enabled', True))
-    c['auto_update_on_startup'] = bool(c.get('auto_update_on_startup', True))
+    c['auto_update_on_startup'] = bool(c.get('auto_update_on_startup', False))
+    mode = str(c.get('service_run_mode', 'foreground'))
+    if mode not in ('foreground', 'background'):
+        raise ValueError('本地服务运行方式只能选择前台或后台。')
+    c['service_run_mode'] = mode
+    c['onboarding_completed'] = bool(c.get('onboarding_completed', False))
     c['dismissed_update_tag'] = str(c.get('dismissed_update_tag') or '')[:40]
     from copy import deepcopy
     raw_topics = c.get('topics') or []

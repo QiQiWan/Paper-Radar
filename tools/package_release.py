@@ -49,8 +49,10 @@ def include(rel: Path) -> bool:
 def build(output: Path, root: Path = ROOT) -> int:
     from paper_radar import __version__
     from paper_radar.startup_update import unpack_verified
+    from tools.packaging.check_github_workflows import validate_repo, validate_archive
     output = output.resolve()
     root = Path(root).resolve()
+    validate_repo(root)
     output.parent.mkdir(parents=True, exist_ok=True)
     expected_name = f'Paper-Radar_v{__version__}_Source.zip'
     if output.name != expected_name:
@@ -65,6 +67,7 @@ def build(output: Path, root: Path = ROOT) -> int:
             info.external_attr = ((0o100755 if item.name.endswith('.sh') else 0o100644) << 16)
             archive.writestr(info,item.read_bytes(),compress_type=ZIP_DEFLATED,compresslevel=8)
         assert archive.testzip() is None
+    validate_archive(output, prefix='Paper-Radar/', root=root)
     import tempfile
     with tempfile.TemporaryDirectory(prefix='paper-radar-release-check-') as td:
         unpack_verified(output,Path(td),__version__)

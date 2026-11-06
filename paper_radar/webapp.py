@@ -60,6 +60,7 @@ class Runtime:
         self.stats_cache_key = None
         self.stats_cache_at = 0.0
         self.last_seen = time.monotonic()
+        self.maintenance_until = 0.0
 
     def push(self, text: str):
         line = f'[{datetime.now():%H:%M:%S}] {text}'
@@ -82,7 +83,8 @@ class Runtime:
         with self.lock:
             return {'busy': self.busy, 'phase': self.phase,
                     'logs': self.logs[-36:], 'job': self.job, 'result': self.last_result,
-                    'progress': dict(self.progress), 'started_at': self.started_at}
+                    'progress': dict(self.progress), 'started_at': self.started_at,
+                    'maintenance':time.monotonic() < self.maintenance_until}
 
     def schedule(self):
         """Read cached task status; Windows PowerShell lookup runs off the HTTP thread."""
@@ -138,6 +140,8 @@ class Runtime:
     def start(self, mode: str, ids: list[str] | None = None):
         config_snapshot = read_config()
         with self.lock:
+            if time.monotonic() < self.maintenance_until:
+                raise ValueError('正在准备升级，暂不接受新任务。')
             if self.busy:
                 raise ValueError('当前已有任务在执行。')
             self.busy = True
@@ -368,13 +372,37 @@ class Handler(BaseHTTPRequestHandler):
                 self.send_header('Content-Length', str(len(page)))
                 self.end_headers()
                 self.wfile.write(page)
-            elif route in {'/app.css', '/app.js'}:
+            elif route in {'/app.css', '/app.js', '/guide.css'}:
                 self.file_response(STATIC / route.lstrip('/'))
+            elif route.startswith('/guide/'):
+                from .help_pages import render_guide
+                payload=render_guide(route[len('/guide/'):])
+                if payload is None:
+                    self.send_error(404)
+                else:
+                    self.send_response(200)
+                    self.send_header('Content-Type','text/html; charset=utf-8')
+                    self.send_header('Content-Security-Policy',
+                                     "default-src 'self'; script-src 'none'; style-src 'self'; img-src 'none'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'")
+                    self.send_header('X-Content-Type-Options','nosniff')
+                    self.send_header('Cache-Control','no-store')
+                    self.send_header('Content-Length',str(len(payload)))
+                    self.end_headers()
+                    self.wfile.write(payload)
             elif route == '/api/health':
                 self.respond(200, {'app':APP_ID,'version':VERSION,
                     'desktop_instance':getattr(self.server,'desktop_instance',None)})
             elif route == '/api/update':
                 self.respond(200, update_checker.status(read_config()))
+            elif route == '/api/update/handoff':
+                from .update_handoff import state as update_handoff_state
+                self.respond(200,update_handoff_state())
+            elif route == '/api/process':
+                cfg=read_config()
+                self.respond(200,{'pid':os.getpid(),'port':self.server.server_port,
+                    'current_mode':'foreground' if '--web' in sys.argv else 'background',
+                    'next_launch_mode':cfg.get('service_run_mode','foreground'),
+                    'busy':runtime.state()['busy'],'maintenance':runtime.state()['maintenance']})
             elif route == '/api/topics':
                 self.respond(200, topic_list())
             elif route == '/api/state':
@@ -389,7 +417,9 @@ class Handler(BaseHTTPRequestHandler):
                      'api_presets':PRESETS, 'provider_info':PROVIDER_INFO, 'sources':available_sources(),
                      'source_access':credential_state(), 'downloaders':available_downloaders(),
                      'api_usage_local':read_usage(), 'topics_info':topic_list(),
-                     'update':update_checker.status(cfg)})
+                     'update':update_checker.status(cfg),
+                     'onboarding_needed':not cfg.get('onboarding_completed',False) and stats.get('archived',0)==0 and
+                         not bool(read_status().get('started_at'))})
             elif route == '/api/agents':
                 from .agents.catalog import build_registry, ON_DEMAND
                 from .agents.research.pipeline import research_registry
@@ -571,13 +601,18 @@ class Handler(BaseHTTPRequestHandler):
         runtime.last_seen = time.monotonic()
         origin = self.headers.get('Origin', '')
         expected = f'http://127.0.0.1:{self.server.server_port}'
-        if urlsplit(self.path).path == '/api/desktop/stop':
+        if urlsplit(self.path).path in ('/api/desktop/stop','/api/desktop/resume'):
             # Only a manager holding this OS user's private on-disk key may
             # stop an attached instance. Never accept another user's service.
             supplied=self.headers.get('X-Desktop-Supervision-Key','')
             actual=getattr(self.server,'desktop_supervision_key','')
             if origin and origin != expected or not actual or not secrets.compare_digest(supplied,actual):
                 self.respond(403, {'error':'桌面服务管理身份校验未通过'})
+                return
+            if urlsplit(self.path).path == '/api/desktop/resume':
+                with runtime.lock:
+                    runtime.maintenance_until=0
+                self.respond(200,{'ok':True})
                 return
             if runtime.state()['busy']:
                 self.respond(409, {'error':'科研任务执行中，请任务完成后再停止服务'})
@@ -600,7 +635,45 @@ class Handler(BaseHTTPRequestHandler):
             if not isinstance(data, dict):
                 raise ValueError('JSON 请求格式错误。')
             route = urlsplit(self.path).path
-            if route == '/api/update/check':
+            if route == '/api/onboarding/complete':
+                cfg=read_config()
+                cfg['onboarding_completed']=True
+                save_config(cfg)
+                self.respond(200,{'ok':True})
+            elif route == '/api/update/install':
+                from .startup_update import StartupUpdater
+                from .update_handoff import schedule_install, HANDOFF_TIMEOUT
+                if getattr(sys,'frozen',False):
+                    self.respond(409,{'error':'安装版请通过官方下载安装包升级。'})
+                    return
+                status=update_checker.status(read_config())
+                if status.get('state')!='available' or not status.get('enabled'):
+                    self.respond(409,{'error':'未发现可安装的公开正式 Release，请先检查更新。'})
+                    return
+                if data.get('confirm') is not True or data.get('tag_name')!=status.get('tag_name'):
+                    self.respond(400,{'error':'必须确认与最新正式 Release 一致的版本。'})
+                    return
+                updater=StartupUpdater(Path(__file__).resolve().parent.parent)
+                if updater.public_service_running():
+                    self.respond(409,{'error':'检测到公网服务运行，请管理员维护窗口升级，不能由桌面端关闭。'})
+                    return
+                if LOCK_FILE.exists():
+                    self.respond(409,{'error':'后台科研任务正在运行，请任务完成后再执行升级。'})
+                    return
+                with runtime.lock:
+                    if time.monotonic() < runtime.maintenance_until:
+                        self.respond(409,{'error':'已有更新正在准备，请查看更新状态。'})
+                        return
+                    runtime.maintenance_until=time.monotonic()+HANDOFF_TIMEOUT+25
+                target=str(status.get('latest_version') or '')
+                if not schedule_install(self.server.server_port,target,updater.root):
+                    with runtime.lock:
+                        runtime.maintenance_until=0
+                    self.respond(409,{'error':'升级任务已存在或无法启动，请检查更新日志。'})
+                    return
+                self.respond(202,{'ok':True,'state':'queued','target_version':target,
+                    'message':'已接受确认；当前任务完成后将安全停止服务、安装并重启。'})
+            elif route == '/api/update/check':
                 launched = update_checker.schedule(read_config(), force=True)
                 self.respond(202, {'ok':True, 'started':launched,
                                    'status':update_checker.status(read_config())})
@@ -633,7 +706,7 @@ class Handler(BaseHTTPRequestHandler):
                            'sources','auto_download','download_limit','max_pdf_mb',
                            'zotero_enabled','zotero_mode','zotero_db_path','zotero_collection_key',
                            'zotero_include_children','zotero_refresh_keywords','zotero_keyword_limit',
-                           'max_queries_per_source','source_query_timeout_seconds','source_total_timeout_seconds','update_check_enabled','auto_update_on_startup','update_check_interval_hours',
+                           'max_queries_per_source','source_query_timeout_seconds','source_total_timeout_seconds','update_check_enabled','auto_update_on_startup','update_check_interval_hours','service_run_mode',
                            'research_goal','ai_rerank_enabled','ai_rerank_limit','schedule_all_topics'}
                 cfg = read_config()
                 cfg.update({k:v for k,v in data.items() if k in allowed})
@@ -806,13 +879,15 @@ def run_server(port: int = 8765):
         while True:
             time.sleep(15)
             update_checker.schedule(read_config())  # persisted 24h cooldown
-            if time.monotonic()-runtime.last_seen > 600 and not runtime.state()['busy']:
+            if '--web' not in sys.argv and read_config().get('service_run_mode')!='background' and time.monotonic()-runtime.last_seen > 600 and not runtime.state()['busy']:
                 httpd.shutdown()
                 return
     Thread(target=idle_watch,daemon=True).start()
     print(f'Paper-Radar running at http://127.0.0.1:{port}', flush=True)
     try:
         httpd.serve_forever(poll_interval=.3)
+    except KeyboardInterrupt:
+        print('已收到 Ctrl+C，Paper-Radar 服务正在退出。',flush=True)
     finally:
         httpd.server_close()
 

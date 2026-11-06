@@ -1,6 +1,6 @@
 [project]
 name = "paper-radar-local"
-version = "1.27.0"
+version = "1.28.0"
 description = "Local research paper discovery, Zotero topic matching, local PDF evidence reading and reports"
 readme = "README.md"
 requires-python = ">=3.10"

@@ -27,6 +27,7 @@ def build(*, output:Path|None=None):
          '--collect-submodules','paper_radar',
          '--hidden-import','tkinter',
          '--add-data',str(ROOT/'paper_radar'/'static')+sep+'paper_radar/static',
+         '--add-data',str(ROOT/'docs')+sep+'docs',
          '--add-data',str(ROOT/'paper_radar'/'release_public_keys.json')+sep+'paper_radar',
          str(ROOT/'paper_radar'/'desktop_app.py')]
     subprocess.run(cmd,check=True,cwd=ROOT)

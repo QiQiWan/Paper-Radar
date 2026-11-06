@@ -10,7 +10,7 @@
 <body>
 <header class="topbar">
 <div class="brand"><span aria-hidden="true" class="mark">↗</span><div><strong>Paper-Radar</strong><small>科研工作台</small></div></div>
-<div class="top-actions"><span id="accountLabel"></span><button hidden="" id="logout" type="button">退出登录</button></div>
+<div class="top-actions"><a class="portal-help-link" href="/guide/portal">使用帮助</a><span id="accountLabel"></span><button hidden="" id="logout" type="button">退出登录</button></div>
 </header>
 <div aria-live="polite" class="message" hidden="" id="message" role="status" tabindex="-1"></div>
 <main id="mainContent">
@@ -29,7 +29,8 @@
 <button data-view="reports" type="button"><span aria-hidden="true" class="nav-glyph">▥</span><span>研究报告</span></button>
 <div class="nav-spacer"></div>
 <button data-view="account" type="button"><span aria-hidden="true" class="nav-glyph">◎</span><span>设置</span></button>
-<div class="nav-foot">Paper-Radar <span id="portalVersion">v1.27.0</span><small>科研数据仅限本人可见</small></div>
+<a class="help-nav-link" href="/guide/portal"><span aria-hidden="true" class="nav-glyph">?</span><span>使用教程</span></a>
+<div class="nav-foot">Paper-Radar <span id="portalVersion">v1.28.0</span><small>科研数据仅限本人可见</small></div>
 </nav>
 <div class="page-body">
 <div class="workspace-toolbar"><div class="toolbar-title"><span hidden="" id="currentPageEn">WORKSPACE</span><span class="toolbar-breadcrumb" id="currentPageName">工作台</span></div><label class="theme-picker" for="topicSelect">研究主题<select aria-label="当前研究主题" id="topicSelect"></select></label><button class="quiet-link" id="openTopicSettings" type="button">编辑主题与检索来源</button></div>

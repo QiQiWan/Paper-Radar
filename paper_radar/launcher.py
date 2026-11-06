@@ -25,12 +25,20 @@ def health(port: int) -> bool:
 
 def main():
     root=Path(__file__).resolve().parent.parent
+    # A local port can be used by another account. Only attach to an
+    # installation carrying our private per-user service fingerprint.
+    from .desktop_identity import read_or_create_secret, instance_fingerprint
+    from .desktop_manager import read_health
+    owner=instance_fingerprint(read_or_create_secret(root/'data'))
     selected=None
     for port in range(BASE_PORT,BASE_PORT+12):
-        if health(port):
+        online=read_health(port)
+        if online and online.get('desktop_instance')==owner:
             webbrowser.open(f'http://127.0.0.1:{port}')
-            print('已打开 Paper-Radar 工作台')
+            print('已打开当前用户的 Paper-Radar 工作台')
             return
+        if online:  # Foreign-account Paper-Radar: never attach or reuse port.
+            continue
         import socket
         with socket.socket() as test:
             test.settimeout(.3)
@@ -51,7 +59,8 @@ def main():
                          close_fds=True,creationflags=getattr(subprocess,'CREATE_NO_WINDOW',0) if os.name=='nt' else 0,
                          start_new_session=os.name!='nt')
     for _ in range(30):
-        if health(selected):
+        online=read_health(selected)
+        if online and online.get('desktop_instance')==owner:
             webbrowser.open(f'http://127.0.0.1:{selected}')
             print('Paper-Radar 已打开：'+f'http://127.0.0.1:{selected}')
             return

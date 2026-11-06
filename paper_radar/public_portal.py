@@ -498,6 +498,19 @@ class Handler(BaseHTTPRequestHandler):
                 '/portal.css':('portal.css','text/css; charset=utf-8')}
             file,type_=names[route]
             return self.send_static(STATIC/file,type_)
+        if route=='/guide.css':
+            return self.send_static(STATIC/'guide.css','text/css; charset=utf-8')
+        if route.startswith('/guide/'):
+            from .help_pages import render_guide
+            body=render_guide(route[len('/guide/'):],public=True)
+            if body is None:
+                return self.send_json(404,{'error':'文档不存在'})
+            self.send_response(200)
+            self.send_header('Content-Type','text/html; charset=utf-8')
+            self.security_headers()
+            self.send_header('Content-Length',str(len(body)))
+            self.end_headers();self.wfile.write(body)
+            return
         if route=='/api/public/health':
             return self.send_json(200,{'name':'Paper-Radar Public','version':__version__,
                                        'registration_enabled':self.server.portal.allow_registration})

@@ -25,6 +25,7 @@
 <button class="nav-link" data-view="tasks"><span class="nav-symbol">◷</span><span>任务中心</span></button>
 <button class="nav-link" data-view="reports"><span class="nav-symbol">▥</span><span>研究报告</span></button>
 <button class="nav-link" data-view="settings"><span class="nav-symbol">⚙</span><span>设置</span></button>
+<a class="nav-link help-nav-link" href="/guide/quickstart"><span class="nav-symbol">?</span><span>使用教程</span></a>
 </nav>
 <details class="sidebar-extra" id="localExtraTools"><summary>扩展工具 <span aria-hidden="true">⌄</span></summary>
 <button class="nav-link" data-view="zotero"><span class="nav-symbol">◎</span><span>Zotero 研究方向</span></button>
@@ -32,7 +33,7 @@
 </details>
 <div class="sidebar-footer">
 <button class="theme-button" id="themeToggle" type="button">◐ <span>切换外观</span></button>
-<div class="app-version" id="appVersion">Paper-Radar v1.27.0</div>
+<div class="app-version" id="appVersion">Paper-Radar v1.28.0</div>
 </div>
 </aside>
 <main class="workspace">
@@ -42,8 +43,8 @@
 </header>
 <section aria-live="polite" class="update-banner" hidden="" id="updateBanner" role="status">
 <div class="update-banner-copy"><strong id="updateBannerTitle">发现新版本</strong>
-<p id="updateBannerText">请关闭工作台，下一次正常启动时将自动检查并安全安装正式版本。</p></div>
-<div class="update-banner-actions"><a class="button primary" href="https://github.com/QiQiWan/Paper-Radar/releases" id="updateReleaseLink" rel="noopener noreferrer" target="_blank">查看官方版本</a>
+<p id="updateBannerText">可确认安装。系统会等待任务结束、安全停止本地服务并重启。</p></div>
+<div class="update-banner-actions"><button class="button primary" id="installUpdate" type="button">确认并安装</button><a class="button secondary" href="https://github.com/QiQiWan/Paper-Radar/releases" id="updateReleaseLink" rel="noopener noreferrer" target="_blank">查看官方版本</a>
 <button class="button secondary" id="dismissUpdate" type="button">本版本不再提醒</button></div>
 </section>
 <section aria-live="polite" class="task-center" hidden="" id="taskCenter">
@@ -213,24 +214,28 @@
 <p class="hint">只下载开放获取的 PDF。部分论文只有网页链接，系统不会绕过付费墙。</p>
 <button class="button secondary" id="saveDownloadSettings" type="button">保存下载设置</button>
 </section></div></details><details class="settings-section" id="settings-update"><summary><strong>软件更新</strong><span>自动更新、检查版本</span></summary><div class="settings-section-body"><section aria-labelledby="updateSettingsTitle" class="panel update-settings" style="margin-top:20px">
-<div class="panel-top"><h2 id="updateSettingsTitle">软件更新检查</h2><span class="pill muted">GitHub Release</span></div>
+<div class="panel-top"><h2 id="updateSettingsTitle">软件更新与运行</h2><span class="pill muted">本地服务</span></div>
+<div class="field-grid"><label class="form-label" for="serviceRunMode">通过启动脚本运行时
+<select class="select" id="serviceRunMode"><option value="foreground">前台运行（推荐，可 Ctrl+C 停止）</option><option value="background">后台运行（关闭终端后继续）</option></select></label>
+<div><span class="form-label">当前服务</span><div class="hint" id="processState" role="status">正在检查…</div><div class="minor">更改启动方式在下次运行脚本时生效；桌面安装版继续使用图形运行管理器。</div></div></div>
 <label class="toggle-line"><input checked="" id="updateEnabled" type="checkbox"/><span>运行时后台检查正式版本</span></label>
-<label class="toggle-line"><input checked="" id="autoUpdateStartup" type="checkbox"/><span>启动前自动下载、校验并安装新版本（推荐）</span></label>
+<label class="toggle-line"><input checked="" id="autoUpdateStartup" type="checkbox"/><span>启动前自动安装正式更新（可选；默认关闭）</span></label>
 <div class="field-grid"><label class="form-label" for="updateInterval">自动检查间隔（小时）
           <input class="input" id="updateInterval" max="168" min="6" type="number" value="24"/></label>
 <div><span class="form-label">检查状态</span><div class="hint" id="updateStatusText" role="status">尚未检查。</div><div class="hint" id="startupUpdateStatusText" role="status" style="margin-top:6px">启动自动更新：尚无记录。</div></div></div>
 <div class="settings-actions"><button class="button secondary" id="saveUpdateSettings" type="button">保存更新设置</button>
 <button class="button secondary" id="checkUpdate" type="button">立即检查更新</button>
+<button class="button primary" id="installUpdateSettings" type="button" hidden>确认并安装新版本</button>
 <a class="text-button" href="https://github.com/QiQiWan/Paper-Radar/releases" id="updateLatestLink" rel="noopener noreferrer" target="_blank">官方发布记录 ↗</a></div>
-<p class="hint">更新将进行校验和备份；失败时保留当前版本。个人数据不会被覆盖。</p>
+<p class="hint">手动确认后将先等待任务完成，再关闭本用户的本地服务、校验安装包并重启。公网服务与原生 EXE/APP 需按相应部署方式升级。</p><div class="hint" id="handoffStatusText" role="status"></div>
 </section></div></details><details class="settings-section" id="settings-advanced"><summary><strong>运行诊断</strong><span>Agent 状态、历史记录和关闭服务</span></summary><div class="settings-section-body"><section aria-labelledby="agentSettingsTitle" class="panel agent-settings" style="margin-top:20px">
 <div class="panel-top"><div><h2 id="agentSettingsTitle">Agent 工作流</h2><p class="hint">独立功能模块按固定依赖执行。这里可查看各阶段职责、最新运行状态和耗时。</p></div><button class="button secondary" id="refreshAgents" type="button">刷新 Agent 状态</button></div>
 <div class="hint" id="agentOverview" role="status">正在读取 Agent 定义…</div>
 <div class="agent-grid" id="agentGrid"></div><details class="search-advanced" style="margin-top:12px"><summary>科研实验 Agent 链（按需执行）</summary><div class="agent-grid" id="agentResearch"></div></details><details class="search-advanced" style="margin-top:12px"><summary>跨论文比较 Agent 链（按需执行）</summary><div class="agent-grid" id="agentSynthesis"></div></details>
 <details class="search-advanced" style="margin-top:12px"><summary>其他按需服务 <span>全文 · 实验分析 · 评估 · 版本检查</span></summary><div class="agent-list minor" id="agentOnDemand"></div></details>
-</section><section class="panel" style="margin-top:20px"><div class="panel-top"><h2>运行记录</h2><div class="log-controls"><select aria-label="任务日志来源" class="select" id="logSource"><option value="manual">手动任务</option><option value="scheduled">每日后台任务</option></select><button class="text-button" id="refreshLogs">刷新</button></div></div><pre class="log-box" id="logBox">暂无运行记录。</pre><div class="panel-top" style="margin-top:20px"><h3>近期检索结果</h3><button class="text-button" id="refreshHistory" type="button">刷新</button></div><div class="history-list minor" id="historyList">正在读取…</div><div class="settings-actions"><button class="text-button danger" id="shutdown">关闭本地工作台</button></div></section></div></details></div>
+</section><section class="panel" style="margin-top:20px"><div class="panel-top"><h2>运行记录</h2><div class="log-controls"><select aria-label="任务日志来源" class="select" id="logSource"><option value="manual">手动任务</option><option value="scheduled">每日后台任务</option></select><button class="text-button" id="refreshLogs">刷新</button></div></div><pre class="log-box" id="logBox">暂无运行记录。</pre><div class="panel-top" style="margin-top:20px"><h3>近期检索结果</h3><button class="text-button" id="refreshHistory" type="button">刷新</button></div><div class="history-list minor" id="historyList">正在读取…</div><div class="settings-actions"><button class="text-button danger" id="shutdown">停止本地服务</button><a class="text-button" href="/guide/desktop">查看前后台运行与更新教程 →</a></div></section></div></details></div>
 </section>
-<footer class="page-footer">Paper-Radar · © 2026 @EatRice · MIT License · 本地保存论文与报告</footer>
+<footer class="page-footer">Paper-Radar · © 2026 @EatRice · MIT License · <a href="/guide/quickstart">快速入门</a> · <a href="/guide/usage">完整使用教程</a></footer>
 </main>
 </div>
 <dialog aria-labelledby="fulltextTitle" class="markdown-dialog fulltext-dialog" id="fulltextDialog">
@@ -254,5 +259,10 @@
 <article class="markdown-rendered" id="markdownRendered" tabindex="0">正在读取报告…</article>
 </dialog>
 <div aria-live="polite" id="toast" role="status"></div>
-</body>
+<dialog id="welcomeWizard" class="welcome-wizard" aria-labelledby="welcomeTitle">
+<div class="welcome-header"><span class="welcome-mark">↗</span><span>Paper-Radar · 首次使用</span></div>
+<div class="welcome-progress"><span id="welcomeStep">第 1 / 3 步</span><button class="text-button" id="welcomeSkip" type="button">跳过引导</button></div>
+<h2 id="welcomeTitle">快速开始研究</h2><p id="welcomeText">输入研究关键词，点击“检索论文并更新报告”。无需提前配置模型。</p>
+<div class="welcome-actions"><a href="/guide/quickstart" target="_blank" rel="noopener">打开图文教程</a><button class="button primary" id="welcomeNext" type="button">下一步</button></div>
+</dialog></body>
 </html>

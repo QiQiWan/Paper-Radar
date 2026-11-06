@@ -239,6 +239,9 @@ def main():
     ttk.Button(buttons,text='启动',command=do_start).pack(side='left',padx=(0,6))
     ttk.Button(buttons,text='重启',command=do_restart).pack(side='left',padx=(0,6))
     ttk.Button(buttons,text='停止',command=do_stop).pack(side='left')
+    ttk.Button(buttons,text='使用教程',command=lambda:webbrowser.open(
+        f'http://127.0.0.1:{controller.port}/guide/quickstart') if controller.status().get('state')=='running'
+        else messagebox.showinfo('使用教程','请先启动服务，随后即可打开教程。')).pack(side='left',padx=(8,0))
     operation=tk.StringVar(value='正在检查科研任务…')
     ttk.Label(frame,textvariable=operation,wraplength=620).pack(anchor='w',pady=(0,8))
     progress_value=tk.DoubleVar(value=0)

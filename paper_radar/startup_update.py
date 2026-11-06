@@ -698,7 +698,8 @@ def read_startup_settings(root: Path) -> dict:
     """Read only update-specific booleans, no importing the application config."""
     source = read_json(Path(root)/'settings.json')
     return {'update_check_enabled':source.get('update_check_enabled',True) is not False,
-            'auto_update_on_startup':source.get('auto_update_on_startup',True) is not False}
+            'auto_update_on_startup':source.get('auto_update_on_startup',False) is True,
+            'service_run_mode':source.get('service_run_mode') if source.get('service_run_mode') in ('foreground','background') else 'foreground'}
 
 
 def cli(argv=None):

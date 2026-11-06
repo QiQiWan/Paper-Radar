@@ -5,11 +5,19 @@
 Paper-Radar 提供本地科研文献追踪工作台与独立的多账号公网科研门户。桌面版可在个人电脑上完整使用，本次新增的公网版为面向互联网开放的受控功能集。输入研究关键词，或选择本机 Zotero 收藏夹作为研究参考，可以检索最近的论文、管理阅读状态、下载开放获取 PDF，并导出 Word、Markdown 与 CSV。界面通过本地浏览器访问，检索记录和报告保存在电脑上。
 
 - **正式仓库：** https://github.com/QiQiWan/Paper-Radar
-- **版本：** 1.27.0
+- **版本：** 1.28.0
 - **作者与版权：** © 2026 @EatRice，代码按照 [MIT License](LICENSE) 发布（发布者须确认完整代码的授权资格）。
 - **环境：** 源码运行需要 Python 3.10+；原生桌面发行包面向 Windows x64、Ubuntu amd64、macOS Apple Silicon / Intel 分平台独立构建，首次发布需完成签名与实机验收。
 
 ![Paper-Radar v1.27.0 精简后的本地工作台](docs/images/v127/local_dashboard.png)
+
+## v1.28.0：可管理的前后台服务、确认更新和内置教程
+
+- **启动方式：** Ubuntu/macOS 的 `./start_macos_linux.sh` 默认前台运行，按 `Ctrl+C` 停止。需要后台运行时使用 `--background`，或在“设置 → 软件更新与运行”保存启动模式后再次启动。Windows 脚本与桌面管理器继续可用。
+- **停止与监控：** 设置中可查看当前进程号、服务端口、前后台模式；同一操作系统用户可通过网页或桌面管理器安全停止本机服务，执行中的科研任务不会被强制杀掉。独立运行管理器可以重新接管已有服务。
+- **手动更新：** 发现新的**公开正式 Release** 后，确认安装会由独立升级进程等待任务结束，停止同一用户的本地服务、校验发布附件、备份和安装，并尝试重启。公网服务和冻结 EXE/APP 继续采用独立升级流程；当前 GitHub CI 自动发布的 Prerelease 不会被源码更新器当作正式版。
+- **首次引导与文档：** 初次使用显示三步引导。工作台“使用教程”以及桌面管理器均可打开内置文档中心，支持快速入门、操作手册、Zotero、来源授权和更新管理教程。所有文档只从固定白名单读取。
+- **数据兼容：** 不增加数据库迁移；升级前仍应停止服务并备份用户数据。详见 [操作指南](docs/QUICKSTART_V1.28.0.md)、[运行与更新](docs/RUNTIME_AND_UPDATES_V1.28.0.md)、[发行与验收](docs/RELEASE_NOTES_V1.28.0.md)。
 
 ## v1.27.0：简化界面、保留完整科研能力
 
@@ -267,3 +275,8 @@ python tools/package_release.py --out Paper-Radar_Source.zip
 ## GitHub 自动发布
 
 将新版本代码推送至 `main` 后，工作流会自动完成四平台构建与 GitHub Prerelease 发布；必须同步提高 `paper_radar/__init__.py` 和 `pyproject.toml` 中的版本号。使用方法、附件名称和签名限制参见 [GitHub 自动发布指南](docs/GITHUB_AUTO_RELEASE.md)。
+
+
+### GitHub Actions 无法显示自动构建工作流
+
+请核对工作流存在于**远端仓库根目录**的 `.github/workflows/desktop-release.yml` 和 `.github/workflows/ci.yml`。源码 ZIP 为自动更新用途含有额外的 `Paper-Radar/` 目录，同步 GitHub 请使用专用仓库根目录 ZIP。详细步骤见 [GitHub 工作流安装与排查](docs/GITHUB_WORKFLOW_VISIBILITY.md)。
