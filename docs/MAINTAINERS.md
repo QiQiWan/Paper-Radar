@@ -51,7 +51,7 @@ python -m tools.packaging.package_github_repo --out dist/Paper-Radar_vX.Y.Z_GitH
 
 正式 GitHub 仓库必须直接存在 `.github/workflows/ci.yml` 与 `.github/workflows/desktop-release.yml`；不能把 `Paper-Radar/` 目录再嵌套一层作为仓库根目录。`package_release.py` 生成供**源码更新器**使用的 `Paper-Radar/` 顶层压缩包；`package_github_repo.py` 生成无嵌套、可直接导入仓库根目录的压缩包。
 
-发布流程先跑回归和 Chromium 性能测试，再在 Windows、Ubuntu、macOS ARM/Intel 上构建和验证安装包。正式发行要求完整附件 SHA-256 校验、独立 Ed25519 签名与人工原生平台批准。缺少签名或批准时仅发布 Prerelease，不允许自动升级。签名私钥只存放 GitHub Actions Secret `PAPER_RADAR_RELEASE_SIGNING_KEY_PEM`；人工批准变量为 `PAPER_RADAR_NATIVE_RELEASE_APPROVED`，其值必须与版本标签一致。用户安装包不能包含私钥。
+发布流程先跑回归和 Chromium 性能测试，再在 Windows、Ubuntu、macOS ARM/Intel 上构建和验证安装包。完整附件和 SHA-256 校验通过后发布正式 GitHub Release（可手动下载安装）。源码自动更新另有独立安全门槛：必须同时提供与版本一致的原生平台人工批准以及受仓库固定公钥验证的 Ed25519 签名；缺少任一项时正式 Release 仅供手动下载安装，程序不展示自动安装按钮。签名私钥只存放 GitHub Actions Secret `PAPER_RADAR_RELEASE_SIGNING_KEY_PEM`；人工批准变量为 `PAPER_RADAR_NATIVE_RELEASE_APPROVED`，其值必须与版本标签一致。用户安装包不能包含私钥。
 
 发行后如需将既有已签名 Prerelease 晋升正式版，在 Actions 的 `desktop-release.yml` 通过 `promote_tag` 触发审核，流程核对旧附件签名和哈希，仅更新 Release 状态，不重新打包。
 

@@ -157,6 +157,10 @@ def release_asset(info: dict, current: str = __version__) -> dict | None:
                 if len(matches)!=1 or matches[0].get('browser_download_url')!=exact:
                     raise UpdateError('Release 签名附件地址无效。')
                 ancillary[label+'_url']=exact
+        if local >= (1, 16, 0) and ('manifest_url' not in ancillary or 'signature_url' not in ancillary):
+            # The public Release is valid for manual installation but not for
+            # trusted source auto-upgrade; keep running the installed version.
+            return None
         return {'version':version, 'tag':tag, 'url':asset_url,
                 'sha256':match.group(1).lower(), 'size':size,
                 'release_url':page, **ancillary}

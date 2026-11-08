@@ -55,8 +55,11 @@ def test_clean_user_manual_retains_legacy_help_routes():
     assert {'USER_GUIDE.md','MAINTAINERS.md'} <= docs
     # Versioned retrieval migration notes are supported user documents,
     # not obsolete one-off repair scripts or runtime data.
-    assert all(name in {'USER_GUIDE.md','MAINTAINERS.md'} or
-               (name.startswith('RETRIEVAL_') and '_V' in name and name.endswith('.md'))
+    # Release notes and versioned UI audit reports are supported documents.
+    # Keep the guard against stray drafts without preventing future UI audits.
+    assert all(name in {'USER_GUIDE.md', 'MAINTAINERS.md'} or
+               (name.startswith(('RETRIEVAL_', 'UI_AUDIT_')) and
+                '_V' in name and name.endswith('.md'))
                for name in docs)
     assert len(GUIDES)>=11
     for slug in GUIDES:
