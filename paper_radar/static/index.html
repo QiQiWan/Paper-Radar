@@ -8,8 +8,9 @@
 <meta content="light dark" name="color-scheme"/>
 <meta content="__LOCAL_TOKEN__" name="local-token"/>
 <title>Paper-Radar · 科研文献工作台</title>
-<link href="app.css" rel="stylesheet"/>
-<script defer="" src="app.js"></script>
+<link href="/app.css" rel="stylesheet"/>
+<link href="/settings.css" rel="stylesheet"/><link href="/ui_polish.css" rel="stylesheet"/>
+<script defer="" src="/ui_state.js"></script><script defer="" src="/reading_links.js"></script><script defer="" src="/trace_workbench.js"></script><script defer="" src="/inquiry_workbench.js"></script><script defer="" src="/app.js"></script>
 </head>
 <body>
 <div class="app">
@@ -23,6 +24,8 @@
 <button class="nav-link active" data-view="dashboard"><span class="nav-symbol">⌂</span><span>工作台</span></button>
 <button class="nav-link" data-view="library"><span class="nav-symbol">▤</span><span>论文库</span><span class="nav-count" id="navLibraryCount">0</span></button>
 <button class="nav-link" data-view="tasks"><span class="nav-symbol">◷</span><span>任务中心</span></button>
+<button class="nav-link" data-view="following"><span class="nav-symbol">✦</span><span>研究跟进</span><span class="nav-count" id="followNavCount">0</span></button>
+<button class="nav-link" data-view="inquiry"><span class="nav-symbol">◇</span><span>研究助手</span></button>
 <button class="nav-link" data-view="reports"><span class="nav-symbol">▥</span><span>研究报告</span></button>
 <button class="nav-link" data-view="settings"><span class="nav-symbol">⚙</span><span>设置</span></button>
 <a class="nav-link help-nav-link" href="/guide/quickstart"><span class="nav-symbol">?</span><span>使用教程</span></a>
@@ -33,63 +36,80 @@
 </details>
 <div class="sidebar-footer">
 <button class="theme-button" id="themeToggle" type="button">◐ <span>切换外观</span></button>
-<div class="app-version" id="appVersion">Paper-Radar v1.28.0</div>
+<div class="app-version" id="appVersion">Paper-Radar v1.40.6</div>
 </div>
 </aside>
 <main class="workspace">
 <header class="topbar">
 <div class="breadcrumb"><span>本地工作空间</span><span class="crumb-sep">/</span><strong id="breadcrumbLabel">工作台</strong></div>
-<div class="top-actions"><span class="connection-dot"></span><span>本机运行</span><span id="clock"></span></div>
+<div class="top-actions"><button class="text-button" id="sharePageLocal" type="button">复制当前链接</button><a class="context-help-link" id="contextHelpLocal" href="/guide/quickstart">本页帮助 ↗</a><span class="connection-dot"></span><span>本机运行</span><span id="clock"></span></div>
 </header>
+<section aria-live="assertive" class="update-banner config-recovery-banner" hidden id="configRecoveryBanner" role="alert">
+  <div class="update-banner-copy"><strong>设置暂时不可用</strong>
+    <p id="configRecoveryText">配置文件无法读取。已暂停设置修改和新检索任务。</p>
+    <a href="/guide/desktop">查看数据目录与运行说明</a>
+  </div>
+</section>
+<section aria-live="assertive" class="storage-recovery-banner" id="storageRecoveryBanner" hidden role="alert">
+<div><strong>论文库暂时无法访问</strong><p id="storageRecoveryText">论文库无法访问，请检查数据目录和磁盘空间。</p>
+<small>请检查数据目录可写权限、磁盘空间及是否重复启动程序。</small></div>
+<button class="button secondary" id="storageRetry" type="button">重新检查</button>
+</section>
 <section aria-live="polite" class="update-banner" hidden="" id="updateBanner" role="status">
 <div class="update-banner-copy"><strong id="updateBannerTitle">发现新版本</strong>
 <p id="updateBannerText">可确认安装。系统会等待任务结束、安全停止本地服务并重启。</p></div>
 <div class="update-banner-actions"><button class="button primary" id="installUpdate" type="button">确认并安装</button><a class="button secondary" href="https://github.com/QiQiWan/Paper-Radar/releases" id="updateReleaseLink" rel="noopener noreferrer" target="_blank">查看官方版本</a>
 <button class="button secondary" id="dismissUpdate" type="button">本版本不再提醒</button></div>
 </section>
-<section aria-live="polite" class="task-center" hidden="" id="taskCenter">
-<div class="task-header"><div><strong id="taskStage">准备中</strong><span id="taskMeta">任务进度将在这里显示</span></div><span class="task-percent" id="taskPercent">0%</span></div>
-<progress aria-label="任务进度" id="taskProgressBar" max="100" value="0"></progress>
-<details class="source-diagnostics" hidden="" id="sourceDiagnosticsDetails"><summary>查看各文献来源的连接结果</summary><div aria-label="本次检索来源诊断" id="sourceDiagnostics" role="region"></div></details>
-<details id="taskLogDetails"><summary>查看这次任务的运行日志</summary><pre class="task-live-log" id="taskLiveLog">正在准备…</pre></details>
-</section>
+
 <section class="view active" id="dashboard">
-<div class="heading-row home-title">
-<div><h1>发现值得阅读的论文</h1><p class="lede">选择研究主题，检索论文并保存研究报告。</p></div>
-</div>
+<div class="heading-row home-title"><h1>文献检索</h1></div>
 <section aria-label="开始文献检索" class="panel search-hero">
-<div class="hero-topline"><div><h2>检索研究方向</h2></div></div>
+<div class="hero-topline" aria-hidden="true"></div>
 <div aria-label="研究主题管理" class="topic-switcher">
-<label class="form-label" for="activeTopic">当前研究主题
+<label class="form-label" for="activeTopic">研究主题
             <select aria-label="选择研究主题" class="select" id="activeTopic"><option value="default">默认研究主题</option></select>
 </label>
 <details class="local-topic-tools" id="localTopicTools"><summary>管理主题</summary><div class="topic-tools"><button class="button secondary compact" id="createTopic" type="button">新建主题</button>
 <button class="text-button" id="renameTopic" type="button">重命名</button>
 <button class="text-button danger" id="deleteTopic" type="button">删除</button></div></details></div>
-<label class="form-label" for="topicKeywords">研究关键词</label>
-<input autocomplete="off" class="input large search-keywords" id="topicKeywords" placeholder="例如 embankment, slope stability, finite element"/><div class="primary-actions hero-actions"><button class="button primary hero-submit" id="runSearch">检索论文并更新报告 →</button></div><details class="local-more-actions"><summary>其他执行方式</summary><div class="more-actions-row"><button class="button tertiary" id="runExport">仅更新本地报告</button><button class="button secondary" id="runAllTopics" type="button">依次追踪全部主题</button><button class="button secondary" data-view="reports" type="button">查看最近报告</button></div><div class="source-shortcut"><span>已在 Zotero 整理参考论文？</span><button class="text-button" data-view="zotero" type="button">按收藏夹找相关论文 →</button></div></details><details class="search-advanced" id="aiPlannerDisclosure">
-<summary>AI 帮我拟关键词（可选）</summary>
+<label class="form-label" for="topicKeywords">关键词</label>
+<input autocomplete="off" class="input large search-keywords" id="topicKeywords" placeholder="例如 neural operator, finite element, model reduction"/><div class="home-source-picker" id="homeSourcePicker" aria-label="检索来源选择">
+<div class="home-source-heading"><strong>文献来源</strong><button class="source-settings-link text-button" id="openSourceSettings" type="button">出版社授权</button></div>
+<div class="sources-inline" id="sourceOptions">
+<label class="source-choice"><input class="source-option" type="checkbox" value="arxiv" checked> arXiv</label>
+<label class="source-choice"><input class="source-option" type="checkbox" value="openalex" checked> OpenAlex</label>
+<label class="source-choice"><input class="source-option" type="checkbox" value="crossref" checked> Crossref</label>
+</div><p class="source-selection-message" id="sourceSelectionMessage" role="status">已选 3 个来源</p>
+</div>
+<div class="primary-actions hero-actions"><button class="button primary hero-submit" id="runSearch" disabled>开始检索</button><span class="minor" id="searchAvailability">正在检查工作区…</span></div><details class="local-more-actions"><summary>更多操作</summary><div class="more-actions-row"><button class="button tertiary" id="runExport">更新报告</button><button class="button secondary" id="runAllTopics" type="button">检索全部主题</button><button class="button secondary" data-view="reports" type="button">查看最近报告</button></div><div class="source-shortcut"><span>已在 Zotero 整理参考论文？</span><button class="text-button" data-view="zotero" type="button">按收藏夹找相关论文 →</button></div></details><details class="search-advanced" id="aiPlannerDisclosure">
+<summary>检索词建议 · 需模型授权</summary>
 <label class="form-label" for="aiResearchGoal">用自然语言描述研究目标</label>
 <textarea class="input ai-goal" id="aiResearchGoal" maxlength="1500" placeholder="例如：研究神经算子在复杂几何、多物理场和非规则网格上的跨场景泛化，希望关注新方法和对比实验。" rows="3"></textarea>
 <p class="hint">会将输入的研究目标发送给已配置的模型，请确认建议后再使用。</p>
-<div class="primary-actions"><button class="button secondary" id="aiPlanRequest" type="button">生成检索词建议</button><span class="minor" id="aiPlanStatus" role="status"></span></div>
+<div class="primary-actions"><button class="button secondary" id="aiPlanRequest" type="button">生成建议</button><span class="minor" id="aiPlanStatus" role="status"></span></div>
 <div class="ai-plan-result" hidden="" id="aiPlanResult">
 <div class="form-label" id="aiPlanTopic"></div>
 <label class="form-label" for="aiPlanWords">建议的英文检索词（可修改）</label>
 <textarea class="input ai-goal" id="aiPlanWords" rows="3"></textarea>
 <div class="hint" id="aiPlanNotes"></div>
-<button class="button secondary" id="aiPlanApply" type="button">应用至研究关键词</button>
+<button class="button secondary" id="aiPlanApply" type="button">使用这些关键词</button>
 </div>
-</details><details class="local-examples"><summary>查看关键词示例</summary><div class="preset-row"><span>示例主题</span><button class="chip" data-preset="neural operator, operator learning, physics informed">神经算子</button><button class="chip" data-preset="large language model, agent, reasoning">大语言模型</button><button class="chip" data-preset="battery thermal management, heat transfer">热管理</button><button class="chip" data-preset="embankment, slope stability, soil constitutive model">岩土工程</button></div></details>
-<details class="search-advanced" id="searchAdvanced"><summary>检索范围和选项 <span>来源 · 篇数 · 排序</span></summary>
-<p class="hint">开放来源可直接使用。出版社来源需要在设置中配置相应 API Key。</p>
-<div class="sources-inline" id="sourceOptions"><span>文献来源</span></div>
+</details><details class="local-examples"><summary>关键词示例</summary><div class="preset-row"><span>示例主题</span><button class="chip" data-preset="neural operator, operator learning, physics informed">神经算子</button><button class="chip" data-preset="large language model, agent, reasoning">大语言模型</button><button class="chip" data-preset="battery thermal management, heat transfer">热管理</button><button class="chip" data-preset="embankment, slope stability, soil constitutive model">岩土工程</button></div></details>
+<details class="search-advanced" id="searchAdvanced"><summary>检索范围与排序</summary>
+
+
 <div class="access-help" hidden="" id="sourceAccessHelp"></div>
 <div class="field-grid search-advanced-fields"><label class="form-label">每来源最多查询词数<input class="input" id="queryBudget" max="20" min="1" type="number" value="8"/></label><div class="hint">arXiv 使用组合查询；其他来源按词独立查询、去重，并记录失败的子查询。查询更多会增加等待时间及 API 用量。</div></div>
 <div class="field-grid search-advanced-fields"><label class="form-label">最多收录（篇）<input class="input" id="quickMaxResults" max="500" min="1" type="number" value="30"/></label><label class="form-label">结果排序<select class="select" id="quickSort"><option value="relevance">相关性优先</option><option value="newest">日期优先</option></select></label></div>
 </details>
-<p class="hint" hidden="" id="progressLine"><span id="progressText">任务正在运行，请查看顶部进度。</span></p></section>
-<div class="first-run-guide onboarding-compact" hidden="" id="firstRunGuide"><div class="guide-icon">1</div><div class="guide-copy"><strong>首次使用，从一次普通检索开始</strong><p>无需先连接 Zotero，也无需配置大模型。填写关键词后点击上面的蓝色按钮即可。</p></div><div class="guide-actions"><button class="button secondary" data-focus="topicKeywords">填写关键词</button></div></div>
+<p class="hint" hidden="" id="progressLine"><span id="progressText">任务正在运行，可在右下角查看进度。</span></p></section>
+<div class="first-run-guide onboarding-compact" hidden="" id="firstRunGuide"><div class="guide-icon">1</div><div class="guide-copy"><strong>第一次检索</strong><p>填写关键词、选择来源，点击“开始检索”。</p></div><div class="guide-actions"><button class="button secondary" data-focus="topicKeywords">填写关键词</button></div></div>
+<aside class="ai-discovery" id="aiDiscovery" hidden aria-live="polite">
+  <div><strong>开启阅读要点</strong><p>可连接你的模型 API。未配置时继续普通检索，之后随时开启。</p>
+  <a href="/guide/ai">了解 AI 会在哪些环节帮忙</a></div>
+  <div class="ai-discovery-actions"><button class="button secondary" id="aiDiscoverySetup" type="button">配置模型</button><button class="text-button" id="aiDiscoverySkip" type="button">暂不使用</button></div>
+</aside>
 <section aria-live="polite" class="next-step" hidden="" id="afterSearch"><div><strong>报告已更新</strong><span id="afterSearchText">可以阅读本期综述，或进入论文库管理结果。</span></div><div class="next-step-buttons"><button class="button primary" data-view="reports" type="button">阅读研究报告</button><button class="button secondary" data-view="library" type="button">管理论文库</button></div></section>
 <div class="stat-grid home-summary">
 <div class="stat-card"><span>本期入选</span><strong id="statMatched">—</strong><small>当前检索条件</small></div>
@@ -97,31 +117,49 @@
 <div class="stat-card"><span>已保存 PDF</span><strong id="statDownloaded">—</strong></div>
 <div class="stat-card accent"><span>最近一次运行</span><strong id="statRun">尚未运行</strong><small id="statRunDetail">运行记录自动保存</small></div>
 </div>
-<section class="panel recent-panel"><div class="panel-top"><div><div class="small-overline">阅读队列</div><h2>最近入库的论文</h2></div><button class="text-button" data-view="library" type="button">打开论文库 →</button></div><div class="paper-list compact-list" id="recentList"><div class="empty">完成一次检索后，这里会显示最近收录的论文。</div></div></section>
-<details class="schedule-disclosure" id="scheduleDisclosure"><summary><span>自动更新</span><span>设置每日计划任务，关闭网页后继续运行（Windows）</span><span class="disclosure-chevron">⌄</span></summary>
+<section class="panel recent-panel"><div class="panel-top"><div><h2>最近入库的论文</h2></div><button class="text-button" data-view="library" type="button">打开论文库 →</button></div><div class="paper-list compact-list" id="recentList"><div class="empty">暂无论文。输入关键词开始检索。</div></div></section>
+<details class="schedule-disclosure" id="scheduleDisclosure"><summary><span>自动更新</span><span>每天自动检索</span><span class="disclosure-chevron">⌄</span></summary>
 <section class="panel schedule-panel"><div class="panel-top"><div><h2>每日自动检索</h2><p class="hint">适合长期跟踪固定研究方向，任务到点运行后自动退出。</p></div><span class="pill muted" id="schedulePill">未开启</span></div><label class="form-label" for="taskTime">每天运行时间</label><div class="time-row"><input class="input" id="taskTime" type="time" value="08:30"/><button class="button primary outline" id="installTask">开启后台更新</button></div>
-<label class="toggle-line schedule-all-topics"><input id="scheduleAllTopics" type="checkbox"/><span>每日依次追踪全部研究主题（单个主题失败时继续处理其他主题）</span></label><div class="schedule-details" id="scheduleDetails">Windows 定时任务需电脑开机、联网，并满足用户登录条件。</div><div class="schedule-actions"><button class="text-button" id="triggerTask">立即执行一次</button><button class="text-button danger" id="removeTask">关闭后台更新</button></div><div class="running-card"><div class="small-overline">最近后台记录</div><div id="scheduleLast">尚无定时运行记录</div></div></section>
+<label class="toggle-line schedule-all-topics"><input id="scheduleAllTopics" type="checkbox"/><span>每天检索全部主题</span></label><div class="schedule-details" id="scheduleDetails">Windows 定时任务需电脑开机、联网，并满足用户登录条件。</div><div class="schedule-actions"><button class="text-button" id="triggerTask">立即执行一次</button><button class="text-button danger" id="removeTask">关闭后台更新</button></div><div class="running-card"><div class="small-overline">最近后台记录</div><div id="scheduleLast">尚无定时运行记录</div></div></section>
 </details>
 </section>
 <section class="view" id="tasks">
-<div class="heading-row"><div><div class="eyebrow">LOCAL RESEARCH TASKS</div><h1>任务中心</h1>
-<p class="lede">查看当前检索状态和最近执行记录。正在运行的任务会在页面顶部持续显示进度。</p></div>
+<div class="heading-row"><div><div class="eyebrow" hidden></div><h1>任务中心</h1>
+<p class="lede">查看检索结果和历史任务。</p></div>
 <button class="button secondary" id="taskViewRefresh" type="button">刷新任务记录</button></div>
-<section class="panel local-task-panel"><div class="panel-top"><h2>当前执行状态</h2><span class="pill muted">本机任务</span></div>
+<section class="panel local-task-panel"><div class="panel-top"><h2>当前任务</h2></div>
 <div aria-live="polite" class="local-task-status" id="taskViewStatus" role="status">正在读取最近任务…</div>
-<p class="hint" id="taskViewDetail">任务进度将在这里显示。关闭网页不影响已经建立的 Windows 定时任务。</p>
-<div class="local-task-buttons"><button class="button primary" data-view="dashboard" type="button">开始新的文献追踪</button>
+<p class="hint" id="taskViewDetail">正在处理。关闭网页不影响已经建立的 Windows 定时任务。</p>
+<div class="local-task-buttons"><button class="button primary" data-view="dashboard" type="button">开始检索</button>
 <button class="button secondary" data-view="reports" type="button">阅读研究报告</button></div>
 </section>
-<section class="panel local-task-panel"><div class="panel-top"><h2>最近任务记录</h2><span class="minor">当前研究主题</span></div>
+<section class="panel local-task-panel"><div class="panel-top"><h2>历史任务</h2></div>
 <div class="history-list" id="taskViewHistory"><div class="empty">加载中…</div></div>
 <p class="hint">后台计划任务的完整日志可以在“设置 → 运行记录”中查看。</p></section>
 </section>
+<section class="view" id="following">
+<div class="heading-row"><div><h1>研究跟进</h1><p class="lede">查看新收录论文、版本变化和未完成的来源检索。</p></div><button class="button secondary" type="button" id="followingRefresh">刷新</button></div>
+<section class="panel follow-summary"><div class="panel-top"><div><h2>当前主题</h2><p class="hint" id="followingIntro">正在读取追踪记录…</p></div><span class="pill" id="followingStatus">待检查</span></div>
+<div class="stat-grid" style="margin-top:12px"><div class="stat-card"><span>待处理更新</span><strong id="followingUnread">—</strong></div><div class="stat-card"><span>待补检来源</span><strong id="followingPending">—</strong></div><div class="stat-card"><span>上次检查</span><strong id="followingLast" style="font-size:14px">—</strong></div></div>
+<div class="settings-actions"><a class="button secondary" href="/api/following/digest" id="followingExport">导出本主题更新清单</a><button class="button secondary" type="button" id="followingMarkSeen">全部标记已读</button></div></section>
+<section class="panel"><div class="panel-top"><h2>来源覆盖情况</h2></div><div id="followingCheckpoints" class="follow-list"><p class="hint">等待首次检索</p></div></section>
+<section class="panel"><div class="panel-top"><h2>论文变更</h2><span class="minor">新论文、修订和发表信息</span></div><div id="followingEvents" class="follow-list"><p class="hint">暂时没有更新</p></div></section>
+
+<details class="panel follow-settings" id="followingPreferences"><summary><strong>提醒设置</strong> <span class="minor">按主题单独配置</span></summary>
+<label class="toggle-line"><input type="checkbox" id="followingEnabled" checked><span>跟进该研究主题</span></label>
+<label class="toggle-line"><input type="checkbox" id="followingAlertNew" checked><span>新论文进入收件箱</span></label>
+<label class="toggle-line"><input type="checkbox" id="followingAlertUpdated" checked><span>修订与元数据变化进入收件箱</span></label>
+<details><summary>邮件提醒（可选）</summary><p class="hint">需要在本机配置 SMTP 环境变量。邮件只包含论文元数据；默认关闭，不发送 PDF 或模型输入。</p>
+<label class="toggle-line"><input type="checkbox" id="followingEmailEnabled"><span>检索完成后发送摘要邮件</span></label>
+<label class="form-label" for="followingEmailTo">接收邮箱</label><input class="input" id="followingEmailTo" type="email" maxlength="254" placeholder="yourname@example.org"/>
+<button class="button tertiary" type="button" id="followingEmailRetry">重试发送待处理邮件</button></details>
+<div class="settings-actions"><button class="button primary" type="button" id="followingSave">保存提醒设置</button><span class="minor" id="followingSaved"></span></div></details>
+</section>
 <section class="view" id="zotero">
-<div class="heading-row"><div><div class="eyebrow">ZOTERO LIBRARY</div><h1>从 Zotero 收藏夹发现新论文</h1><p class="lede">选择已有的论文，提取检索关键词，继续跟踪相关研究。</p></div></div>
+<div class="heading-row"><div><div class="eyebrow" hidden></div><h1>从 Zotero 收藏夹发现新论文</h1><p class="lede">选择已有的论文，提取检索关键词，继续跟踪相关研究。</p></div></div>
 <div class="zotero-layout">
 <section class="panel zotero-connect-panel">
-<div class="panel-top"><div><div class="small-overline">01 · 连接</div><h2>连接 Zotero</h2></div><span class="pill">只读</span></div>
+<div class="panel-top"><div><div class="small-overline">01 · 连接</div><h2>连接 Zotero</h2></div><span class="pill">默认只读</span></div>
 
 
 
@@ -129,6 +167,17 @@
 
 
 <div class="zotero-activity" hidden="" id="zoteroActivity" role="status"><span class="spinner"></span><span id="zoteroActivityText">正在读取 Zotero…</span><progress></progress></div>
+<details class="zotero-advanced"><summary>把阅读笔记写入 Zotero（按需启用）</summary>
+<p class="hint">需要在启动环境中设置 ZOTERO_USER_ID 和有写权限的 ZOTERO_API_KEY。
+系统先按 DOI 找到现有 Zotero 题录，仅在人工确认后新建子笔记；不会覆盖题录、附件或标签。</p>
+<label class="form-label" for="zoteroSyncPaper">需要同步的本地论文 ID</label>
+<input id="zoteroSyncPaper" class="input" placeholder="从论文库复制 paper_id"/>
+<div class="settings-actions"><button class="button secondary" type="button" id="zoteroSyncPreview">预览写入</button>
+<button class="button primary" type="button" id="zoteroSyncConfirm" disabled>确认写入 Zotero</button></div>
+<p class="minor" id="zoteroSyncState" role="status">默认不向 Zotero 写入。</p>
+<div class="settings-actions"><button class="button secondary" type="button" id="zoteroPullPreview">预览从 Zotero 读取</button>
+<button class="button secondary" type="button" id="zoteroPullConfirm" disabled>确认合并到本地笔记</button></div>
+<p class="minor" id="zoteroPullState" role="status">只读取之前由 Paper-Radar 创建的唯一子笔记，保留本地原文。</p></details>
 <div class="settings-actions"><button class="button primary" id="zoteroConnect" type="button">连接并读取收藏夹</button><span class="minor" id="zoteroConnectionState">尚未连接</span></div><details class="zotero-advanced"><summary>连接方式与疑难排查</summary><label class="form-label" for="zoteroMode">连接方式</label><select class="select" id="zoteroMode"><option value="auto">自动连接（推荐）</option><option value="api">正在运行的 Zotero</option><option value="sqlite">读取本地数据库</option></select><label class="form-label" for="zoteroPath">数据库位置（可留空）</label><div class="zotero-file-row"><input autocomplete="off" class="input" id="zoteroPath" placeholder="自动查找，或填写 zotero.sqlite 文件路径"/><button class="button secondary" id="zoteroPick" type="button">浏览…</button></div><p class="hint">建议使用本地 API，程序只读取文献。连接失败时，请按下方说明开启 Zotero 通讯权限。</p><details class="zotero-guide"><summary>如何在 Zotero 中允许本机连接？</summary>
 <p>① 打开 Zotero → 设置（macOS 通常在菜单栏 Zotero → 设置；Windows 通常在 编辑 → 设置）。</p>
 <p>② 进入 <strong>高级 → 杂项</strong>，勾选“<strong>允许此计算机上的其他应用程序与 Zotero 通讯</strong>”。</p>
@@ -155,11 +204,46 @@
 <section class="panel zotero-reference-panel"><div class="panel-top"><div><div class="small-overline">收藏夹内容</div><h2>参考文献预览</h2></div><span class="minor" id="zoteroReferencesMeta">请选择收藏夹</span></div><div class="zotero-reference-list" id="zoteroReferences"><div class="empty">分析后显示文献标题及标签。</div></div></section>
 </section>
 <section class="view" id="library">
-<div class="heading-row"><div><div class="eyebrow">LIBRARY</div><h1>论文库</h1><p class="lede">检索文献、标记阅读进度并下载开放获取 PDF。</p></div></div>
-<section class="panel"><div class="filter-row"><input aria-label="检索论文库" class="input" id="librarySearch" placeholder="搜索标题、作者、DOI 或摘要"/><select aria-label="论文阅读状态筛选" class="select" id="libraryFilter"><option value="all">全部论文</option><option value="starred">仅看星标</option><option value="unread">未阅读</option><option value="reading">阅读中</option><option value="done">已读完</option></select></div><details class="library-more-filters"><summary>更多筛选与批量操作</summary><div class="filter-row"><button class="button secondary" id="downloadSelected" type="button">下载勾选 PDF</button><button class="button tertiary" id="downloadStarred" type="button">下载星标 PDF</button><span class="minor" id="selectedCount">未选择论文</span></div><div class="filter-row"><label class="form-label" for="libraryScope">论文范围<select class="select" id="libraryScope"><option value="topic">当前研究主题</option><option value="all">所有已收录文献</option></select></label></div><div class="filter-row library-organize"><label class="form-label">按研究方向分类<select class="select" id="libraryGroup"><option value="keyword">研究关键词</option><option value="category">学科分类</option><option value="source">文献来源</option><option value="year">发表年份</option><option value="initial">标题首字母索引</option><option value="none">不分组</option></select></label><label class="form-label">索引排序<select class="select" id="librarySort"><option value="relevance">相关性优先</option><option value="recent">最近入库</option><option value="default">星标与发表日期</option></select></label></div></details>
-
-
-
+<div class="heading-row"><div><div class="eyebrow" hidden></div><h1>论文库</h1><p class="lede">检索文献、标记阅读进度并下载开放获取 PDF。</p></div></div>
+<section class="panel library-panel">
+  <div class="library-toolbar">
+    <div class="library-primary-filters" role="search" aria-label="论文库检索与阅读状态筛选">
+      <input aria-label="检索论文库" class="input" id="librarySearch" type="search" placeholder="搜索论文标题、作者、DOI 或摘要"/>
+      <select aria-label="论文阅读状态筛选" class="select" id="libraryFilter"><option value="all">全部论文</option><option value="inbox">待筛选</option><option value="actionable">待行动</option><option value="skipped">暂不关注</option><option value="starred">仅看星标</option><option value="unread">未阅读</option><option value="reading">阅读中</option><option value="done">已读</option></select>
+    </div>
+    <details class="library-more-filters">
+      <summary>筛选与批量操作 <span>论文范围、分类、下载及导出</span></summary>
+      <div class="library-filter-content">
+        <section class="library-filter-block" aria-label="论文范围与排序">
+          <div class="library-block-title"><strong>查看范围</strong><span>调整本次展示的论文</span></div>
+          <div class="library-filter-grid">
+            <label class="form-label" for="libraryScope">论文范围<select class="select" id="libraryScope"><option value="topic">当前研究主题</option><option value="all">所有已收录文献</option></select></label>
+            <label class="form-label" for="libraryGroup">按研究方向分类<select class="select" id="libraryGroup"><option value="keyword">研究关键词</option><option value="category">学科分类</option><option value="source">文献来源</option><option value="year">发表年份</option><option value="initial">标题首字母索引</option><option value="none">不分组</option></select></label>
+            <label class="form-label" for="librarySort">索引排序<select class="select" id="librarySort"><option value="relevance">相关性优先</option><option value="recent">最近入库</option><option value="default">星标与发表日期</option></select></label>
+          </div>
+        </section>
+        <section class="library-filter-block" aria-label="批量处理与下载">
+          <div class="library-block-title"><strong>批量处理</strong><span class="library-selected-count" id="selectedCount" role="status" aria-live="polite">未选择论文</span></div>
+          <div class="library-batch-actions">
+            <button class="button secondary" id="downloadSelected" type="button">下载勾选 PDF</button>
+            <button class="button tertiary" id="downloadStarred" type="button">下载星标 PDF</button>
+            <button class="button secondary" type="button" id="localBulkStar">批量星标</button>
+            <button class="button secondary" type="button" id="localBulkSkip">批量暂不关注</button>
+            <button class="button secondary" type="button" id="localBulkDone">批量已读</button>
+          </div>
+        </section>
+        <section class="library-filter-block" aria-label="引用与阅读清单导出">
+          <div class="library-block-title"><strong>导出资料</strong><a href="/guide/triage">整理文献教程</a></div>
+          <div class="library-export-actions">
+            <button class="button tertiary" type="button" id="localExportStarred">星标阅读清单</button>
+            <button class="button tertiary" type="button" id="localExportActions">待行动 CSV</button>
+            <a class="button tertiary" href="/api/papers/citations?scope=starred&amp;format=bib" download>导出 BibTeX</a>
+            <a class="button tertiary" href="/api/papers/citations?scope=starred&amp;format=ris" download>导出 RIS</a>
+          </div>
+        </section>
+      </div>
+    </details>
+  </div>
 
 <div class="list-status" id="libraryStatus" role="status">正在读取论文库…</div>
 <div class="paper-list" id="libraryList"><div class="empty">正在读取论文库…</div></div>
@@ -167,47 +251,87 @@
 </section>
 </section>
 <section class="view" id="downloads">
-<div class="heading-row"><div><div class="eyebrow">DOWNLOADS</div><h1>PDF 下载</h1><p class="lede">管理已下载文件，查看失败原因并重新下载。</p></div><button class="button secondary" id="refreshDownloads" type="button">刷新记录</button></div>
+<div class="heading-row"><div><div class="eyebrow" hidden></div><h1>PDF 下载</h1><p class="lede">管理已下载文件，查看失败原因并重新下载。</p></div><button class="button secondary" id="refreshDownloads" type="button">刷新记录</button></div>
 <section class="panel"><div class="panel-top"><h2>下载记录</h2><span class="pill">仅下载开放获取 PDF</span></div>
 <div class="filter-row download-filters"><label class="form-label" for="downloadFilter">查看状态</label><select class="select" id="downloadFilter"><option value="all">全部记录</option><option value="downloaded">已下载</option><option value="failed">下载失败</option><option value="unavailable">暂无 PDF</option></select></div>
 <div class="report-list" id="downloadList"><div class="empty">暂无下载记录。</div></div></section>
 </section>
+<section class="view" id="inquiry">
+<div class="heading-row"><div><h1>研究助手</h1><p class="lede">围绕一个研究问题，整理已经核验的证据和下一步待解决的问题。</p></div></div>
+<section class="panel" aria-label="研究问题及可追溯简报"><div id="localInquiryWorkbench"></div></section>
+</section>
 <section class="view" id="reports">
 <div class="heading-row"><div><h1>研究报告</h1><p class="lede">导出近期调研报告，或保存全部历史文献的索引。</p></div><div class="report-actions"><button class="button primary" id="exportReports">更新近期报告</button><button class="button secondary" id="openFolder" type="button">打开报告文件夹</button></div><details class="report-extra-actions"><summary>其他导出与比较</summary><div class="more-actions-row"><button class="button secondary" id="exportAll" type="button">导出全部文献索引</button><button class="button secondary" id="exportExperiments" type="button">导出实验数据证据索引</button><button class="button secondary" id="generateSynthesis" type="button">生成跨论文实验比较</button></div></details></div>
-<div class="report-highlight"><div><span class="report-mark">W</span><div><div class="report-eyebrow">最新报告</div><h2>近期文献汇总</h2><p>优先阅读、论文详目、原始摘要及论文链接</p></div></div><div class="report-highlight-actions"><button class="button primary" id="latestMarkdownPreview" type="button">预览 Markdown</button><a class="button secondary" href="/download/近期文献汇总.docx" id="latestReport">下载 Word</a></div></div>
+<div class="report-highlight"><div><span class="report-mark">文</span><div><div class="report-eyebrow">最新报告</div><h2>近期文献汇总</h2><p>优先阅读、论文详目、原始摘要及论文链接</p></div></div><div class="report-highlight-actions"><button class="button primary" id="latestMarkdownPreview" type="button">预览 Markdown</button><a class="button secondary" href="/download/近期文献汇总.docx" id="latestReport">下载 Word</a></div></div>
+<section class="panel trace-panel" aria-label="人工研究结论及 PDF 证据链"><div id="localTopicTraceWorkbench"></div></section>
 <section class="panel"><div class="panel-top"><h2>已生成文件</h2><span class="minor">文件保存在 reports 文件夹</span></div><div class="report-list" id="reportList"><div class="empty">暂无报告。检索后自动生成。</div></div></section>
 </section>
 <section class="view" id="settings">
-<div class="heading-row"><div><h1>设置</h1><p class="lede">需要调整时再展开对应设置。日常检索可直接使用默认值。</p></div></div><div aria-label="按需展开的软件设置" class="settings-accordion"><details class="settings-section" id="settings-search"><summary><strong>检索与报告</strong><span>范围、数量、排序</span></summary><div class="settings-section-body"><section class="panel"><div class="panel-top"><h2>检索范围</h2><span class="pill muted">高级</span></div>
+<div class="heading-row"><div><h1>设置</h1><p class="lede">选择需要调整的项目。</p></div></div><nav class="settings-shortcuts" aria-label="设置分类">
+<a href="#settings-search">检索</a><a href="#settings-ai">模型</a><a href="#settings-sources">出版社</a>
+<a href="#settings-pdf">PDF</a><a href="#settings-update">软件</a><a href="#settings-storage">数据</a>
+<a href="#settings-advanced">运行记录</a></nav>
+<div aria-label="按需展开的软件设置" class="settings-accordion"><details class="settings-section" id="settings-search"><summary><strong>检索</strong><span>查询范围、排序</span></summary><div class="settings-section-body"><section class="panel"><div class="panel-top"><h2>检索范围</h2><span class="pill muted">高级</span></div>
 <label class="form-label">arXiv 分类<input class="input" id="categories" placeholder="cs.LG, cs.AI, math.NA"/></label>
+<details class="search-advanced"><summary>OpenReview 会议限定（可选）</summary>
+<label class="form-label" for="openreviewInvitation">投稿邀请 ID<input autocomplete="off" class="input" id="openreviewInvitation" maxlength="220" placeholder="例如 ICLR.cc/2026/Conference/-/Submission"/></label>
+<p class="hint">留空时搜索公开会议论文；填入 OpenReview 官方邀请 ID 后，仅检索该邀请下的公开记录。此处不填写网址或访问密钥。</p></details>
 <div class="field-grid"><label class="form-label">回溯天数<input class="input" id="lookbackDays" max="60" min="1" type="number"/></label><label class="form-label">最大检索数量<input class="input" id="maxResults" max="500" min="1" type="number"/></label></div>
-<div class="field-grid"><label class="form-label">报告最多收录<input class="input" id="reportLimit" max="100" min="1" type="number"/></label><label class="form-label">每次 AI 速览<input class="input" id="aiLimit" max="30" min="1" type="number"/></label></div>
+<div class="field-grid"><label class="form-label">报告最多收录<input class="input" id="reportLimit" max="100" min="1" type="number"/></label><label class="form-label">每次 中文速览<input class="input" id="aiLimit" max="30" min="1" type="number"/></label></div>
 <label class="form-label">报告排序<select class="select" id="sortMode"><option value="relevance">关键词相关度</option><option value="newest">发表日期优先</option></select></label>
 <div class="settings-actions"><button class="button primary" id="saveSettings">保存设置</button></div>
-<details class="search-advanced"><summary>来源故障与超时控制</summary><div class="field-grid"><label class="form-label" for="sourceQueryTimeout">单组检索最长等待（秒）<input class="input" id="sourceQueryTimeout" max="60" min="4" type="number" value="10"/></label><label class="form-label" for="sourceTotalTimeout">一次检索总时限（秒）<input class="input" id="sourceTotalTimeout" max="240" min="20" type="number" value="75"/></label></div><p class="hint">文献网站无响应时自动终止该来源查询并尝试其他已勾选来源。全部来源不可用时，明确结束并显示错误；不会一直等待。</p></details>
+<div class="source-connectivity">
+<button class="button secondary compact" id="sourceConnectivityCheck" type="button">检查文献来源连接</button>
+<div class="hint" id="sourceConnectivityResults" role="status" aria-live="polite">仅在点击时检查，不影响已保存的检索设置。</div>
+</div>
+<details class="search-advanced"><summary>来源故障与超时控制</summary><div class="field-grid"><label class="form-label" for="sourceQueryTimeout">单组检索最长等待（秒）<input class="input" id="sourceQueryTimeout" max="90" min="20" type="number" value="35"/></label><label class="form-label" for="sourceTotalTimeout">一次检索总时限（秒）<input class="input" id="sourceTotalTimeout" max="600" min="60" type="number" value="210"/></label></div><p class="hint">为每个来源保留独立的检索时间。单组默认 35 秒，总预算 210 秒；服务超时后继续其他来源。</p></details>
 <p class="hint">检索范围越大，检索耗时和摘要调用数量通常也会增加。</p>
-</section></div></details><details class="settings-section" id="settings-ai"><summary><strong>AI 阅读与模型</strong><span>模型授权、推荐和调用记录</span></summary><div class="settings-section-body"><section class="panel"><div class="panel-top"><h2>中文速览</h2><span class="pill">可选</span></div><label class="toggle-line"><input id="aiEnabled" type="checkbox"/><span>使用云端大模型生成中文速览</span></label>
-<label class="toggle-line"><input id="aiRerankEnabled" type="checkbox"/><span>智能推荐重排序（读取候选论文标题和摘要）</span></label>
+</section></div></details><details class="settings-section" id="settings-ai"><summary><strong>模型服务</strong><span>连接、授权与费用</span></summary><div class="settings-section-body"><section class="panel"><div class="panel-top"><h2>中文速览</h2><span class="pill">可选</span></div><label class="toggle-line"><input id="aiEnabled" type="checkbox"/><span>为论文生成中文摘要</span></label>
+<label class="toggle-line"><input id="aiRerankEnabled" type="checkbox"/><span>使用模型辅助论文排序</span></label>
 <label class="form-label" for="aiRerankLimit">每批最多 AI 评分篇数<input class="input" id="aiRerankLimit" max="30" min="1" type="number" value="15"/></label>
-<p class="hint">推荐重排序默认关闭。仅分析候选题录，并要求推荐理由引用原文标题或摘要。每批会调用模型 API，可能产生费用；故障时回退到关键词排序。</p>
+<p class="hint">没有 API Key 也能检索论文。启用模型后，摘要和排序可能产生费用。</p><p><a href="/guide/ai">查看模型功能说明</a></p>
 <div class="field-grid"><label class="form-label">服务商<select class="select" id="apiProvider"><option>DeepSeek</option></select></label><label class="form-label">模型名称<input class="input" id="apiModel" placeholder="服务商提供的模型名"/></label></div>
 <label class="form-label">接口地址<input class="input" id="apiBase" placeholder="https://api.example.com/v1"/></label>
 <label class="form-label">API Key<input autocomplete="new-password" class="input" id="apiKey" placeholder="填写新密钥；已保存的密钥不会回显" type="password"/></label>
-<div class="key-hint" id="keyState">读取密钥状态…</div>
+<div class="key-hint" id="keyState">读取密钥状态…</div><div class="model-governance" aria-label="模型调用和数据授权">
+<div class="model-governance-title"><strong>连接与隐私</strong><button class="text-button" id="modelOfflineCheck" type="button">检查配置</button></div>
+<p class="minor" id="modelStatusText" role="status">正在读取本地模型配置…</p>
+<label class="toggle-line model-consent"><input id="llmConsent" type="checkbox"/><span>允许向所选模型服务商发送我主动使用 AI 功能时所需的研究内容</span></label>
+<p class="hint">可随时取消授权。取消后后续检索使用常规模式；已发出的请求无法撤回。测试连接仅发送固定测试句子，不发送论文。</p>
+<details class="model-preflight"><summary>使用前查看传输内容与费用范围</summary>
+<label class="form-label" for="modelEstimateAction">需要预估的操作 <select class="select" id="modelEstimateAction"><option value="summary">中文论文速览</option><option value="ranking">智能论文排序</option><option value="planning">检索关键词规划</option><option value="fulltext">PDF 阅读卡片</option><option value="experiments">实验结果提取</option></select></label>
+<div class="minor" id="modelDataNotice" role="status">将发送当前功能所需的标题、摘要或正文片段。</div>
+<div class="model-estimate-value" id="modelEstimateValue">尚未估算</div>
+<div class="hint" id="modelEstimateWarning">估算仅供预算参考，实际费用以模型服务商账单为准。</div>
+</details>
+<div class="model-diagnosis" id="modelFailureHelp" hidden role="status"></div>
+</div>
 <div class="hint" id="providerHint">以 DeepSeek 为例：注册 API 平台账号，创建密钥后填入。</div>
-<section class="provider-usage"><div class="panel-top"><h3>API 使用记录</h3><button class="text-button" id="refreshProviderUsage" type="button">刷新当前供应商</button></div><div class="minor" id="providerLocalUsage">正在读取本机请求记录…</div><div class="minor" id="providerBalance">官方余额与计费请查看服务商控制台。</div><a class="text-button" href="https://platform.deepseek.com/usage" id="providerConsole" rel="noopener noreferrer" target="_blank">打开供应商用量页面 ↗</a><div class="usage-all" id="providerConfigured">已配置的服务商：正在检查…</div><div class="usage-all" id="providerUsageAll"></div><p class="hint">本机仅统计 Paper-Radar 成功请求的 Token，不能代表账号总账单；其他应用的用量需在官方控制台查看。</p></section>
+<details class="settings-subsection"><summary>查看模型用量</summary><section class="provider-usage"><div class="panel-top"><h3>API 使用记录</h3><button class="text-button" id="refreshProviderUsage" type="button">刷新当前供应商</button></div><div class="minor" id="providerLocalUsage">正在读取本机请求记录…</div><div class="minor" id="providerBalance">官方余额与计费请查看服务商控制台。</div><a class="text-button" href="https://platform.deepseek.com/usage" id="providerConsole" rel="noopener noreferrer" target="_blank">打开供应商用量页面 ↗</a><div class="usage-all" id="providerConfigured">已配置的服务商：正在检查…</div><div class="usage-all" id="providerUsageAll"></div><p class="hint">本机仅统计 Paper-Radar 成功请求的 Token，不能代表账号总账单；其他应用的用量需在官方控制台查看。</p></section></details>
 <details class="search-advanced"><summary>模型费用估算 <span>手动单价 · 可选</span></summary>
 <div class="field-grid search-advanced-fields"><label class="form-label">每百万输入 Token（美元）<input class="input" id="llmInputRate" max="10000" min="0" step="0.0001" type="number" value="0"/></label><label class="form-label">每百万输出 Token（美元）<input class="input" id="llmOutputRate" max="10000" min="0" step="0.0001" type="number" value="0"/></label></div>
 <p class="hint">填写服务商实际单价后显示本地估算值。0 表示未配置。缓存、赠送额度和实际计费规则可能不同；请以服务商账单为准。</p>
 </details>
-<div class="settings-actions"><button class="button secondary" id="testApi">保存并测试连接</button><button class="text-button danger" id="removeKey">删除当前密钥</button></div>
-<p class="hint">启用中文速览时发送论文标题和摘要；主动使用 AI 检索词规划时发送输入的研究描述。密钥保存在操作系统凭据管理器。</p>
-</section></div></details><details class="settings-section" id="settings-sources"><summary><strong>出版社数据源</strong><span>授权 Springer Nature、Elsevier</span></summary><div class="settings-section-body"><section class="panel" id="publisherPanel" style="margin-top:20px"><div class="panel-top"><h2>出版社检索授权</h2><span class="pill muted">默认关闭</span></div>
-<p class="panel-intro">Springer Nature、Scopus 和 ScienceDirect 只在勾选并完成授权后检索。API Key 保存在系统凭据管理器，不随项目上传到 GitHub。</p>
-<div class="publisher-grid">
-<div class="publisher-config"><h3>Springer Nature · 元数据</h3><p class="hint">注册 Developer Portal、申请 API Key 后开启来源；可检索题名、摘要、DOI 等公开或获授权的元数据。</p><label class="form-label">Springer API Key<input autocomplete="off" class="input" id="springerKey" placeholder="留空表示保留当前密钥" type="password"/></label><div class="settings-actions"><button class="button secondary" id="saveSpringer" type="button">保存密钥</button><span class="minor" id="springerState">未设置</span></div><a class="text-button" href="https://dev.springernature.com/" rel="noopener noreferrer" target="_blank">打开 Springer 开发者平台 ↗</a></div>
-<div class="publisher-config"><h3>Elsevier · Scopus</h3><p class="hint">必须取得具备访问权限的 API Key。机构订阅可能需要连接校园网/VPN，或使用获授权的机构令牌。订阅全文仍应通过学校图书馆或出版社页面访问。</p><label class="form-label">Elsevier API Key<input autocomplete="off" class="input" id="elsevierKey" placeholder="留空表示保留当前密钥" type="password"/></label><label class="form-label">机构令牌（可选）<input autocomplete="off" class="input" id="elsevierToken" placeholder="仅在机构提供时填写" type="password"/></label><div class="settings-actions"><button class="button secondary" id="saveElsevier" type="button">保存授权</button><span class="minor" id="elsevierState">未设置</span></div><a class="text-button" href="https://dev.elsevier.com/" rel="noopener noreferrer" target="_blank">打开 Elsevier 开发者平台 ↗</a></div>
-</div><p class="hint">出版商 API 的题录访问与 PDF 全文授权是两种权限。本软件不模拟网页登录，不绕过付费墙，付费全文须由具备权限的用户通过官方页面访问；当前不提供订阅论文自动下载。</p>
+<div class="settings-actions"><button class="button primary" id="saveAiSettings" type="button">保存模型设置</button><button class="button secondary" id="testApi">保存并测试连接（可能计费）</button><button class="text-button danger" id="removeKey">删除当前密钥</button></div>
+<p class="hint">密钥保存在操作系统凭据管理器。</p>
+</section></div></details><details class="settings-section" id="settings-sources"><summary><strong>文献来源授权</strong><span>免费密钥与出版社授权</span></summary><div class="settings-section-body"><section class="panel" id="publisherPanel">
+<p class="settings-explainer">arXiv、Crossref 和 OpenReview 可以直接检索。OpenAlex 支持少量免密访问，建议设置免费的 API Key 以提高使用额度。出版社来源需要单独授权。</p>
+<div class="publisher-stack">
+<details class="publisher-compact"><summary><strong>OpenAlex（免费密钥可选）</strong><span id="openalexState">未配置</span></summary>
+<div class="publisher-compact-body"><p>OpenAlex 提供免费 API Key，可提高检索额度。语义搜索可能消耗更多额度。普通检索即使未配置密钥也会尝试公开访问。</p>
+<label class="form-label">API Key<input autocomplete="off" class="input" id="openalexKey" placeholder="输入 OpenAlex API Key；留空不修改" type="password"/></label>
+<div class="settings-actions"><button class="button secondary" id="saveOpenAlex" type="button">保存密钥</button><button class="button secondary" id="checkOpenAlexQuota" type="button">检查 API 额度</button><a class="text-button" href="https://openalex.org/settings/api" rel="noopener noreferrer" target="_blank">获取免费密钥</a></div><div class="minor" id="openalexQuotaStatus" role="status" aria-live="polite">按需查询官方额度，不会持续轮询。</div><p class="hint">OpenAlex 常规检索与语义检索共用服务商额度；语义检索默认关闭。请求被限流时系统将记录服务端建议等待时间。</p></div></details>
+<details class="publisher-compact"><summary><strong>Springer Nature</strong><span id="springerState">未配置</span></summary>
+<div class="publisher-compact-body"><p>申请官方 API Key 后填写。</p>
+<label class="form-label">API Key<input autocomplete="off" class="input" id="springerKey" placeholder="输入新密钥；留空不修改" type="password"/></label>
+<div class="settings-actions"><button class="button secondary" id="saveSpringer" type="button">保存密钥</button><a class="text-button" href="https://dev.springernature.com/" rel="noopener noreferrer" target="_blank">申请密钥</a></div></div></details>
+<details class="publisher-compact"><summary><strong>Elsevier（Scopus / ScienceDirect）</strong><span id="elsevierState">未配置</span></summary>
+<div class="publisher-compact-body"><p>使用具备接口权限的 API Key。部分机构访问需要校园网或 VPN。</p>
+<label class="form-label">API Key<input autocomplete="off" class="input" id="elsevierKey" placeholder="输入新密钥；留空不修改" type="password"/></label>
+<label class="form-label">机构令牌（如有）<input autocomplete="off" class="input" id="elsevierToken" placeholder="选填" type="password"/></label>
+<div class="settings-actions"><button class="button secondary" id="saveElsevier" type="button">保存授权</button><a class="text-button" href="https://dev.elsevier.com/" rel="noopener noreferrer" target="_blank">申请密钥</a></div></div></details>
+</div>
+<p class="settings-footnote">API Key 仅用于可访问的检索接口。付费全文仍需使用图书馆或出版社的正式访问渠道。</p>
 </section></div></details><details class="settings-section" id="settings-pdf"><summary><strong>PDF 下载</strong><span>开放获取、下载数量</span></summary><div class="settings-section-body"><section class="panel" style="margin-top:20px"><div class="panel-top"><h2>下载设置</h2><span class="pill muted">可选</span></div>
 <label class="toggle-line"><input id="autoDownload" type="checkbox"/><span>每天检索后自动下载可用的 PDF</span></label>
 <div class="field-grid"><label class="form-label">每次最多下载<input class="input" id="downloadLimit" max="20" min="1" type="number"/></label><label class="form-label">单篇大小上限（MB）<input class="input" id="maxPdfMb" max="50" min="1" type="number"/></label></div>
@@ -218,7 +342,7 @@
 <div class="field-grid"><label class="form-label" for="serviceRunMode">通过启动脚本运行时
 <select class="select" id="serviceRunMode"><option value="foreground">前台运行（推荐，可 Ctrl+C 停止）</option><option value="background">后台运行（关闭终端后继续）</option></select></label>
 <div><span class="form-label">当前服务</span><div class="hint" id="processState" role="status">正在检查…</div><div class="minor">更改启动方式在下次运行脚本时生效；桌面安装版继续使用图形运行管理器。</div></div></div>
-<label class="toggle-line"><input checked="" id="updateEnabled" type="checkbox"/><span>运行时后台检查正式版本</span></label>
+<label class="toggle-line"><input checked="" id="updateEnabled" type="checkbox"/><span>自动检查更新</span></label>
 <label class="toggle-line"><input checked="" id="autoUpdateStartup" type="checkbox"/><span>启动前自动安装正式更新（可选；默认关闭）</span></label>
 <div class="field-grid"><label class="form-label" for="updateInterval">自动检查间隔（小时）
           <input class="input" id="updateInterval" max="168" min="6" type="number" value="24"/></label>
@@ -228,26 +352,67 @@
 <button class="button primary" id="installUpdateSettings" type="button" hidden>确认并安装新版本</button>
 <a class="text-button" href="https://github.com/QiQiWan/Paper-Radar/releases" id="updateLatestLink" rel="noopener noreferrer" target="_blank">官方发布记录 ↗</a></div>
 <p class="hint">手动确认后将先等待任务完成，再关闭本用户的本地服务、校验安装包并重启。公网服务与原生 EXE/APP 需按相应部署方式升级。</p><div class="hint" id="handoffStatusText" role="status"></div>
-</section></div></details><details class="settings-section" id="settings-advanced"><summary><strong>运行诊断</strong><span>Agent 状态、历史记录和关闭服务</span></summary><div class="settings-section-body"><section aria-labelledby="agentSettingsTitle" class="panel agent-settings" style="margin-top:20px">
-<div class="panel-top"><div><h2 id="agentSettingsTitle">Agent 工作流</h2><p class="hint">独立功能模块按固定依赖执行。这里可查看各阶段职责、最新运行状态和耗时。</p></div><button class="button secondary" id="refreshAgents" type="button">刷新 Agent 状态</button></div>
+</section></div></details><details class="settings-section" id="settings-storage"><summary><strong>数据与备份</strong><span>存储位置、数据库检查</span></summary>
+<div class="settings-section-body"><section class="panel storage-settings-panel">
+<h2>论文库存储</h2><p id="storageSettingsStatus">正在检查…</p><p id="storageSettingsPath" class="storage-settings-path"></p>
+<div class="settings-actions"><button class="button secondary" id="storageRefresh" type="button">检查数据库</button>
+<a class="text-button" href="/guide/desktop">查看存储说明</a></div>
+<p class="settings-footnote">新安装的论文数据库和设置默认保存在本机用户数据目录，避免与同步盘上的程序文件共同读写。</p>
+</section><details class="panel follow-settings storage-backup"><summary><strong>研究数据备份</strong> <span class="minor">可校验的本地快照</span></summary>
+<p class="hint">默认只备份论文库和设置，不包含 PDF。完整备份需要更多磁盘空间。备份完成后建议复制到另一块磁盘。</p>
+<div class="settings-actions"><button class="button secondary" type="button" id="followingBackup">创建数据库备份</button><button class="button tertiary" type="button" id="followingFullBackup">创建包含 PDF 的完整备份</button></div><p class="minor" id="followingBackupStatus"></p>
+</details></div></details>
+<details class="settings-section" id="settings-advanced"><summary><strong>运行记录</strong><span>任务、诊断与日志</span></summary><div class="settings-section-body"><section aria-labelledby="agentSettingsTitle" class="panel agent-settings" style="margin-top:20px">
+<div class="panel-top"><div><h2 id="agentSettingsTitle">后台任务详情</h2></div><button class="button secondary" id="refreshAgents" type="button">刷新状态</button></div>
 <div class="hint" id="agentOverview" role="status">正在读取 Agent 定义…</div>
-<div class="agent-grid" id="agentGrid"></div><details class="search-advanced" style="margin-top:12px"><summary>科研实验 Agent 链（按需执行）</summary><div class="agent-grid" id="agentResearch"></div></details><details class="search-advanced" style="margin-top:12px"><summary>跨论文比较 Agent 链（按需执行）</summary><div class="agent-grid" id="agentSynthesis"></div></details>
+<div class="agent-grid" id="agentGrid"></div><details class="search-advanced" style="margin-top:12px"><summary>实验分析步骤</summary><div class="agent-grid" id="agentResearch"></div></details><details class="search-advanced" style="margin-top:12px"><summary>跨论文比较步骤</summary><div class="agent-grid" id="agentSynthesis"></div></details>
 <details class="search-advanced" style="margin-top:12px"><summary>其他按需服务 <span>全文 · 实验分析 · 评估 · 版本检查</span></summary><div class="agent-list minor" id="agentOnDemand"></div></details>
-</section><section class="panel" style="margin-top:20px"><div class="panel-top"><h2>运行记录</h2><div class="log-controls"><select aria-label="任务日志来源" class="select" id="logSource"><option value="manual">手动任务</option><option value="scheduled">每日后台任务</option></select><button class="text-button" id="refreshLogs">刷新</button></div></div><pre class="log-box" id="logBox">暂无运行记录。</pre><div class="panel-top" style="margin-top:20px"><h3>近期检索结果</h3><button class="text-button" id="refreshHistory" type="button">刷新</button></div><div class="history-list minor" id="historyList">正在读取…</div><div class="settings-actions"><button class="text-button danger" id="shutdown">停止本地服务</button><a class="text-button" href="/guide/desktop">查看前后台运行与更新教程 →</a></div></section></div></details></div>
+</section><section class="panel" style="margin-top:20px"><div class="panel-top"><h2>运行记录</h2><div class="log-controls"><a class="button secondary compact" href="/api/retrieval-trace/export" download>导出最近检索诊断</a><select aria-label="任务日志来源" class="select" id="logSource"><option value="manual">手动任务</option><option value="scheduled">每日后台任务</option></select><button class="text-button" id="refreshLogs">刷新</button></div></div><pre class="log-box" id="logBox">暂无运行记录。</pre><div class="panel-top" style="margin-top:20px"><h3>近期检索结果</h3><button class="text-button" id="refreshHistory" type="button">刷新</button></div><div class="history-list minor" id="historyList">正在读取…</div><div class="settings-actions"><button class="text-button danger" id="shutdown">停止本地服务</button><a class="text-button" href="/guide/desktop">查看前后台运行与更新教程 →</a></div></section></div></details></div>
 </section>
 <footer class="page-footer">Paper-Radar · © 2026 @EatRice · MIT License · <a href="/guide/quickstart">快速入门</a> · <a href="/guide/usage">完整使用教程</a></footer>
 </main>
 </div>
+<section class="task-center task-dock" hidden id="taskCenter" aria-label="当前任务状态" data-expanded="false" data-outcome="running">
+<div class="task-dock-bar">
+<span class="task-dock-indicator" aria-hidden="true"></span>
+<div class="task-header"><div><strong id="taskStage" role="status" aria-live="polite">准备中</strong><span id="taskMeta">等待任务开始</span></div><span class="task-percent" id="taskPercent">0%</span></div>
+<button class="task-dock-toggle" id="taskDockToggle" type="button" aria-controls="taskDockBody" aria-expanded="false" aria-label="展开查看任务详情" title="展开查看任务详情"><span id="taskDockToggleLabel">查看详情</span><span class="task-dock-chevron" aria-hidden="true">⌃</span></button>
+<button class="task-dock-dismiss" id="taskDockDismiss" type="button" aria-label="隐藏已完成任务状态" title="隐藏已完成任务状态">×</button>
+</div>
+<progress aria-label="任务进度" id="taskProgressBar" max="100" value="0"></progress>
+<div class="task-dock-body" id="taskDockBody" aria-hidden="true" inert>
+<div class="task-dock-body-head"><strong>运行详情</strong><button class="text-button" id="taskDockOpenTasks" type="button">前往任务中心</button></div>
+<details class="source-diagnostics" hidden="" id="sourceDiagnosticsDetails"><summary>来源状态</summary><div aria-label="本次检索来源诊断" id="sourceDiagnostics" role="region"></div></details>
+<details class="source-diagnostics" hidden="" id="retrievalCountsDetails"><summary>本轮检索数量明细</summary><div id="retrievalCounts" aria-label="文献筛选与入库数量"></div></details>
+<details id="taskLogDetails"><summary>运行详情</summary><pre class="task-live-log" id="taskLiveLog">正在准备…</pre></details>
+<details class="retrieval-trace-panel" id="retrievalTraceDetails" hidden>
+<summary>检索诊断 · 查看连接与错误记录</summary>
+<div class="retrieval-trace-body">
+<div class="retrieval-trace-header"><p id="retrievalTraceSummary">正在读取诊断…</p>
+<div class="retrieval-trace-actions"><button class="button secondary compact" id="refreshRetrievalTrace" type="button">刷新诊断</button>
+<a class="button secondary compact" id="downloadRetrievalTrace" href="/api/retrieval-trace/export" download>下载诊断包</a></div></div>
+<pre class="retrieval-trace-events" id="retrievalTraceEvents">检索开始后显示来源连接记录。</pre>
+<p class="hint">诊断包只记录域名、耗时、状态码和错误类别，不含 API Key、检索词、论文内容或个人路径。</p>
+</div></details>
+</div>
+</section>
 <dialog aria-labelledby="fulltextTitle" class="markdown-dialog fulltext-dialog" id="fulltextDialog">
-<div class="modal-top"><div><span class="small-overline">FULLTEXT EVIDENCE</span><h2 id="fulltextTitle">全文证据</h2></div><button aria-label="关闭全文证据" class="modal-close" id="fulltextClose" type="button">×</button></div>
+<div class="modal-top"><div><h2 id="fulltextTitle">PDF 阅读</h2></div><button aria-label="关闭全文证据" class="modal-close" id="fulltextClose" type="button">×</button></div>
 <p class="hint" id="fulltextState" role="status">正在检查 PDF 状态…</p>
 <p class="hint" id="fulltextNote">只解析本地已保存的开放获取 PDF；扫描页、表格和公式请直接核对原文。</p>
-<div class="modal-actions evidence-actions"><button class="button secondary" id="fulltextIndex" type="button">解析本地 PDF</button><button class="button primary" id="fulltextAnalyze" type="button">生成 AI 阅读卡片</button><button class="button secondary" id="fulltextExperiments" type="button">提取实验指标</button><button class="button secondary" disabled="" id="fulltextCopy" type="button">复制证据笔记</button></div>
-<p class="hint">“解析本地 PDF”不调用云端模型；“生成 AI 阅读卡片”和“提取实验指标”均需先确认，可能发送选定的全文片段到模型服务商并产生费用。结构化结果只在原文支持时保存。</p>
-<div class="local-pdf-evidence-grid"><section class="evidence-panel local-pdf-viewer"><h3>PDF 原文 · 点击右侧页码同步定位</h3><iframe id="fulltextPdfViewer" loading="lazy" referrerpolicy="no-referrer" title="当前论文 PDF 原文"></iframe><p class="hint" id="fulltextPdfHint">需先保存 PDF。</p></section><div class="local-evidence-column">
-<section class="evidence-panel"><h3>AI 阅读卡片</h3><div class="evidence-results" id="fulltextClaims"><div class="empty">尚无阅读卡片。</div></div></section>
-<section class="evidence-panel"><h3>实验数据与对照结果</h3><p class="hint">仅显示证据中逐字出现的指标、结果值、数据集和基线；同名指标在不同实验条件下不能直接比较。</p><div class="evidence-results" id="fulltextExperimentsResults"><div class="empty">尚未提取实验指标。</div></div></section>
+<div class="modal-actions evidence-actions"><button class="button secondary" id="fulltextIndex" type="button">解析本地 PDF</button><button class="button primary" id="fulltextAnalyze" type="button">生成阅读要点</button><button class="button secondary" id="fulltextExperiments" type="button">提取实验指标</button><button class="button secondary" disabled="" id="fulltextCopy" type="button">复制证据笔记</button></div>
+<p class="hint">“解析本地 PDF”不调用云端模型；“生成阅读要点”和“提取实验指标”均需先确认，可能发送选定的全文片段到模型服务商并产生费用。结构化结果只在原文支持时保存。</p>
+<div class="local-pdf-evidence-grid"><section class="evidence-panel local-pdf-viewer"><h3>PDF 原文</h3><div class="reading-actions"><button class="button secondary" id="fulltextPagePrev" type="button" aria-label="上一页">上一页</button><label>页码 <input class="input reading-page-input" type="number" id="fulltextPdfPage" value="1" min="1" max="9999" aria-label="当前 PDF 页码"></label><button class="button secondary" id="fulltextPageNext" type="button" aria-label="下一页">下一页</button><button class="button secondary" id="shareFulltextLocal" type="button">复制论文链接</button><a class="context-help-link" href="/guide/reading#pdf">PDF 阅读帮助 ↗</a></div><iframe id="fulltextPdfViewer" loading="lazy" referrerpolicy="no-referrer" title="当前论文 PDF 原文"></iframe>
+<p class="hint" id="fulltextPdfHint">需先保存 PDF。</p>
+<div class="reading-actions"><button class="button secondary" id="fulltextPageTables" type="button">查看本页表格候选</button></div>
+<div class="evidence-results" id="fulltextTableResults" aria-live="polite"></div>
+<details id="fulltextHighlightPanel" hidden><summary>精确高亮预览（原文文本层）</summary>
+<img id="fulltextHighlightImage" alt="当前 PDF 页的原文位置高亮" style="display:block;max-width:100%;height:auto;margin:10px auto"/>
+<p class="hint">高亮由 PDF 文字层生成。扫描页、公式与表格仍需人工核对。</p></details></section><div class="local-evidence-column">
+<section class="evidence-panel"><h3>阅读要点</h3><div class="evidence-results" id="fulltextClaims"><div class="empty">尚无阅读卡片。</div></div></section>
+<section class="evidence-panel"><h3>实验数据</h3><p class="hint">仅显示证据中逐字出现的指标、结果值、数据集和基线；同名指标在不同实验条件下不能直接比较。</p><div class="evidence-results" id="fulltextExperimentsResults"><div class="empty">尚未提取实验指标。</div></div></section>
 </div></div>
+<section class="evidence-panel trace-panel" aria-label="当前论文的原文证据和研究结论"><div id="localTraceWorkbench"></div></section>
 <section class="evidence-panel"><h3>原文片段检索</h3>
 <div class="evidence-search-row"><input aria-label="检索当前 PDF 原文片段" class="input" id="fulltextSearchInput" maxlength="150" placeholder="例如 geometry generalization、ablation"/><select aria-label="证据检索范围" class="select" id="fulltextScope"><option value="paper">当前论文</option><option value="topic">当前主题的已解析论文</option></select><button class="button secondary" id="fulltextSearch" type="button">检索证据</button></div>
 <div class="evidence-results" id="fulltextMatches"></div>
@@ -255,14 +420,14 @@
 </dialog>
 <dialog aria-labelledby="markdownTitle" class="markdown-dialog" id="markdownDialog">
 <div class="modal-top"><div><span class="small-overline">REPORT PREVIEW</span><h2 id="markdownTitle">近期文献汇总</h2></div><button aria-label="关闭预览" class="modal-close" id="markdownClose" type="button">×</button></div>
-<div class="modal-actions"><span class="minor" id="markdownSize">Markdown 本地预览</span><div><button class="button secondary" id="markdownCopy" type="button">复制 Markdown</button><a class="button primary" href="#" id="markdownDownload">下载原文件</a></div></div>
+<div class="modal-actions"><span class="minor" id="markdownSize">Markdown 本地预览</span><div><button class="button secondary" id="shareMarkdownLocal" type="button">复制阅读位置</button><a class="context-help-link" href="/guide/reading#reports">报告阅读帮助 ↗</a><button class="button secondary" id="markdownCopy" type="button">复制 Markdown</button><a class="button primary" href="#" id="markdownDownload">下载原文件</a></div></div>
 <article class="markdown-rendered" id="markdownRendered" tabindex="0">正在读取报告…</article>
 </dialog>
 <div aria-live="polite" id="toast" role="status"></div>
 <dialog id="welcomeWizard" class="welcome-wizard" aria-labelledby="welcomeTitle">
 <div class="welcome-header"><span class="welcome-mark">↗</span><span>Paper-Radar · 首次使用</span></div>
 <div class="welcome-progress"><span id="welcomeStep">第 1 / 3 步</span><button class="text-button" id="welcomeSkip" type="button">跳过引导</button></div>
-<h2 id="welcomeTitle">快速开始研究</h2><p id="welcomeText">输入研究关键词，点击“检索论文并更新报告”。无需提前配置模型。</p>
+<h2 id="welcomeTitle">快速开始研究</h2><p id="welcomeText">输入关键词后，点击“开始检索”。无需先连接模型。</p>
 <div class="welcome-actions"><a href="/guide/quickstart" target="_blank" rel="noopener">打开图文教程</a><button class="button primary" id="welcomeNext" type="button">下一步</button></div>
 </dialog></body>
 </html>

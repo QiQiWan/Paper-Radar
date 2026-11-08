@@ -47,7 +47,11 @@ TOPIC_ID=re.compile(r'^[a-z0-9_-]{1,48}$')
 UID=re.compile(r'^[0-9a-f]{32}$')
 
 
-class PortalError(ValueError):pass
+class PortalError(ValueError):
+    def __init__(self,message,source_results=None):
+        super().__init__(message)
+        self.source_results=source_results
+
 
 
 def utc_now():return datetime.now(timezone.utc).isoformat(timespec='seconds')
@@ -73,7 +77,7 @@ class Portal:
         # Different Worker processes still verify checksums on first access.
         self._workspace_init_lock=Lock()
         self._workspace_initialized={}
-        self.source_timeout_seconds=max(2,min(90,int(os.getenv('PAPERRADAR_PUBLIC_SOURCE_TIMEOUT','25'))))
+        self.source_timeout_seconds=max(2,min(90,int(os.getenv('PAPERRADAR_PUBLIC_SOURCE_TIMEOUT','40'))))
         self.model_callable=None
         self.pdf_downloader=portal_research.fetch_arxiv_pdf
         self.job_queue=PortalJobs(self.auth_path,self.search,
@@ -141,11 +145,17 @@ class Portal:
         _, topic=self.available(uid,topic_id)
         if should_cancel and should_cancel():raise JobCancelled('Task cancelled')
         keywords=json.loads(topic['keywords'])
+        from .core import DEFAULTS
+        from .following import plan_windows,watched_arxiv_ids
+        cfg=dict(DEFAULTS)
+        cfg.update(keywords=keywords[:6],categories=[],max_results=20,lookback_days=14,
+                   active_topic_id=topic_id)
         with self.workspace(uid) as db:
             sources=topic_sources(db,topic_id)
-        from .core import DEFAULTS
-        cfg=dict(DEFAULTS)
-        cfg.update(keywords=keywords[:6],categories=[],max_results=20,lookback_days=14)
+            cfg['sources']=sources
+            cfg['_following_windows']=plan_windows(db,cfg)
+            if 'arxiv' in cfg['_following_windows']:
+                cfg['_watch_arxiv_ids']=watched_arxiv_ids(db,topic_id)
         if self.fetcher:
             # Tests and explicitly supplied fetcher hooks remain deterministic.
             started=time.monotonic()
@@ -153,15 +163,26 @@ class Portal:
             source_results=[{'name':'arxiv','ok':True,'partial':False,
                              'count':len(papers) if isinstance(papers,list) else 0,
                              'timed_out':False,'seconds':round(time.monotonic()-started,2),
-                             'mode':'injected_test_fetcher'}]
+                             'mode':'injected_test_fetcher',
+                             'queries':[{'ok':True,'count':len(papers),
+                                         'saturated':len(papers)>=20}]}]
         else:
             # Each approved source is isolated, bounded, and diagnosed. One
             # unavailable provider does not discard other completed results.
-            papers,source_results=discover(self,cfg,sources,should_cancel)
+            try:
+                papers,source_results=discover(self,cfg,sources,should_cancel)
+            except PortalError as exc:
+                if exc.source_results and cfg.get('_following_windows'):
+                    from .following import record_cycle
+                    with self.workspace(uid) as db:
+                        record_cycle(db,cfg,[],[],exc.source_results)
+                raise
         if not isinstance(papers,list):raise PortalError('检索来源返回数据无效')
         if should_cancel and should_cancel():raise JobCancelled('Task cancelled')
         inserted=updated=stale=0
         with self.workspace(uid) as db:
+            imported_before={row[0] for row in db.execute(
+                'SELECT paper_id FROM topic_papers WHERE topic_id=?',(topic_id,))}
             for paper in papers[:40]:
                 if should_cancel and should_cancel():raise JobCancelled('Task cancelled')
                 pid=str(paper.paper_id or '')[:150]
@@ -179,10 +200,21 @@ class Portal:
                     stale+=outcome=='stale'
                 db.execute('INSERT OR IGNORE INTO topic_papers VALUES (?,?)',(topic_id,pid))
             if should_cancel and should_cancel():raise JobCancelled('Task cancelled')
+            from .following import record_cycle
+            if cfg.get('_following_windows'):
+                current_ids={row[0] for row in db.execute(
+                    'SELECT paper_id FROM topic_papers WHERE topic_id=?',(topic_id,))}
+                # A new event is emitted only for a first-time topic import;
+                # already-present papers are tracked for later revisions.
+                previous_ids=current_ids-set(imported_before)
+                follow=record_cycle(db,cfg,papers,papers,source_results,
+                    new_to_topic=previous_ids)
+            else:follow={'enabled':False,'events':0,'pending_sources':0}
             db.commit()
         return {'retrieved':len(papers),'new':inserted,'updated':updated,'stale_skipped':stale,
+                'following':follow,
                 'topic_id':topic_id,'source_results':source_results,
-                'state':'partial' if any(not row['ok'] or row.get('degraded') for row in source_results) else 'complete'}
+                'state':'partial' if follow.get('pending_sources') or any(not row['ok'] or row.get('degraded') for row in source_results) else 'complete'}
 
     def _fetch_public_arxiv(self,cfg,checkpoint):
         """Run official arXiv query in an isolated process with a hard deadline."""
@@ -215,6 +247,9 @@ class Portal:
                 return fallback,[{'name':'arxiv','ok':True,'partial':True,
                     'count':len(fallback),'mode':'cache','cache_state':'stale',
                     'cache_age_seconds':fallback.cache_age_seconds}]
+            from .sources.failures import SourceQueryError
+            if isinstance(exc,SourceQueryError):
+                raise  # retain the exact safe network/rate-limit category
             if isinstance(exc,SourceTimeout):
                 raise PortalError(f'arXiv 来源连接超时（最多 {self.source_timeout_seconds} 秒），已停止请求；请稍后重试') from exc
             raise PortalError('arXiv 来源不可用或拒绝访问，已结束本次检索；请检查网络及来源状态') from exc
@@ -224,15 +259,17 @@ class Portal:
                 adb.execute("DELETE FROM auth_attempts WHERE identifier='source:arxiv_public'")
                 adb.execute('INSERT INTO auth_attempts(identifier,occurred_at) VALUES (?,?)',
                             ('source:arxiv_public',int(time.time())))
-        cache.put('arxiv',cfg,papers)
-        papers=SourceResponse(papers,cache_state='miss')
-        return papers,[{'name':'arxiv','ok':True,'partial':False,'count':len(papers),
+        if not getattr(papers,'partial',False): cache.put('arxiv',cfg,papers)
+        papers=SourceResponse(papers,cache_state='miss',
+            partial=getattr(papers,'partial',False),
+            warning_code=getattr(papers,'warning_code',''))
+        return papers,[{'name':'arxiv','ok':True,'partial':papers.partial,'count':len(papers),
                         'timed_out':False,'seconds':round(time.monotonic()-started,2),
                         'mode':'isolated_process','cache_state':'miss'}]
 
     def _fetch_public_source(self,name:str,cfg:dict,*,should_cancel=None):
         """Run a fixed public adapter with its own cross-worker rate gate."""
-        if name not in ('openalex','crossref'):
+        if name not in ('openalex','crossref','openreview'):
             raise PortalError('来源未授权')
         from .sources.supervisor import fetch_isolated
         from .portal_resource_locks import exclusive_file_lock
@@ -264,8 +301,10 @@ class Portal:
                         if fallback is not None and fallback.cache_state=='stale':
                             return fallback
                         raise
-                    cache.put(name,cfg,papers)
-                    return SourceResponse(papers,cache_state='miss')
+                    if not getattr(papers,'partial',False): cache.put(name,cfg,papers)
+                    return SourceResponse(papers,cache_state='miss',
+                        partial=getattr(papers,'partial',False),
+                        warning_code=getattr(papers,'warning_code',''))
                 finally:
                     with auth_db(self.auth_path) as adb:
                         adb.execute('DELETE FROM auth_attempts WHERE identifier=?',
@@ -492,14 +531,24 @@ class Handler(BaseHTTPRequestHandler):
     def _handle_get(self):
         if not self.guard_host():return self.send_json(403,{'error':'Host mismatch'})
         route=urlsplit(self.path).path
-        if route in ('/','/portal.js','/portal.css'):
-            names={'/':('portal.html','text/html; charset=utf-8'),
-                '/portal.js':('portal.js','text/javascript; charset=utf-8'),
-                '/portal.css':('portal.css','text/css; charset=utf-8')}
+        if route in ('/','/workspace','/library','/tasks','/following','/inquiry','/reports','/settings','/account','/portal.js','/portal.css','/portal_polish.css','/reading_links.js','/trace_workbench.js','/inquiry_workbench.js','/ui_state.js'):
+            names={name:('portal.html','text/html; charset=utf-8') for name in ('/','/workspace','/library','/tasks','/following','/inquiry','/reports','/settings','/account')}
+            names.update({'/portal.js':('portal.js','text/javascript; charset=utf-8'),
+                '/portal.css':('portal.css','text/css; charset=utf-8'),
+                '/portal_polish.css':('portal_polish.css','text/css; charset=utf-8'),
+                '/reading_links.js':('reading_links.js','text/javascript; charset=utf-8'),
+                '/trace_workbench.js':('trace_workbench.js','text/javascript; charset=utf-8'),
+                '/inquiry_workbench.js':('inquiry_workbench.js','text/javascript; charset=utf-8'),
+                '/ui_state.js':('ui_state.js','text/javascript; charset=utf-8')})
             file,type_=names[route]
             return self.send_static(STATIC/file,type_)
         if route=='/guide.css':
             return self.send_static(STATIC/'guide.css','text/css; charset=utf-8')
+        if route.startswith('/guide/assets/'):
+            from .help_pages import guide_asset
+            asset=guide_asset(route[len('/guide/assets/'):])
+            if not asset:return self.send_json(404,{'error':'插图不存在'})
+            return self.send_static(asset,'image/svg+xml')
         if route.startswith('/guide/'):
             from .help_pages import render_guide
             body=render_guide(route[len('/guide/'):],public=True)
@@ -518,8 +567,28 @@ class Handler(BaseHTTPRequestHandler):
         if not user:return self.send_json(401,{'error':'请先登录'})
         if route=='/api/public/me':
             return self.send_json(200,{'user':{k:user[k] for k in ('id','username','role')},'csrf':user['csrf']})
+        if route=='/api/public/following':
+            from .following import status
+            q=parse_qs(urlsplit(self.path).query)
+            topic=(q.get('topic_id') or ['default'])[0]
+            self.server.portal.available(user['id'],topic)
+            with self.server.portal.workspace(user['id']) as db:
+                return self.send_json(200,status(db,topic,limit=60))
         if route=='/api/public/quotas':
             return self.send_json(200,{'quotas':self.server.portal.job_queue.quota_status(user['id'])})
+        if route=='/api/public/model/preflight':
+            from .model_governance import estimate
+            q=parse_qs(urlsplit(self.path).query)
+            action=(q.get('action') or ['experiments'])[0]
+            if action not in ('experiments','fulltext'):
+                raise PortalError('不支持的公网模型评估任务')
+            configured=(self.server.portal.model_callable is not None or all(os.getenv(k,'').strip()
+                for k in ('PAPERRADAR_PUBLIC_LLM_KEY','PAPERRADAR_PUBLIC_LLM_MODEL','PAPERRADAR_PUBLIC_LLM_BASE')))
+            cfg={'llm_input_usd_per_million':os.getenv('PAPERRADAR_PUBLIC_LLM_INPUT_USD_PER_MILLION',''),
+                 'llm_output_usd_per_million':os.getenv('PAPERRADAR_PUBLIC_LLM_OUTPUT_USD_PER_MILLION','')}
+            return self.send_json(200,{'available':bool(configured),'estimate':estimate(cfg,action),
+                'destination_host':(urlsplit(os.getenv('PAPERRADAR_PUBLIC_LLM_BASE','')).hostname or '') if configured else '',
+                'notice':'检查不发送论文内容。付费云分析需要提交任务时主动确认；费用按管理员填写的单价估算，未知单价会明确标记。'})
         if route=='/api/public/jobs':
             return self.send_json(200,self.server.portal.job(user['id']))
         if route=='/api/public/jobs/history':
@@ -535,6 +604,14 @@ class Handler(BaseHTTPRequestHandler):
             record=self.server.portal.job_detail(user['id'],job_id)
             if not record:return self.send_json(404,{'error':'任务不存在或无权查看'})
             return self.send_json(200,record)
+        if route in ('/api/public/inquiry','/api/public/inquiry/view'):
+            from .research_intelligence import list_portal,read_portal
+            q=parse_qs(urlsplit(self.path).query)
+            topic=(q.get('topic_id') or ['default'])[0]
+            if route.endswith('/view'):
+                return self.send_json(200,read_portal(self.server.portal,user['id'],topic,
+                           (q.get('id') or [''])[0]))
+            return self.send_json(200,list_portal(self.server.portal,user['id'],topic))
         if route=='/api/public/reports':
             q=parse_qs(urlsplit(self.path).query)
             topic=(q.get('topic_id') or ['default'])[0]
@@ -566,6 +643,16 @@ class Handler(BaseHTTPRequestHandler):
                     ON f.topic_id=tp.topic_id AND f.paper_id=tp.paper_id
                     WHERE tp.topic_id=?''',(topic,)).fetchone()
                 reports=db.execute('SELECT COUNT(*) FROM research_reports WHERE topic_id=?',(topic,)).fetchone()[0]
+                inbox=db.execute('''SELECT COUNT(*) FROM topic_papers tp
+                    LEFT JOIN topic_paper_flags f ON f.topic_id=tp.topic_id AND f.paper_id=tp.paper_id
+                    LEFT JOIN paper_notes n ON n.topic_id=tp.topic_id AND n.paper_id=tp.paper_id
+                    WHERE tp.topic_id=? AND COALESCE(f.is_starred,0)=0
+                      AND COALESCE(f.feedback,0)=0
+                      AND COALESCE(f.reading_status,'unread')='unread'
+                      AND COALESCE(n.next_action,'none')='none' AND COALESCE(n.note,'')='' ''',(topic,)).fetchone()[0]
+                actions=db.execute('''SELECT COUNT(*) FROM paper_notes n
+                    JOIN topic_papers tp ON tp.topic_id=n.topic_id AND tp.paper_id=n.paper_id
+                    WHERE n.topic_id=? AND n.next_action<>'none' ''',(topic,)).fetchone()[0]
                 todo=db.execute('''SELECT COUNT(*) FROM topic_papers tp
                     LEFT JOIN topic_paper_flags f ON f.topic_id=tp.topic_id AND f.paper_id=tp.paper_id
                     WHERE tp.topic_id=? AND COALESCE(f.is_starred,0)=1
@@ -587,7 +674,8 @@ class Handler(BaseHTTPRequestHandler):
                     FROM papers p JOIN topic_papers tp ON p.id=tp.paper_id
                     WHERE tp.topic_id=? ORDER BY p.published DESC,p.id DESC LIMIT 3''',(topic,)).fetchall()
             return self.send_json(200,{'papers':counts['papers'],'starred':counts['starred'],
-                'read':counts['read'],'reports':reports,'to_read':todo,'pending_review':pending,
+                'read':counts['read'],'reports':reports,'to_read':todo,
+                'inbox':inbox,'next_actions':actions,'pending_review':pending,
                 'pending_papers':[dict(r) for r in pending_papers],
                 'recent':[dict(r) for r in latest]})
         if route=='/api/public/papers':
@@ -604,7 +692,7 @@ class Handler(BaseHTTPRequestHandler):
             filter_=(q.get('filter') or ['all'])[0]
             sort=(q.get('sort') or ['recent'])[0]
             paper_id=(q.get('paper_id') or [''])[0]
-            if len(paper_id)>150 or len(search)>120 or filter_ not in ('all','starred','to_read','unread','reading','done','liked') \
+            if len(paper_id)>150 or len(search)>120 or filter_ not in ('all','inbox','skipped','actionable','starred','to_read','unread','reading','done','liked') \
                     or sort not in ('recent','oldest','title'):
                 raise PortalError('Invalid search or filter')
             where=['tp.topic_id=?'];params=[topic]
@@ -621,20 +709,70 @@ class Handler(BaseHTTPRequestHandler):
             if filter_ in ('unread','reading','done'):
                 where.append("COALESCE(f.reading_status,'unread')=?");params.append(filter_)
             if filter_=='liked':where.append('COALESCE(f.feedback,0)=1')
+            if filter_=='inbox':
+                where.extend(("COALESCE(f.is_starred,0)=0", "COALESCE(f.feedback,0)=0",
+                              "COALESCE(f.reading_status,'unread')='unread'",
+                              "COALESCE(n.next_action,'none')='none'","COALESCE(n.note,'')=''"))
+            if filter_=='skipped':where.append('COALESCE(f.feedback,0)=-1')
+            if filter_=='actionable':where.append("COALESCE(n.next_action,'none')<>'none'")
             order={'recent':'p.published DESC,p.id DESC',
                    'oldest':'p.published ASC,p.id ASC','title':'p.title COLLATE NOCASE ASC,p.id'}[sort]
             relation='''FROM papers p JOIN topic_papers tp ON tp.paper_id=p.id
-                LEFT JOIN topic_paper_flags f ON f.paper_id=p.id AND f.topic_id=tp.topic_id'''
+                LEFT JOIN topic_paper_flags f ON f.paper_id=p.id AND f.topic_id=tp.topic_id
+                LEFT JOIN paper_notes n ON n.paper_id=p.id AND n.topic_id=tp.topic_id'''
             criterion=' WHERE '+' AND '.join(where)
             with self.server.portal.workspace(user['id']) as db:
                 total=db.execute('SELECT COUNT(*) '+relation+criterion,params).fetchone()[0]
                 rows=db.execute('''SELECT p.id,p.title,p.abstract,p.published,p.doi,p.url,
                     COALESCE(f.is_starred,0) AS is_starred,
                     COALESCE(f.reading_status,'unread') AS reading_status,
-                    COALESCE(f.feedback,0) AS feedback '''+relation+criterion+' ORDER BY '+order+
+                    COALESCE(f.feedback,0) AS feedback,
+                    COALESCE(n.note,'') AS note,
+                    COALESCE(n.next_action,'none') AS next_action,
+                    COALESCE(n.revision,0) AS note_revision,
+                    COALESCE(n.updated_at,'') AS note_updated_at '''+relation+criterion+' ORDER BY '+order+
                     ' LIMIT ? OFFSET ?',(*params,limit,offset)).fetchall()
             return self.send_json(200,{'papers':[dict(r) for r in rows],
                 'total':total,'limit':limit,'offset':offset})
+        if route=='/api/public/papers/citations':
+            from .citation_formats import export as export_citations
+            q=parse_qs(urlsplit(self.path).query)
+            topic=(q.get('topic_id') or ['default'])[0]
+            scope=(q.get('scope') or ['starred'])[0]
+            fmt=(q.get('format') or ['bib'])[0]
+            if scope not in ('starred','all') or fmt not in ('bib','ris'):
+                raise PortalError('Invalid citation export options')
+            self.server.portal.available(user['id'],topic)
+            with self.server.portal.workspace(user['id']) as db:
+                rows=db.execute("""SELECT p.id AS paper_id,p.title,p.published,p.doi,p.url
+                    FROM papers p JOIN topic_papers tp ON tp.paper_id=p.id
+                    LEFT JOIN topic_paper_flags f ON f.paper_id=p.id AND f.topic_id=tp.topic_id
+                    WHERE tp.topic_id=? AND (?='all' OR COALESCE(f.is_starred,0)=1)
+                    ORDER BY p.published DESC,p.id LIMIT 2001""",(topic,scope)).fetchall()
+            if len(rows)>2000:raise PortalError('Export exceeds 2000 papers')
+            raw,mime,filename=export_citations([dict(r) for r in rows],fmt)
+            self.send_response(200)
+            self.send_header('Content-Type',mime)
+            self.security_headers()
+            self.send_header('Content-Disposition',f'attachment; filename="{filename}"')
+            self.send_header('Content-Length',str(len(raw)))
+            self.end_headers();self.wfile.write(raw)
+            return
+        if route=='/api/public/reading/export':
+            from .portal_triage import export_reading
+            q=parse_qs(urlsplit(self.path).query)
+            topic=(q.get('topic_id') or ['default'])[0]
+            scope=(q.get('scope') or ['starred'])[0]
+            format_=(q.get('format') or ['md'])[0]
+            raw,content_type,filename=export_reading(self.server.portal,user['id'],topic,
+                scope=scope,format_=format_)
+            self.send_response(200)
+            self.send_header('Content-Type',content_type)
+            self.security_headers()
+            self.send_header('Content-Disposition',f'attachment; filename="{filename}"')
+            self.send_header('Content-Length',str(len(raw)))
+            self.end_headers();self.wfile.write(raw)
+            return
         if route=='/api/public/evidence/export':
             from .portal_export import export_evidence
             q=parse_qs(urlsplit(self.path).query)
@@ -646,6 +784,42 @@ class Handler(BaseHTTPRequestHandler):
             self.send_header('Content-Disposition','attachment; filename="paper-radar-evidence.csv"')
             self.send_header('Content-Length',str(len(raw)))
             self.end_headers();self.wfile.write(raw)
+            return
+        if route in ('/api/public/pdf/locate','/api/public/pdf/tables','/api/public/pdf/highlight'):
+            from .pdf_geometry import locate, page_tables, preview_png
+            q=parse_qs(urlsplit(self.path).query)
+            topic=(q.get('topic_id') or ['default'])[0]
+            pid=(q.get('paper_id') or [''])[0]
+            quote=(q.get('quote') or [''])[0]
+            if not 1<=len(pid)<=150 or len(quote)>700:
+                raise PortalError('论文或原文引文长度无效')
+            try:page=int((q.get('page') or ['0'])[0])
+            except (ValueError,TypeError):raise PortalError('PDF 页码无效')
+            if not 1<=page<=120:raise PortalError('PDF 页码需在 1—120 范围内')
+            portal=self.server.portal
+            # Topic membership and current document fingerprint checked before
+            # touching PDF bytes. Never accept an arbitrary client path.
+            state=portal_research.state(portal,user['id'],topic,pid)
+            if state.get('state') not in ('saved','indexed'):
+                raise PortalError('当前账号的 PDF 不可用或指纹已经改变')
+            if state.get('pages') and page>int(state['pages']):
+                raise PortalError('PDF 页码超出范围')
+            with auth_db(portal.auth_path) as auth:
+                if not throttle(auth,'pdf_geometry:'+user['id'],limit=40,seconds=60):
+                    return self.send_json(429,{'error':'PDF 定位请求过于频繁，请稍后重试'})
+            path=portal_research.path_for(portal,user['id'],pid)
+            if route.endswith('/highlight'):
+                raw=preview_png(path,state['sha256'],page,quote)
+                self.send_response(200)
+                self.send_header('Content-Type','image/png')
+                self.security_headers()
+                self.send_header('Cache-Control','no-store')
+                self.send_header('Content-Length',str(len(raw)))
+                self.end_headers();self.wfile.write(raw)
+            elif route.endswith('/tables'):
+                return self.send_json(200,page_tables(path,state['sha256'],page))
+            else:
+                return self.send_json(200,locate(path,state['sha256'],page,quote))
             return
         if route=='/api/public/pdf/view':
             q=parse_qs(urlsplit(self.path).query)
@@ -660,6 +834,25 @@ class Handler(BaseHTTPRequestHandler):
             except ValueError:raise PortalError('Invalid page')
             if not 1<=page<=120:raise PortalError('Page limit 1-120')
             return self.send_json(200,portal_research.preview(self.server.portal,user['id'],topic,pid,page))
+        if route in ('/api/public/trace','/api/public/trace/export','/api/public/trace/history'):
+            from .evidence_chain import portal_chain
+            q=parse_qs(urlsplit(self.path).query)
+            topic=(q.get('topic_id') or ['default'])[0]
+            paper_id=(q.get('paper_id') or [''])[0]
+            if route.endswith('/history'):
+                claim_id=(q.get('claim_id') or [''])[0]
+                return self.send_json(200,portal_chain(self.server.portal,user['id'],topic,
+                    'history',claim_id))
+            if route.endswith('/export'):
+                raw=portal_chain(self.server.portal,user['id'],topic,'export_markdown').encode('utf-8')
+                self.send_response(200)
+                self.send_header('Content-Type','text/markdown; charset=utf-8')
+                self.security_headers()
+                self.send_header('Content-Disposition','attachment; filename="paper-radar-trace.md"')
+                self.send_header('Content-Length',str(len(raw)))
+                self.end_headers();self.wfile.write(raw)
+                return
+            return self.send_json(200,portal_chain(self.server.portal,user['id'],topic,'read',paper_id=paper_id))
         if route=='/api/public/reviews/history':
             from .portal_reviews import review_history
             q=parse_qs(urlsplit(self.path).query)
@@ -735,6 +928,24 @@ class Handler(BaseHTTPRequestHandler):
             if route=='/api/public/logout':
                 with auth_db(self.server.portal.auth_path) as db:delete_session(db,self.cookie_value())
                 return self.send_json(200,{'ok':True},cookie=self.session_cookie('',clear=True))
+            if route=='/api/public/inquiry/run':
+                from .research_intelligence import run_portal
+                if set(payload) != {'topic_id','question'}:
+                    raise PortalError('研究问题提交字段不完整')
+                return self.send_json(201,run_portal(self.server.portal,user['id'],
+                                  payload['topic_id'],payload['question']))
+            if route in ('/api/public/following/preferences','/api/public/following/seen'):
+                from .following import update_preference,mark_seen,status
+                topic=payload.get('topic_id','default')
+                if not isinstance(topic,str):raise PortalError('研究主题无效')
+                self.server.portal.available(user['id'],topic)
+                with self.server.portal.workspace(user['id']) as db:
+                    if route.endswith('/preferences'):
+                        value=update_preference(db,topic,payload.get('preferences',{}))
+                    else:
+                        value={'seen':mark_seen(db,topic,payload.get('event_ids',[]))}
+                    current=status(db,topic,limit=60)
+                return self.send_json(200,{'result':value,'following':current})
             if route=='/api/public/password':
                 with auth_db(self.server.portal.auth_path) as db:
                     change_password(db,user['id'],payload.get('old_password',''),payload.get('new_password',''))
@@ -809,6 +1020,53 @@ class Handler(BaseHTTPRequestHandler):
                         feedback=excluded.feedback,updated_at=excluded.updated_at''',
                         (topic,pid,int(result['is_starred']),result['reading_status'],result['feedback'],utc_now()))
                 return self.send_json(200,{'paper_id':pid,'topic_id':topic,**result})
+            if route=='/api/public/papers/bulk':
+                from .portal_triage import bulk_flags
+                if set(payload)!={'topic_id','paper_ids','action'}:
+                    raise PortalError('请提供研究主题、论文 ID 列表和批量操作')
+                result=bulk_flags(self.server.portal,user['id'],payload['topic_id'],
+                                  payload['paper_ids'],payload['action'])
+                return self.send_json(200,result)
+            if route=='/api/public/papers/note':
+                from .portal_triage import save_note,NoteConflict
+                required={'topic_id','paper_id','note','next_action','expected_revision'}
+                if set(payload)!=required:
+                    raise PortalError('阅读笔记缺少必要字段')
+                try:
+                    result=save_note(self.server.portal,user['id'],payload['topic_id'],
+                        payload['paper_id'],payload['note'],payload['next_action'],
+                        payload['expected_revision'])
+                except NoteConflict as exc:
+                    return self.send_json(409,{'error':str(exc),'code':'NOTE_CONFLICT'})
+                return self.send_json(200,result)
+            if route in ('/api/public/trace/anchor','/api/public/trace/claim',
+                         '/api/public/trace/confirm'):
+                from .evidence_chain import portal_chain, RevisionConflict
+                topic=payload.get('topic_id','')
+                if route.endswith('/anchor'):
+                    if set(payload)!= {'topic_id','paper_id','page','quote','experiment_id','expected_sha256'}:
+                        raise PortalError('原文定位字段不完整')
+                    operation='add_anchor'
+                    params=(payload['paper_id'],payload['page'],payload['quote'])
+                    options={'experiment_id':payload['experiment_id'],
+                             'expected_sha256':payload['expected_sha256']}
+                elif route.endswith('/claim'):
+                    if set(payload)!= {'topic_id','body','kind','anchor_ids','expected_revision','claim_id'}:
+                        raise PortalError('研究结论字段不完整')
+                    operation='save_claim'
+                    params=(payload['body'],payload['kind'],payload['anchor_ids'],payload['expected_revision'])
+                    options={'claim_id':payload['claim_id']}
+                else:
+                    if set(payload)!= {'topic_id','claim_id','expected_revision','review_note','decision'}:
+                        raise PortalError('结论复核字段不完整')
+                    operation='confirm'
+                    params=(payload['claim_id'],payload['expected_revision'],payload['review_note'])
+                    options={'decision':payload['decision']}
+                try:
+                    result=portal_chain(self.server.portal,user['id'],topic,operation,*params,**options)
+                except RevisionConflict as exc:
+                    return self.send_json(409,{'error':str(exc),'code':'CLAIM_REVISION_CONFLICT'})
+                return self.send_json(200,result)
             if route=='/api/public/evidence/review':
                 from .portal_reviews import review_evidence
                 result=review_evidence(self.server.portal,user['id'],
@@ -836,6 +1094,8 @@ class Handler(BaseHTTPRequestHandler):
                 options={'cloud_analysis':payload.get('cloud_analysis',False),
                          'fetch_pdf':payload.get('fetch_pdf',True)}
                 if any(type(v) is not bool for v in options.values()):raise PortalError('Invalid options')
+                if options['cloud_analysis'] and payload.get('confirm_cloud_data_transfer') is not True:
+                    raise PortalError('请确认发送所选论文片段至管理员配置的第三方模型后重试。')
                 pid=str(payload.get('paper_id','')) if kind=='analyze' else ''
                 try:job=self.server.portal.research_async(user['id'],topic,kind=kind,pid=pid,options=options)
                 except (PortalError,QueueError) as exc:return self.send_json(429,{'error':str(exc)})

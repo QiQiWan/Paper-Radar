@@ -19,15 +19,27 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           python -m pip install -r requirements.txt
-          python -m pip install pytest
+          python -m pip install pytest pyyaml
+      - name: Install PDF geometry test dependency on Python 3.11
+        if: matrix.python-version == '3.11'
+        run: python -m pip install "pymupdf>=1.24,<2"
+      - name: Full repository and GitHub workflow feature parity
+        run: |
+          python -m tools.packaging.feature_parity
+          python -m tools.packaging.check_github_workflows
+          python tools/packaging/release_version.py
       - name: Unit and integration tests
         run: python -m pytest -q
       - name: Offline Agent doctor
         run: python -m paper_radar.agents doctor
       - name: JavaScript syntax
         run: |
+          node --check paper_radar/static/ui_state.js
           node --check paper_radar/static/app.js
           node --check paper_radar/static/portal.js
+          node --check paper_radar/static/trace_workbench.js
+          node --check paper_radar/static/inquiry_workbench.js
+          python -m tools.ui_copy_lint
       - name: Compile check
         run: python -m compileall -q paper_radar main.py
 
@@ -41,8 +53,8 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install -r requirements.txt
-          python -m pip install pytest
-      - name: Windows isolation, portal and cloud-failure smoke
-        run: python -m pytest -q tests/test_v1211_fixes.py tests/test_v1212_stability.py tests/test_v118_public_pipeline.py tests/test_v122_fulltext_and_synthesis.py
+          python -m pip install pytest pyyaml "pymupdf>=1.24,<2"
+      - name: Windows isolation, portal, Zotero and PDF evidence smoke
+        run: python -m pytest -q tests/test_v1211_fixes.py tests/test_v1212_stability.py tests/test_v118_public_pipeline.py tests/test_v122_fulltext_and_synthesis.py tests/test_v132_triage.py tests/test_v133_evidence_chain.py tests/test_v1331_windows_config.py tests/test_v139_sources_evidence_zotero.py tests/test_v139_integration_and_eval.py tests/test_v140_network_recovery.py tests/test_v140_research_inquiry.py tests/test_v1402_retrieval_diagnostics.py tests/test_v1403_retrieval_protocol.py
       - name: Windows source and parser entrypoint compile check
         run: python -m compileall -q paper_radar main.py startup.py

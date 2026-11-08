@@ -1,8 +1,17 @@
 name: Desktop build and automatic GitHub Release
+
+# Push a new MAJOR.MINOR.PATCH to main: build every OS, then publish one Release.
+# An existing version is tested by ci.yml but NEVER silently republished.
 on:
   push:
     branches: [main]
   workflow_dispatch:
+    inputs:
+      promote_tag:
+        description: 'Promote an existing signed, fully tested Prerelease after manual OS acceptance (e.g. v1.32.0). Empty means build a new version.'
+        required: false
+        default: ''
+        type: string
 
 permissions:
   contents: read
@@ -13,12 +22,12 @@ concurrency:
 
 jobs:
   prepare:
-    if: github.ref == 'refs/heads/main'
+    if: github.ref == 'refs/heads/main' && inputs.promote_tag == ''
     runs-on: ubuntu-24.04
     outputs:
       version: ${{ steps.version.outputs.version }}
       tag: ${{ steps.version.outputs.tag }}
-      release: ${{ steps.check.outputs.release }}
+      release: ${{ steps.tagcheck.outputs.release }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -26,21 +35,32 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - id: version
+      - name: Ensure code and package versions match
+        id: version
         run: python tools/packaging/release_version.py --github-output "$GITHUB_OUTPUT"
-      - id: check
+      - name: Skip existing releases and protect version tags
+        id: tagcheck
+        shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ steps.version.outputs.tag }}
-        shell: bash
         run: |
           set -euo pipefail
-          if git ls-remote --exit-code --tags origin "refs/tags/$TAG" >/dev/null 2>&1; then
-            echo "release=false" >> "$GITHUB_OUTPUT"
-            echo "Tag already exists: skipping publication" >> "$GITHUB_STEP_SUMMARY"
-          else
-            echo "release=true" >> "$GITHUB_OUTPUT"
+          if git show-ref --verify --quiet "refs/tags/$TAG"; then
+            if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+              if [ "$(gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json isDraft --jq .isDraft)" = true ]; then
+                echo "Release $TAG exists as a draft; review and finish or delete it manually." >&2
+                exit 1
+              fi
+              echo "release=false" >> "$GITHUB_OUTPUT"
+              echo "Release $TAG exists; not overwriting a published version." >> "$GITHUB_STEP_SUMMARY"
+              exit 0
+            fi
+            echo "Tag $TAG exists but has no Release. Manual review is required." >&2
+            exit 1
           fi
+          echo "release=true" >> "$GITHUB_OUTPUT"
+          echo "Preparing $TAG from $GITHUB_SHA" >> "$GITHUB_STEP_SUMMARY"
 
   test:
     needs: prepare
@@ -51,13 +71,43 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - run: |
-          python -m pip install -r requirements.txt pytest
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt pytest pyyaml
+      - name: Validate complete repository before release
+        run: |
+          python -m tools.packaging.feature_parity
+          python -m tools.packaging.check_github_workflows
+          python tools/packaging/release_version.py
+      - name: Full regression and offline Agent check
+        run: |
           python -m pytest -q
           python -m paper_radar.agents doctor
           python -m compileall -q paper_radar main.py startup.py
           node --check paper_radar/static/app.js
           node --check paper_radar/static/portal.js
+          node --check paper_radar/static/inquiry_workbench.js
+      - name: Chromium 1,000-paper user journeys and concurrent performance acceptance
+        run: |
+          python -m pip install playwright psutil
+          python -m playwright install --with-deps chromium
+          mkdir -p acceptance
+          python -m tools.v131_workspace_benchmark --papers 1000 --requests 240 --concurrency 8 --soak-seconds 20 --enforce --out acceptance/workspace_1000.json
+          python -m tools.v131_mutation_benchmark --papers 1000 --writes 100 --concurrency 8 --enforce --out acceptance/mutations_100.json
+          python -m tools.v131_browser_journeys --papers 1000 --enforce --out-dir acceptance/browser
+          python -m tools.v132_triage_benchmark --papers 1000 --note-writes 80 --batches 10 --enforce --out acceptance/triage_1000.json
+          python -m tools.v132_browser_journeys --papers 1000 --enforce --out-dir acceptance/triage_browser
+          python -m tools.v136_following_benchmark --papers 1000 --requests 240 --workers 8 --soak 20 --output acceptance/following_1000.json
+          python -m tools.v136_browser_journeys --papers 1000 --out-dir acceptance/following_browser
+      - name: Retain browser and workload evidence even when a gate fails
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: v132-ux-perf-acceptance
+          path: acceptance/
+          if-no-files-found: warn
+          retention-days: 30
 
   build:
     needs: [prepare, test]
@@ -84,12 +134,18 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - name: Linux packaging dependencies
+      - name: Install native GUI prerequisites (Ubuntu)
         if: runner.os == 'Linux'
-        run: sudo apt-get update && sudo apt-get install -y python3-tk dpkg-dev zip
-      - run: python -m pip install -r requirements.txt pyinstaller pytest
-      - run: python tools/packaging/build_desktop.py
-      - name: Windows smoke and archive
+        run: sudo apt-get update && sudo apt-get install -y python3-tk dpkg-dev
+      - name: Install runtime, PyInstaller and tests
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt pyinstaller pytest
+      - name: OS build smoke tests
+        run: python -m pytest -q tests/test_v126_desktop_and_sources.py tests/test_v125_research_workflow.py
+      - name: Build desktop bundle
+        run: python tools/packaging/build_desktop.py
+      - name: Windows frozen service smoke and ZIP
         if: runner.os == 'Windows'
         shell: pwsh
         env:
@@ -101,7 +157,7 @@ jobs:
           if ($doctor.version -ne $env:APP_VERSION) { exit 2 }
           Compress-Archive -Path dist/Paper-Radar -DestinationPath dist/Paper-Radar_Windows_x64.zip
           python tools/packaging/release_assets.py hash dist/Paper-Radar_Windows_x64.zip
-      - name: Ubuntu smoke and archive
+      - name: Ubuntu frozen binary smoke, DEB and ZIP
         if: runner.os == 'Linux'
         shell: bash
         env:
@@ -113,7 +169,7 @@ jobs:
           sh tools/packaging/build_ubuntu_deb.sh
           (cd dist && zip -qr Paper-Radar_Ubuntu_portable_amd64.zip Paper-Radar)
           python tools/packaging/release_assets.py hash dist/Paper-Radar_Ubuntu_portable_amd64.zip "dist/Paper-Radar_${APP_VERSION}_amd64.deb"
-      - name: macOS smoke and archive
+      - name: macOS frozen binary smoke and architecture-specific ZIP
         if: runner.os == 'macOS'
         shell: bash
         env:
@@ -125,14 +181,36 @@ jobs:
           python -c 'import json,os;assert json.load(open("dist/doctor.json"))["version"]==os.environ["APP_VERSION"]'
           (cd dist && ditto -c -k --sequesterRsrc --keepParent Paper-Radar.app "Paper-Radar_macOS_${APP_ARCH}.zip")
           python tools/packaging/release_assets.py hash "dist/Paper-Radar_macOS_${APP_ARCH}.zip"
-      - uses: actions/upload-artifact@v4
+      - name: Windows relocated install, restart, data and archive smoke
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          python -m tools.v131_native_smoke --bundle dist/Paper-Radar --executable-relative Paper-Radar.exe --archive dist/Paper-Radar_Windows_x64.zip --out dist/acceptance_windows_x64.json
+      - name: Ubuntu relocated install, restart, DEB and archive smoke
+        if: runner.os == 'Linux'
+        shell: bash
+        env:
+          APP_VERSION: ${{ needs.prepare.outputs.version }}
+        run: |
+          python -m tools.v131_native_smoke --bundle dist/Paper-Radar --executable-relative Paper-Radar --archive dist/Paper-Radar_Ubuntu_portable_amd64.zip --deb "dist/Paper-Radar_${APP_VERSION}_amd64.deb" --out dist/acceptance_ubuntu_amd64.json
+      - name: macOS relocated app, restart, data and archive smoke
+        if: runner.os == 'macOS'
+        shell: bash
+        env:
+          APP_ARCH: ${{ matrix.arch }}
+        run: |
+          python -m tools.v131_native_smoke --bundle dist/Paper-Radar.app --executable-relative Contents/MacOS/Paper-Radar --archive "dist/Paper-Radar_macOS_${APP_ARCH}.zip" --out "dist/acceptance_macos_${APP_ARCH}.json"
+      - name: Upload native installers
+        uses: actions/upload-artifact@v4
         with:
           name: paper-radar-${{ matrix.label }}
           path: |
             dist/*.zip
             dist/*.deb
             dist/*.sha256
+            dist/acceptance_*.json
           if-no-files-found: error
+          retention-days: 14
 
   source:
     needs: [prepare, test]
@@ -143,8 +221,10 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - run: python -m pip install -r requirements.txt
-      - env:
+      - name: Install source-packager requirements
+        run: python -m pip install -r requirements.txt
+      - name: Create validated source archive
+        env:
           VERSION: ${{ needs.prepare.outputs.version }}
         run: |
           mkdir -p dist
@@ -156,6 +236,7 @@ jobs:
             dist/Paper-Radar_v*_Source.zip
             dist/Paper-Radar_v*_Source.zip.sha256
           if-no-files-found: error
+          retention-days: 14
 
   publish:
     needs: [prepare, test, build, source]
@@ -167,25 +248,137 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install detached release signature verifier
+        run: python -m pip install -r requirements.txt
       - uses: actions/download-artifact@v4
         with:
           pattern: paper-radar-*
           path: release
           merge-multiple: true
-      - name: Verify all release assets
+      - name: Independently check all six assets and their SHA-256
         env:
           VERSION: ${{ needs.prepare.outputs.version }}
         run: python tools/packaging/release_assets.py verify --release-dir release --version "$VERSION"
-      - name: Publish prerelease only after all artifacts pass verification
+      - name: Sign source ZIP with independently pinned Ed25519 key, when configured
+        id: signing
+        shell: bash
+        env:
+          VERSION: ${{ needs.prepare.outputs.version }}
+          RELEASE_SIGNING_KEY_PEM: ${{ secrets.PAPER_RADAR_RELEASE_SIGNING_KEY_PEM }}
+          NATIVE_RELEASE_APPROVED: ${{ vars.PAPER_RADAR_NATIVE_RELEASE_APPROVED }}
+        run: |
+          set -euo pipefail
+          if [ -z "${RELEASE_SIGNING_KEY_PEM}" ]; then
+            echo "stable=false" >> "$GITHUB_OUTPUT"
+            echo "No developer signing key: publish as prerelease only; auto-updater must reject." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          umask 077
+          keyfile="$(mktemp)"
+          trap 'rm -f "$keyfile"' EXIT
+          printf '%s\n' "$RELEASE_SIGNING_KEY_PEM" > "$keyfile"
+          python tools/sign_release.py sign --source "release/Paper-Radar_v${VERSION}_Source.zip" --version "$VERSION" --key "$keyfile" --output release
+          python -m tools.packaging.release_gate --release-dir release --version "$VERSION"
+          echo "Source archive detached signature verified against repository pinned public key." >> "$GITHUB_STEP_SUMMARY"
+          if [ "$NATIVE_RELEASE_APPROVED" = "v${VERSION}" ]; then
+            echo "stable=true" >> "$GITHUB_OUTPUT"
+            echo "Native manual acceptance approved; publishing signed stable Release." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "stable=false" >> "$GITHUB_OUTPUT"
+            echo "Native manual acceptance not approved: signed prerelease only, no automatic source upgrades." >> "$GITHUB_STEP_SUMMARY"
+          fi
+      - name: Publish a stable signed release, otherwise a non-updatable prerelease
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ needs.prepare.outputs.tag }}
+          VERSION: ${{ needs.prepare.outputs.version }}
+          SIGNED_STABLE: ${{ steps.signing.outputs.stable }}
         run: |
           set -euo pipefail
           if git ls-remote --exit-code --tags origin "refs/tags/$TAG" >/dev/null 2>&1; then
-            echo "Refusing to overwrite $TAG" >&2
+            echo "Version tag already exists; refusing to overwrite it." >&2
             exit 1
           fi
-          gh release create "$TAG" release/* --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --title "Paper-Radar $TAG" --notes "Unsigned desktop builds; install and test before production use." --prerelease --draft
-          gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" --draft=false --prerelease
+          if [ "$SIGNED_STABLE" = true ]; then
+            release_status="Official signed source release. Source updater can verify and install."
+            prerelease_flag=""
+          else
+            release_status="Prerelease pending signing or native manual acceptance. In-app auto-update deliberately disabled."
+            prerelease_flag="--prerelease"
+          fi
+          cat > release-notes.md <<EOF
+          # Paper-Radar $TAG
+
+          Automatically built from commit \`$GITHUB_SHA\` after full regression and native frozen-binary smoke checks.
+
+          | Platform | Download |
+          | --- | --- |
+          | Windows x64 | \`Paper-Radar_Windows_x64.zip\` (extract whole folder; run Paper-Radar.exe) |
+          | Ubuntu amd64 | \`Paper-Radar_${VERSION}_amd64.deb\` or \`Paper-Radar_Ubuntu_portable_amd64.zip\` |
+          | macOS Apple Silicon | \`Paper-Radar_macOS_arm64.zip\` |
+          | macOS Intel | \`Paper-Radar_macOS_intel.zip\` |
+          | Source | \`Paper-Radar_v${VERSION}_Source.zip\` |
+
+          $release_status
+
+          Source auto-install is permitted only when an independently signed manifest validates against the pinned Ed25519 key. The native Windows/macOS/Linux bundles have no silent installer updater: native download and installation remains a user-controlled action. Windows signing, macOS notarization and human OS acceptance are outstanding. SHA-256 checksum files are attached for all six assets.
+          EOF
+          gh release create "$TAG" release/* \
+            --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" \
+            --title "Paper-Radar $TAG" --notes-file release-notes.md \
+            --draft $prerelease_flag
+          # Draft prevents public exposure of a partial upload. Only publish after
+          # all 12 files have been accepted by the release creation command.
+          gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" --draft=false $prerelease_flag
+          echo "Published $TAG: https://github.com/$GITHUB_REPOSITORY/releases/tag/$TAG" >> "$GITHUB_STEP_SUMMARY"
+
+  promote:
+    # Promotion is deliberately separate from rebuilding a versioned release.
+    # It retains the original GitHub asset digests and tag, and rechecks the
+    # Ed25519 signature against the repository's independently pinned key.
+    if: github.ref == 'refs/heads/main' && inputs.promote_tag != ''
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install signature verifier
+        run: python -m pip install -r requirements.txt
+      - name: Verify current approval, existing Prerelease, immutable assets and signature
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.promote_tag }}
+          NATIVE_RELEASE_APPROVED: ${{ vars.PAPER_RADAR_NATIVE_RELEASE_APPROVED }}
+        run: |
+          set -euo pipefail
+          if [ "$NATIVE_RELEASE_APPROVED" != "$RELEASE_TAG" ]; then
+            echo "Native manual acceptance approval is missing." >&2
+            exit 1
+          fi
+          if [[ ! "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "Invalid promotion tag." >&2
+            exit 1
+          fi
+          if ! git ls-remote --exit-code --tags origin "refs/tags/$RELEASE_TAG" >/dev/null 2>&1; then
+            echo "Tag does not exist remotely." >&2
+            exit 1
+          fi
+          state="$(gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --json isDraft,isPrerelease --jq '[.isDraft,.isPrerelease]|join(",")')"
+          if [ "$state" != 'false,true' ]; then
+            echo "Expected an already-public prerelease with no draft state. Found: $state" >&2
+            exit 1
+          fi
+          mkdir -p release
+          gh release download "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --dir release
+          python -m tools.packaging.release_gate --release-dir release --version "${RELEASE_TAG#v}"
+          # Promotion updates release metadata only, not the original artifacts.
+          gh release edit "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --prerelease=false
+          echo "Promoted verified signed $RELEASE_TAG after explicit native approval." >> "$GITHUB_STEP_SUMMARY"

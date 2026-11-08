@@ -40,7 +40,7 @@ def test_builtin_manifest_has_declared_privileges_and_read_only_retry():
     reg=build_registry()
     specs={a['name']:a for a in reg.manifest()}
     assert specs['discovery']['max_attempts']==2
-    assert specs['discovery']['capabilities']==['network_read']
+    assert specs['discovery']['capabilities']==['network_read','database_read']
     assert 'cloud_model' in specs['ranking']['capabilities']
     assert 'database_write' in specs['storage']['capabilities']
     assert specs['summary']['max_attempts']==1

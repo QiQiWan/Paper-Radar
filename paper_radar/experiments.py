@@ -58,7 +58,7 @@ def read_findings(conn, paper_id: str, *, db_path: Path) -> dict:
     if not status.get('indexed'):
         return {'paper_id': paper_id, 'status': 'stale' if document.get('state') == 'stale' else 'not_indexed',
                 'findings': [], 'note': status.get('note') or '请先解析 PDF。'}
-    rows = conn.execute('''SELECT kind,dataset,metric,value,baseline,setting,chunk_id,page,quote
+    rows = conn.execute('''SELECT id,kind,dataset,metric,value,baseline,setting,chunk_id,page,quote
         FROM experimental_findings WHERE paper_id=? AND pdf_sha256=? ORDER BY id''',
         (paper_id, document['pdf_sha256'])).fetchall()
     return {'paper_id': paper_id, 'status': 'ready' if rows else 'no_results',

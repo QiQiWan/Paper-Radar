@@ -183,6 +183,21 @@ class MultiQueryTests(unittest.TestCase):
         self.assertEqual(plan[-1]['keywords'],['zeta'])
         self.assertEqual(len(base.query_plan(config,'arxiv')),1)
 
+    def test_duplicate_keyword_hits_do_not_mark_source_partial(self):
+        class Fake:
+            name='fake'
+            label='Fake duplicate source'
+            def fetch(self,config,logger=print,now=None):
+                keyword=config['keywords'][0]
+                return [sample('common'),sample(keyword+'-unique')]
+        config={'sources':['fake'],'keywords':['alpha','beta'],
+                'max_results':20,'max_queries_per_source':2}
+        with patch.dict(base._REGISTRY,{'fake':Fake}), patch('paper_radar.sources.base.sleep'):
+            result=base.fetch_enabled(config,logger=lambda *_:None)
+        self.assertEqual(len(result),3)
+        self.assertFalse(config['_source_results'][0]['partial'])
+        self.assertEqual(config['_source_results'][0]['count'],3)
+
     def test_balanced_recall_and_partial_failure(self):
         class Fake:
             name='fake'

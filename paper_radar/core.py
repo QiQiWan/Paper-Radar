@@ -18,13 +18,10 @@ import xml.etree.ElementTree as ET
 
 ATOM = "{http://www.w3.org/2005/Atom}"
 ARXIV = "{http://arxiv.org/schemas/atom}"
-# Portable bundles keep installed code read-only and write all research data
-# into the signed-in operating system user's application data directory.
-if getattr(sys, 'frozen', False):
-    from .desktop_paths import user_data_dir, ensure_data_dir
-    APP_ROOT = ensure_data_dir(user_data_dir())
-else:
-    APP_ROOT = Path(__file__).resolve().parent.parent
+# Code and research data can be kept in different directories. Existing source
+# installations retain their original paths until the owner explicitly migrates.
+from .storage_layout import resolve_data_root, INSTALL_ROOT
+APP_ROOT = resolve_data_root()
 APP_CONFIG = APP_ROOT / "settings.json"
 DB_FILE = APP_ROOT / "data" / "papers.sqlite3"
 LOCK_FILE = APP_ROOT / "data" / "running.lock"
@@ -36,16 +33,18 @@ DEFAULTS = {
     "report_limit": 30,
     "interval_hours": 24,
     "schedule_time": "08:30",
-    "ai_enabled": False,
+    "ai_enabled": True,
     "ai_limit": 5,
     "api_provider": "DeepSeek",
     "api_base_url": "https://api.deepseek.com",
     "api_model": "deepseek-flash",
     "llm_input_usd_per_million": 0.0,
     "llm_output_usd_per_million": 0.0,
+    "llm_data_consent": False,
     "output_dir": "reports",
     "sort_mode": "relevance",
     "sources": ["arxiv", "openalex", "crossref"],
+    "openreview_invitation": "",
     "auto_download": False,
     "download_limit": 3,
     "max_pdf_mb": 30,
@@ -56,11 +55,11 @@ DEFAULTS = {
     "zotero_include_children": True,
     "zotero_refresh_keywords": False,
     "zotero_keyword_limit": 8,
-    "max_queries_per_source": 8,
-    "source_query_timeout_seconds": 10,
-    "source_total_timeout_seconds": 75,
+    "max_queries_per_source": 4,
+    "source_query_timeout_seconds": 35,
+    "source_total_timeout_seconds": 210,
     "research_goal": "",
-    "ai_rerank_enabled": False,
+    "ai_rerank_enabled": True,
     "ai_rerank_limit": 15,
     "schedule_all_topics": False,
     "update_check_enabled": True,
@@ -78,6 +77,7 @@ DEFAULTS = {
 TOPIC_FIELDS = (
     'keywords', 'categories', 'sources', 'lookback_days', 'max_results',
     'report_limit', 'sort_mode', 'max_queries_per_source', 'research_goal',
+    'openreview_invitation',
     'zotero_enabled',
     'zotero_mode', 'zotero_db_path', 'zotero_collection_key',
     'zotero_include_children', 'zotero_refresh_keywords', 'zotero_keyword_limit',
@@ -91,11 +91,8 @@ from .quality import score_relevance, valid_recent_publication, matched_keywords
 
 
 def read_config(path: Path = APP_CONFIG) -> dict:
-    config = dict(DEFAULTS)
-    if path.exists():
-        content = json.loads(path.read_text(encoding="utf-8"))
-        config.update({k: v for k, v in content.items() if k in DEFAULTS})
-    return validate_config(config)
+    from .config_safety import load_config
+    return load_config(Path(path), DEFAULTS, validate_config)
 
 
 def validate_config(config: dict) -> dict:
@@ -116,10 +113,16 @@ def validate_config(config: dict) -> dict:
         raise ValueError('请选择有效的文献来源。')
     if not c["keywords"] and not c["categories"]:
         raise ValueError("请输入关键词或 arXiv 分类。")
+    # Upgrade the v1.39 default pair. Users who set a different pair retain
+    # their preference; new installations use the longer network budgets.
+    if (int(c.get('source_query_timeout_seconds', 10)) == 10 and
+            int(c.get('source_total_timeout_seconds', 75)) == 75):
+        c['source_query_timeout_seconds'] = DEFAULTS['source_query_timeout_seconds']
+        c['source_total_timeout_seconds'] = DEFAULTS['source_total_timeout_seconds']
     for k, lo, hi in (("lookback_days", 1, 60), ("max_results", 1, 500),
                       ("report_limit", 1, 100), ("interval_hours", 1, 168),
-                      ("ai_limit", 1, 30), ("ai_rerank_limit", 1, 30), ("download_limit", 1, 20), ("max_pdf_mb", 1, 50), ("zotero_keyword_limit", 1, 15), ("max_queries_per_source", 1, 20), ("source_query_timeout_seconds", 4, 60),
-                      ("source_total_timeout_seconds", 20, 240), ("update_check_interval_hours", 6, 168)):
+                      ("ai_limit", 1, 30), ("ai_rerank_limit", 1, 30), ("download_limit", 1, 20), ("max_pdf_mb", 1, 50), ("zotero_keyword_limit", 1, 15), ("max_queries_per_source", 1, 20), ("source_query_timeout_seconds", 20, 90),
+                      ("source_total_timeout_seconds", 60, 600), ("update_check_interval_hours", 6, 168)):
         c[k] = max(lo, min(hi, int(c.get(k, DEFAULTS[k]))))
     for rate_key in ('llm_input_usd_per_million', 'llm_output_usd_per_million'):
         try:
@@ -130,6 +133,9 @@ def validate_config(config: dict) -> dict:
         if not isfinite(rate) or not 0 <= rate <= 10000:
             raise ValueError('模型费用单价必须为0至10000美元/百万 Token。')
         c[rate_key] = rate
+    if type(c.get("llm_data_consent", False)) is not bool:
+        raise ValueError("模型数据传输授权必须为明确的布尔选项。")
+    c["llm_data_consent"] = c.get("llm_data_consent", False)
     c["ai_enabled"] = bool(c.get("ai_enabled", False))
     c["ai_rerank_enabled"] = bool(c.get("ai_rerank_enabled", False))
     c["schedule_all_topics"] = bool(c.get("schedule_all_topics", False))
@@ -141,6 +147,9 @@ def validate_config(config: dict) -> dict:
     c["zotero_mode"] = str(c.get("zotero_mode", "auto"))
     if c["zotero_mode"] not in ("auto", "api", "sqlite"):
         raise ValueError("Zotero 连接方式无效。")
+    c['openreview_invitation'] = str(c.get('openreview_invitation') or '').strip()
+    if c['openreview_invitation'] and not re.fullmatch(r'[A-Za-z0-9_.\-+/]{5,220}', c['openreview_invitation']):
+        raise ValueError('OpenReview 投稿邀请 ID 格式无效。')
     c["zotero_db_path"] = str(c.get("zotero_db_path") or "").strip()[:2000]
     c["zotero_collection_key"] = str(c.get("zotero_collection_key") or "").strip()[:64]
     if c["zotero_enabled"] and not c["zotero_collection_key"]:
@@ -206,10 +215,11 @@ def save_config(config: dict, path: Path = APP_CONFIG) -> dict:
         if topic['id'] == c['active_topic_id']:
             topic.update({field: deepcopy(c[field]) for field in TOPIC_FIELDS})
             break
-    path.parent.mkdir(parents=True, exist_ok=True)
-    tmp = path.with_name(path.name + ".tmp")
-    tmp.write_text(json.dumps(c, ensure_ascii=False, indent=2), encoding="utf-8")
-    tmp.replace(path)
+    # Validate any pre-existing primary before writing. A syntactically valid
+    # JSON object with invalid settings must not be replaced unnoticed.
+    read_config(Path(path))
+    from .config_safety import save_config_json
+    save_config_json(Path(path), c)
     return c
 
 
@@ -278,10 +288,21 @@ def prepare_zotero(config:dict,logger=print):
     return effective,SimilarityRanker(profile.references)
 
 
-def connect(db_path: Path = DB_FILE) -> sqlite3.Connection:
-    db_path.parent.mkdir(parents=True, exist_ok=True)
-    conn = sqlite3.connect(db_path, timeout=30)
-    conn.row_factory = sqlite3.Row
+# SQLite schema initialization is a write operation. Do not perform it on every
+# dashboard refresh. The cache uses file identity; each new database still
+# receives the required migrations.
+from threading import RLock as _DatabaseRLock
+_DB_INIT_LOCK = _DatabaseRLock()
+_DB_INITIALIZED: dict[str, tuple[int, int, int]] = {}
+
+
+def _db_identity(path: Path) -> tuple[int, int, int]:
+    stat = path.stat()
+    return (int(stat.st_dev), int(stat.st_ino),
+            int(stat.st_ctime_ns) if not stat.st_ino else 0)
+
+
+def _initialize_schema(conn: sqlite3.Connection) -> None:
     from .migrations import assert_compatible
     assert_compatible(conn,'research')
     conn.execute("""CREATE TABLE IF NOT EXISTS papers (
@@ -349,7 +370,46 @@ def connect(db_path: Path = DB_FILE) -> sqlite3.Connection:
     conn.commit()
     from .migrations import migrate
     migrate(conn,'research')
-    return conn
+
+
+def _legacy_topic_repair_pending(conn: sqlite3.Connection) -> bool:
+    """Read-only marker check preserves old databases created before topics.
+
+    Normally one indexed SELECT replaces repeated CREATE/ALTER statements.
+    Older clients (or interrupted migrations) may lack the marker; repair is
+    triggered only for that state, including after a reused connection.
+    """
+    try:
+        if conn.execute("SELECT 1 FROM app_meta WHERE key='topic_migrated_v111'").fetchone() is None:
+            return True
+        # Read-only schema probe for interrupted upgrades and legacy tables.
+        # LIMIT 0 compiles column names without reading any paper rows.
+        conn.execute('SELECT recommend_evidence, rerank_fingerprint FROM topic_papers LIMIT 0')
+        return False
+    except sqlite3.OperationalError:
+        return True
+
+
+def connect(db_path: Path = DB_FILE) -> sqlite3.Connection:
+    db_path = Path(db_path)
+    db_path.parent.mkdir(parents=True, exist_ok=True)
+    conn = sqlite3.connect(db_path, timeout=30)
+    conn.row_factory = sqlite3.Row
+    conn.execute('PRAGMA busy_timeout=30000')
+    try:
+        from .migrations import assert_compatible
+        assert_compatible(conn, 'research')  # Read-only: reject future DB even after cache hit.
+        key = str(db_path.resolve())
+        identity = _db_identity(db_path)
+        if _DB_INITIALIZED.get(key) != identity or _legacy_topic_repair_pending(conn):
+            with _DB_INIT_LOCK:
+                if _DB_INITIALIZED.get(key) != identity or _legacy_topic_repair_pending(conn):
+                    _initialize_schema(conn)
+                    _DB_INITIALIZED[key] = _db_identity(db_path)
+        return conn
+    except BaseException:
+        conn.close()
+        raise
 
 
 @contextmanager
@@ -362,7 +422,8 @@ def open_database(db_path: Path = DB_FILE):
         connection.close()
 
 
-def save_papers(conn: sqlite3.Connection, papers: list[Paper], *, topic_id: str = "default") -> list[Paper]:
+def save_papers(conn: sqlite3.Connection, papers: list[Paper], *, topic_id: str = "default",
+                commit: bool = True) -> list[Paper]:
     """Idempotent upsert with DOI matching across source adapters.
 
     Existing local annotations and downloaded file state are preserved.
@@ -426,7 +487,8 @@ def save_papers(conn: sqlite3.Connection, papers: list[Paper], *, topic_id: str 
           rerank_fingerprint=excluded.rerank_fingerprint""",
           (topic_id,p.paper_id,p.score,seen_at,p.recommend_reason,p.ai_relevance,
            p.recommend_evidence,p.rerank_fingerprint))
-    conn.commit()
+    if commit:
+        conn.commit()
     return inserted
 
 
@@ -519,7 +581,7 @@ def get_selected(conn: sqlite3.Connection, ids: list[str], topic_id: str | None 
 
 def annotate_papers(conn: sqlite3.Connection, config: dict, logger=print, now: datetime | None = None, ranker=None, progress=None) -> int:
     """Summaries are best effort; errors do not prevent Word export."""
-    if not config["ai_enabled"]:
+    if not config["ai_enabled"] or not config.get("llm_data_consent", False):
         return 0
     from .cloud_api import get_api_key, summarize_paper, summary_fingerprint, validate_summary_evidence
     if not get_api_key(config["api_provider"]):
@@ -610,10 +672,16 @@ def _library_filter(query: str = "", only_starred: bool = False,
 
 
 def _topic_library_parts(topic_id: str, topic_only: bool, query: str,
-                         only_starred: bool, reading_status: str):
+                         only_starred: bool, reading_status: str, triage_filter: str = ""):
     if not TOPIC_ID_RE.fullmatch(topic_id):
         raise ValueError('研究主题标识无效。')
     join = ('JOIN' if topic_only else 'LEFT JOIN') + ' topic_papers tp ON tp.paper_id=p.paper_id AND tp.topic_id=?'
+    if triage_filter and triage_filter not in {'inbox','skipped','actionable'}:
+        raise ValueError('论文筛选条件无效')
+    if triage_filter and not topic_only:
+        raise ValueError('阅读决策仅支持当前研究主题')
+    if triage_filter:
+        join += ' LEFT JOIN local_paper_notes n ON n.topic_id=tp.topic_id AND n.paper_id=tp.paper_id'
     where, args = _library_filter(query, False, '')
     for col in ('title','abstract','authors','doi'):
         where=where.replace(col+' LIKE', 'p.'+col+' LIKE')
@@ -624,14 +692,22 @@ def _topic_library_parts(topic_id: str, topic_only: bool, query: str,
     if reading_status in {'unread','reading','done'}:
         where += " AND COALESCE(tp.reading_status,'unread')=?"
         args.append(reading_status)
+    if triage_filter == 'inbox':
+        where += " AND COALESCE(tp.is_starred,0)=0 AND COALESCE(tp.feedback,0)=0"
+        where += " AND COALESCE(tp.reading_status,'unread')='unread'"
+        where += " AND COALESCE(n.next_action,'none')='none' AND COALESCE(n.note,'')=''"
+    elif triage_filter == 'skipped':
+        where += ' AND COALESCE(tp.feedback,0)=-1'
+    elif triage_filter == 'actionable':
+        where += " AND COALESCE(n.next_action,'none')<>'none'"
     return join,where,[topic_id,*args]
 
 
 def count_library(conn: sqlite3.Connection, *, query: str = "", only_starred: bool = False,
                   reading_status: str = "", topic_id: str | None = None,
-                  topic_only: bool = False) -> int:
+                  topic_only: bool = False, triage_filter: str = "") -> int:
     if topic_id is not None:
-        join,where,args=_topic_library_parts(topic_id,topic_only,query,only_starred,reading_status)
+        join,where,args=_topic_library_parts(topic_id,topic_only,query,only_starred,reading_status,triage_filter)
         return int(conn.execute('SELECT COUNT(*) FROM papers p '+join+' WHERE '+where,args).fetchone()[0])
     clause,args=_library_filter(query,only_starred,reading_status)
     return int(conn.execute('SELECT COUNT(*) FROM papers WHERE '+clause,args).fetchone()[0])
@@ -640,10 +716,10 @@ def count_library(conn: sqlite3.Connection, *, query: str = "", only_starred: bo
 def list_library(conn: sqlite3.Connection, *, limit: int = 300, offset: int = 0,
                  query: str = "", only_starred: bool = False,
                  reading_status: str = "", sort: str = "default",
-                 topic_id: str | None = None, topic_only: bool = False) -> list[Paper]:
+                 topic_id: str | None = None, topic_only: bool = False, triage_filter: str = "") -> list[Paper]:
     """Page the shared paper index; display selected theme's independent flags."""
     if topic_id is not None:
-        join,where,args=_topic_library_parts(topic_id,topic_only,query,only_starred,reading_status)
+        join,where,args=_topic_library_parts(topic_id,topic_only,query,only_starred,reading_status,triage_filter)
         order = ('p.first_seen DESC,p.paper_id ASC' if sort=='recent' else
                  '(COALESCE(tp.score,0)+CASE WHEN tp.feedback=1 THEN 2 WHEN tp.feedback=-1 THEN -100 ELSE 0 END) DESC,p.published DESC,p.paper_id ASC' if sort=='relevance' else
                  'COALESCE(tp.is_starred,0) DESC,p.published DESC,p.paper_id ASC')
@@ -728,6 +804,8 @@ def report_from_cache(config: dict | None = None, logger=print, db_path: Path = 
     task.emit(5, '读取缓存', detail='检查当前检索范围')
     from .report import write_report, write_markdown, write_csv
     config = validate_config(config or read_config())
+    if not config.get("llm_data_consent", False):
+        config = {**config,"ai_enabled":False,"ai_rerank_enabled":False}
     folder = get_output_dir(config)
     folder.mkdir(parents=True, exist_ok=True)
     with single_instance(db_path.parent / "running.lock"):

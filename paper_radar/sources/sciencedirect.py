@@ -5,6 +5,7 @@ Requires an entitled Elsevier API Key. The supported GET interface is a
 compatibility path; no subscriptions or full-text downloads are bypassed.
 """
 from __future__ import annotations
+from .request_policy import request_timeout
 from datetime import datetime, timedelta, timezone
 from urllib import request, parse, error
 import json
@@ -39,7 +40,7 @@ class ScienceDirectSource:
                   'count':min(int(config['max_results']),25),'start':0}
         req = request.Request(BASE+'?'+parse.urlencode(params),headers=headers)
         try:
-            with request.urlopen(req,timeout=35) as resp:
+            with request.urlopen(req,timeout=request_timeout(config,35)) as resp:
                 payload = json.load(resp)
         except error.HTTPError as exc:
             raise RuntimeError(f'ScienceDirect 拒绝请求（HTTP {exc.code}）；请检查 API 权限、校园网/VPN 或机构令牌。') from None

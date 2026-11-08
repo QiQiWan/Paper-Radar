@@ -110,7 +110,7 @@ def test_model_cost_warning_and_research_review_controls_remain_available():
     local = (STATIC / 'index.html').read_text('utf-8')
     public = (STATIC / 'portal.html').read_text('utf-8')
     assert '会将输入的研究目标发送' in local
-    assert '云模型可能产生费用' in public
+    assert ('云模型可能产生费用' in public or '模型分析可能计费' in public)
     for key in ('fulltextArea', 'importEvidence', 'reportDownload', 'retrySafeJob'):
         assert key in view('portal.html').ids
 
@@ -130,4 +130,4 @@ def test_shortcut_to_publisher_credentials_reveals_collapsed_settings():
     js = (STATIC / 'app.js').read_text('utf-8')
     assert "$('settings-sources').open=true" in js
     assert "$('publisherPanel').scrollIntoView" in js
-    assert '点击“检索论文并更新报告”' in js
+    assert '点击“开始检索”' in js and '检索论文并更新报告' not in js

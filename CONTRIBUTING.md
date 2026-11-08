@@ -1,19 +1,15 @@
 # 参与开发
 
-欢迎通过 Issue 反馈问题或提交 Pull Request。
+欢迎通过 Issue 报告缺陷，或通过 Pull Request 提交修改。请在问题描述中给出操作系统、版本号、复现步骤和必要的脱敏日志。
 
-开发环境：Python 3.10+。安装依赖后，执行：
+提交代码前使用 Python 3.10 或更新版本安装依赖并运行：
 
 ```bash
-python -m pip install -r requirements.txt
-python -m unittest discover -s tests -v
+python -m pip install -r requirements.txt pytest
+python -m tools.packaging.feature_parity
+python -m pytest -q
 ```
 
-本地测试中使用模拟论文及模拟 API 响应，不要把 API Key、`data/`、`logs/`、`reports/`、`settings.json` 提交到公开仓库。
+新增检索来源、Agent、数据迁移、页面或 API 时，应增加对应测试，并确保旧任务和数据接口继续可用。详细架构与发行流程见 [维护指南](docs/MAINTAINERS.md)。
 
-保留第三方引用和数据来源信息。贡献代码时请确认你有权以仓库许可证提供。
-
-
-## Agent 模块贡献（v1.13.0）
-
-请优先在 `paper_radar/agents/stages/` 独立修改对应 Agent，保持 `AgentSpec` 的输入输出合同，增加对应的 `tests/test_v113_agents.py` 或 `tests/test_agent_<name>.py`。必要的依赖变化须同步修改 `agents/catalog.py`，并以完整 `python -m pytest -q` 检查旧 API 兼容。详情见 [Agent 独立研发清单](docs/agents/README.md)。
+请勿提交用户设置、API Key、数据库、PDF、日志或其他个人研究资料。贡献内容应有可追溯的数据来源，并遵守适用的第三方许可证。

@@ -5,9 +5,11 @@ from datetime import datetime, timedelta, timezone
 from urllib import parse, request, error
 import re
 import time
+from time import monotonic as _monotonic
 import xml.etree.ElementTree as ET
 from .. import __version__
 from ..models import Paper
+from .request_policy import request_timeout, is_configuration_network_error
 
 ATOM = "{http://www.w3.org/2005/Atom}"
 ARXIV = "{http://arxiv.org/schemas/atom}"
@@ -19,6 +21,10 @@ def build_query(config: dict, now: datetime | None = None) -> str:
         now = now.replace(tzinfo=timezone.utc)
     now = now.astimezone(timezone.utc)
     since = now - timedelta(days=config["lookback_days"])
+    if config.get('_window_start'):
+        since = datetime.fromisoformat(config['_window_start'].replace('Z','+00:00')).astimezone(timezone.utc)
+    if config.get('_window_end'):
+        now = datetime.fromisoformat(config['_window_end'].replace('Z','+00:00')).astimezone(timezone.utc)
     clauses = []
     terms = []
     for keyword in config["keywords"][:12]:
@@ -70,6 +76,8 @@ def parse_atom(data: bytes) -> list[Paper]:
 
 
 def fetch_arxiv(config: dict, logger=print, now: datetime | None = None) -> list[Paper]:
+    started = _monotonic()
+    wall_budget = float(config.get('_source_wall_timeout_seconds',0) or 0)
     query = build_query(config, now)
     output = {}
     page_size = min(100, config["max_results"])
@@ -90,10 +98,16 @@ def fetch_arxiv(config: dict, logger=print, now: datetime | None = None) -> list
         raw = None
         for attempt in range(2):
             try:
-                with request.urlopen(req, timeout=8) as resp:
+                with request.urlopen(req, timeout=request_timeout(config,26)) as resp:
                     raw = resp.read()
                 break
             except (error.HTTPError, error.URLError, TimeoutError) as exc:
+                if is_configuration_network_error(exc):
+                    if output:
+                        from .supervisor import SourceBatch
+                        return SourceBatch(list(output.values()), partial=True,
+                                           warning_code='SOURCE_PARTIAL')
+                    raise RuntimeError('arXiv 网络解析、证书或代理失败') from exc
                 if isinstance(exc, error.HTTPError) and 400 <= exc.code < 500 and exc.code != 429:
                     raise RuntimeError(f"arXiv 拒绝查询（HTTP {exc.code}）") from None
                 if attempt == 1:
@@ -107,6 +121,42 @@ def fetch_arxiv(config: dict, logger=print, now: datetime | None = None) -> list
             break
     if len(output) >= config["max_results"]:
         logger("结果达到检索上限，可在更多设置中调整。")
+    # Explicit ID polling finds new versions of followed papers even when the
+    # original submission is older than the normal date window. The official
+    # API has documented id_list version handling; do not guess an unsupported
+    # lastUpdatedDate range filter.
+    watched=[str(x) for x in config.get('_watch_arxiv_ids', [])
+             if re.fullmatch(r'(?:\d{4}\.\d{4,5}|[a-zA-Z.\-]+/\d{7})',str(x))][:24]
+    if watched:
+        from .supervisor import SourceBatch
+        def incomplete():
+            logger('arXiv 主检索已完成，版本更新检查留待下一轮。')
+            return SourceBatch(list(output.values()), partial=True,warning_code='SOURCE_PARTIAL')
+        # An optional version request must never consume the remaining child
+        # process budget and cause the successful main query to be discarded.
+        # Allow 3.2 s for arXiv spacing, 2 s to connect, 1 s to serialize.
+        if wall_budget and wall_budget-(_monotonic()-started) < 6.5:
+            return incomplete()
+        time.sleep(3.2)  # Respect the arXiv request spacing.
+        remaining = wall_budget - (_monotonic()-started) if wall_budget else 0
+        if wall_budget and remaining < 3.0:
+            return incomplete()
+        version_timeout = min(request_timeout(config,26), max(2.0,remaining-1.0)) if wall_budget else request_timeout(config,26)
+        req=request.Request('https://export.arxiv.org/api/query?'+parse.urlencode({
+            'id_list':','.join(watched),'max_results':len(watched),
+            'sortBy':'lastUpdatedDate','sortOrder':'descending'}),headers={
+            'User-Agent':f'Paper-Radar/{__version__} (followed paper version check)',
+            'Accept':'application/atom+xml'})
+        try:
+            with request.urlopen(req,timeout=version_timeout) as response:
+                for paper in parse_atom(response.read()):
+                    # Prefer the more recent Atom update timestamp.
+                    old=output.get(paper.paper_id)
+                    if old is None or str(old.updated or '')<str(paper.updated or ''):
+                        output[paper.paper_id]=paper
+        except (error.HTTPError,error.URLError,TimeoutError,OSError,ET.ParseError):
+            # Preserve the main query and leave the follow-up checkpoint pending.
+            return incomplete()
     return list(output.values())
 
 

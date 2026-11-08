@@ -6,6 +6,7 @@ from datetime import datetime,timedelta,timezone
 from urllib import parse,request,error
 import json, re, html
 from ..models import Paper
+from .request_policy import request_timeout
 from .credentials import get_credential
 BASE='https://api.elsevier.com/content/search/scopus'
 
@@ -47,7 +48,7 @@ class ElsevierSource:
                 'count':min(int(config['max_results']),25),'start':0}
         req=request.Request(BASE+'?'+parse.urlencode(params),headers=headers)
         try:
-            with request.urlopen(req,timeout=35) as resp:raw=json.load(resp)
+            with request.urlopen(req,timeout=request_timeout(config,35)) as resp:raw=json.load(resp)
         except error.HTTPError as exc:
             raise RuntimeError(f'Elsevier Scopus 拒绝请求（HTTP {exc.code}），请确认 API Key、机构权限与 IP/VPN。') from None
         except (error.URLError, TimeoutError, OSError, ValueError):

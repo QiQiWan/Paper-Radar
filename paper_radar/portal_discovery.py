@@ -10,16 +10,16 @@ from __future__ import annotations
 import json
 import time
 
-ALLOWED_SOURCES = ('arxiv', 'openalex', 'crossref')
-LABELS = {'arxiv': 'arXiv', 'openalex': 'OpenAlex', 'crossref': 'Crossref'}
+ALLOWED_SOURCES = ('arxiv', 'openalex', 'crossref', 'openreview')
+LABELS = {'arxiv': 'arXiv', 'openalex': 'OpenAlex', 'crossref': 'Crossref', 'openreview': 'OpenReview'}
 MAX_RESULTS = 40
 
 
 def validate_sources(value) -> list[str]:
-    if not isinstance(value, list) or not 1 <= len(value) <= 3:
-        raise ValueError('请选择 1—3 个支持的检索来源')
+    if not isinstance(value, list) or not 1 <= len(value) <= 4:
+        raise ValueError('请选择 1—4 个支持的检索来源')
     if any(type(x) is not str or x not in ALLOWED_SOURCES for x in value):
-        raise ValueError('仅支持 arXiv、OpenAlex 和 Crossref 的公开题录检索')
+        raise ValueError('仅支持 arXiv、OpenAlex、Crossref、OpenReview 的公开题录检索')
     if len(set(value)) != len(value):
         raise ValueError('检索来源不可重复')
     return [source for source in ALLOWED_SOURCES if source in value]
@@ -79,40 +79,54 @@ def discover(portal, cfg: dict, sources: list[str], should_cancel=None) -> tuple
         checkpoint()
         started = time.monotonic()
         try:
+            source_cfg=dict(cfg)
+            window=(cfg.get('_following_windows') or {}).get(name)
+            if window:
+                source_cfg['_window_start']=window['start']
+                source_cfg['_window_end']=window['end']
+            if name=='arxiv':
+                source_cfg['_watch_arxiv_ids']=list(cfg.get('_watch_arxiv_ids') or [])
             if name == 'arxiv':
                 from .portal_resource_locks import exclusive_file_lock
                 try:
                     with portal._arxiv_lock, exclusive_file_lock(
                             portal.root/'.arxiv_global.lock',cancelled=should_cancel,timeout=35):
-                        papers, _ = portal._fetch_public_arxiv(cfg, checkpoint)
+                        papers, _ = portal._fetch_public_arxiv(source_cfg, checkpoint)
                 except InterruptedError as exc:
                     raise JobCancelled('文献检索已取消') from exc
             else:
-                papers = portal._fetch_public_source(name, cfg, should_cancel=should_cancel)
+                papers = portal._fetch_public_source(name, source_cfg, should_cancel=should_cancel)
             if not isinstance(papers, list):
                 raise ValueError('来源返回结构不正确')
             successful += 1
             results.extend(papers)
-            diagnostics.append({'name': name, 'ok': True, 'partial':getattr(papers,'cache_state','')=='stale',
+            diagnostics.append({'name': name, 'ok': True, 'partial':getattr(papers,'cache_state','')=='stale' or getattr(papers,'partial',False),
                 'count': len(papers), 'timed_out': False,
                 'seconds': round(time.monotonic()-started, 2),
                 'mode': 'cache' if getattr(papers,'cache_state','')=='hit' else 'isolated_process',
                 'cache_state':getattr(papers,'cache_state','miss'),
                 'cache_age_seconds':getattr(papers,'cache_age_seconds',0),
-                'degraded':getattr(papers,'cache_state','')=='stale'})
+                'degraded':getattr(papers,'cache_state','')=='stale' or getattr(papers,'partial',False),
+                'error_code':getattr(papers,'warning_code',''),
+                'queries':[{'ok':True,'count':len(papers),
+                            'saturated':len(papers)>=int(cfg.get('max_results',20)),
+                            'cache_state':getattr(papers,'cache_state','miss')}]})
         except JobCancelled:
             raise
         except (RuntimeError, OSError, ValueError, TimeoutError) as exc:
             # The underlying adapter may carry provider credentials in a URL;
             # never forward arbitrary exception strings to browsers or logs.
-            timed_out = '超时' in str(exc) or isinstance(exc, TimeoutError)
+            from .sources.failures import SourceQueryError, MESSAGES
+            code = ('SOURCE_TIMEOUT' if isinstance(exc,TimeoutError) else
+                    exc.code if isinstance(exc,SourceQueryError) else
+                    'SOURCE_TIMEOUT' if '超时' in str(exc) else 'SOURCE_UNAVAILABLE')
+            timed_out = code == 'SOURCE_TIMEOUT'
             diagnostics.append({'name': name, 'ok': False, 'partial': False,
                 'count': 0, 'timed_out': timed_out,
                 'seconds': round(time.monotonic()-started, 2),
-                'error_code': 'SOURCE_TIMEOUT' if timed_out else 'SOURCE_UNAVAILABLE',
-                'message': '来源连接超时' if timed_out else '来源暂时不可用'})
+                'error_code':code, 'message':MESSAGES.get(code,'来源暂时不可用')})
     if not successful:
         names = '、'.join(LABELS[x['name']] for x in diagnostics)
         issue = '来源连接超时' if diagnostics and all(x['timed_out'] for x in diagnostics) else '来源暂时不可用'
-        raise PortalError(f'所有检索来源均失败（{names}）：{issue}；请检查网络或调整来源后重试')
+        raise PortalError(f'所有检索来源均失败（{names}）：{issue}；请检查网络或调整来源后重试',diagnostics)
     return normalize_results(results), diagnostics

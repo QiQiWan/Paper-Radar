@@ -4,7 +4,7 @@ from .contracts import Agent, AgentSpec
 from .runtime import AgentRegistry
 from .stages import profile, discovery, quality, ranking, storage, summary, download, selection, report
 
-VERSION = '1.28.0'
+VERSION = '1.40.6'
 
 
 def build_registry() -> AgentRegistry:
@@ -13,7 +13,7 @@ def build_registry() -> AgentRegistry:
         (profile, AgentSpec('profile','研究画像','1.1','读取当前主题 Zotero 参考文献',
             produces=('profile_ranker',),capabilities=('zotero_read',),time_budget_seconds=180,owner_module='paper_radar.agents.stages.profile')),
         (discovery, AgentSpec('discovery','文献发现','1.1','使用已授权来源与查询预算获取题录',
-            depends_on=('profile',),produces=('retrieved',),capabilities=('network_read',),
+            depends_on=('profile',),produces=('retrieved',),capabilities=('network_read','database_read'),
             max_attempts=2,retry_backoff_seconds=0.75,time_budget_seconds=1800,
             owner_module='paper_radar.agents.stages.discovery')),
         (quality, AgentSpec('quality','质量筛选','1.1','检查日期、排除 Zotero 重复并计算基础相关度',

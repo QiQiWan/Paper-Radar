@@ -39,6 +39,118 @@ REGISTRIES: dict[str, tuple[Migration, ...]] = {
                 status TEXT NOT NULL, output_name TEXT NOT NULL)''',
             'CREATE INDEX IF NOT EXISTS idx_synthesis_topic ON synthesis_runs(topic_id,generated_at)',
         )),
+        Migration(3, 'local_human_reading_notes', (
+            '''CREATE TABLE IF NOT EXISTS local_paper_notes (
+                topic_id TEXT NOT NULL,paper_id TEXT NOT NULL,note TEXT NOT NULL DEFAULT '',
+                next_action TEXT NOT NULL DEFAULT 'none'
+                  CHECK(next_action IN ('none','read','replicate','cite','discuss')),
+                revision INTEGER NOT NULL DEFAULT 1 CHECK(revision >= 1),updated_at TEXT NOT NULL,
+                PRIMARY KEY(topic_id,paper_id),
+                FOREIGN KEY(topic_id,paper_id) REFERENCES topic_papers(topic_id,paper_id)
+                  ON DELETE CASCADE)''',
+            'CREATE INDEX IF NOT EXISTS idx_local_paper_notes_action ON local_paper_notes(topic_id,next_action,paper_id)',
+        )),
+        Migration(4, 'research_claims_and_pdf_anchors', (
+            '''CREATE TABLE IF NOT EXISTS research_anchors (
+                id TEXT PRIMARY KEY,topic_id TEXT NOT NULL,paper_id TEXT NOT NULL,
+                pdf_sha256 TEXT NOT NULL,page INTEGER NOT NULL CHECK(page BETWEEN 1 AND 120),
+                quote TEXT NOT NULL,quote_start INTEGER NOT NULL,quote_end INTEGER NOT NULL,
+                chunk_id INTEGER NOT NULL DEFAULT 0,experiment_id TEXT NOT NULL DEFAULT '',
+                note_revision INTEGER NOT NULL DEFAULT 0,
+                note_snapshot TEXT NOT NULL DEFAULT '',
+                note_action_snapshot TEXT NOT NULL DEFAULT 'none',created_at TEXT NOT NULL,
+                FOREIGN KEY(topic_id,paper_id) REFERENCES topic_papers(topic_id,paper_id) ON DELETE CASCADE)''',
+            'CREATE INDEX IF NOT EXISTS idx_anchors_topic_paper ON research_anchors(topic_id,paper_id,created_at)',
+            '''CREATE TABLE IF NOT EXISTS research_claims (
+                id TEXT PRIMARY KEY,topic_id TEXT NOT NULL,body TEXT NOT NULL,
+                kind TEXT NOT NULL CHECK(kind IN ('finding','comparison','limitation','next_step')),
+                decision TEXT NOT NULL DEFAULT 'draft' CHECK(decision IN ('draft','confirmed')),
+                revision INTEGER NOT NULL CHECK(revision>=1),review_note TEXT NOT NULL DEFAULT '',
+                created_at TEXT NOT NULL,updated_at TEXT NOT NULL)''',
+            'CREATE INDEX IF NOT EXISTS idx_claims_topic ON research_claims(topic_id,updated_at DESC)',
+            '''CREATE TABLE IF NOT EXISTS research_claim_links (
+                claim_id TEXT NOT NULL,anchor_id TEXT NOT NULL,topic_id TEXT NOT NULL,
+                PRIMARY KEY(claim_id,anchor_id),
+                FOREIGN KEY(claim_id) REFERENCES research_claims(id) ON DELETE CASCADE,
+                FOREIGN KEY(anchor_id) REFERENCES research_anchors(id) ON DELETE CASCADE)''',
+            'CREATE INDEX IF NOT EXISTS idx_claim_links_anchor ON research_claim_links(anchor_id,claim_id)',
+            '''CREATE TABLE IF NOT EXISTS research_claim_audit (
+                seq INTEGER PRIMARY KEY AUTOINCREMENT,topic_id TEXT NOT NULL,claim_id TEXT NOT NULL,
+                revision INTEGER NOT NULL,decision TEXT NOT NULL,body TEXT NOT NULL,
+                anchors_json TEXT NOT NULL,review_note TEXT NOT NULL,event_at TEXT NOT NULL)''',
+            'CREATE INDEX IF NOT EXISTS idx_claim_audit_topic ON research_claim_audit(topic_id,claim_id,seq)',
+            '''CREATE TRIGGER IF NOT EXISTS research_claim_audit_no_update
+                BEFORE UPDATE ON research_claim_audit BEGIN
+                SELECT RAISE(ABORT, 'research audit is immutable'); END''',
+            '''CREATE TRIGGER IF NOT EXISTS research_claim_audit_no_delete
+                BEFORE DELETE ON research_claim_audit BEGIN
+                SELECT RAISE(ABORT, 'research audit is immutable'); END''',
+        )),
+        Migration(5, 'follow_tracking_and_outbox', (
+            '''CREATE TABLE IF NOT EXISTS following_preferences (
+                topic_id TEXT PRIMARY KEY, enabled INTEGER NOT NULL DEFAULT 1,
+                notify_new INTEGER NOT NULL DEFAULT 1,
+                notify_updated INTEGER NOT NULL DEFAULT 1,
+                email_enabled INTEGER NOT NULL DEFAULT 0,
+                email_to TEXT NOT NULL DEFAULT '',
+                changed_at TEXT NOT NULL)''',
+            '''CREATE TABLE IF NOT EXISTS following_checkpoints (
+                topic_id TEXT NOT NULL, source_name TEXT NOT NULL,
+                query_hash TEXT NOT NULL, last_success TEXT NOT NULL DEFAULT '',
+                last_attempt TEXT NOT NULL DEFAULT '', window_start TEXT NOT NULL DEFAULT '',
+                window_end TEXT NOT NULL DEFAULT '', status TEXT NOT NULL DEFAULT 'pending',
+                error_code TEXT NOT NULL DEFAULT '', fail_count INTEGER NOT NULL DEFAULT 0,
+                result_count INTEGER NOT NULL DEFAULT 0,
+                PRIMARY KEY(topic_id,source_name))''',
+            '''CREATE TABLE IF NOT EXISTS following_observations (
+                topic_id TEXT NOT NULL, source_name TEXT NOT NULL,
+                source_id TEXT NOT NULL, paper_id TEXT NOT NULL,
+                signature TEXT NOT NULL, source_updated TEXT NOT NULL DEFAULT '',
+                doi TEXT NOT NULL DEFAULT '', title TEXT NOT NULL DEFAULT '',
+                published TEXT NOT NULL DEFAULT '', venue TEXT NOT NULL DEFAULT '',
+                observed_at TEXT NOT NULL,
+                PRIMARY KEY(topic_id,source_name,source_id))''',
+            'CREATE INDEX IF NOT EXISTS idx_follow_observed ON following_observations(topic_id,source_name,observed_at)',
+            '''CREATE TABLE IF NOT EXISTS following_versions (
+                id INTEGER PRIMARY KEY AUTOINCREMENT, topic_id TEXT NOT NULL,
+                source_name TEXT NOT NULL, source_id TEXT NOT NULL,
+                paper_id TEXT NOT NULL, signature TEXT NOT NULL,
+                source_updated TEXT NOT NULL DEFAULT '', observed_at TEXT NOT NULL,
+                snapshot_json TEXT NOT NULL,
+                UNIQUE(topic_id,source_name,source_id,signature))''',
+            '''CREATE TABLE IF NOT EXISTS following_events (
+                id INTEGER PRIMARY KEY AUTOINCREMENT, topic_id TEXT NOT NULL,
+                source_name TEXT NOT NULL, source_id TEXT NOT NULL,
+                paper_id TEXT NOT NULL, kind TEXT NOT NULL,
+                signature TEXT NOT NULL, observed_at TEXT NOT NULL,
+                title TEXT NOT NULL, details_json TEXT NOT NULL DEFAULT '{}',
+                UNIQUE(topic_id,source_name,source_id,kind,signature))''',
+            'CREATE INDEX IF NOT EXISTS idx_follow_events_topic ON following_events(topic_id,id DESC)',
+            '''CREATE TABLE IF NOT EXISTS following_notifications (
+                id INTEGER PRIMARY KEY AUTOINCREMENT, topic_id TEXT NOT NULL,
+                event_id INTEGER NOT NULL UNIQUE,
+                created_at TEXT NOT NULL, seen_at TEXT NOT NULL DEFAULT '',
+                email_sent_at TEXT NOT NULL DEFAULT '',
+                FOREIGN KEY(event_id) REFERENCES following_events(id))''',
+            'CREATE INDEX IF NOT EXISTS idx_follow_unread ON following_notifications(topic_id,seen_at,id DESC)',
+            '''CREATE TABLE IF NOT EXISTS following_runs (
+                id INTEGER PRIMARY KEY AUTOINCREMENT, topic_id TEXT NOT NULL,
+                started_at TEXT NOT NULL, completed_at TEXT NOT NULL,
+                status TEXT NOT NULL, source_json TEXT NOT NULL,
+                discovered INTEGER NOT NULL DEFAULT 0, events_created INTEGER NOT NULL DEFAULT 0)''',
+            'CREATE INDEX IF NOT EXISTS idx_follow_runs ON following_runs(topic_id,id DESC)',
+        )),
+        Migration(6, 'research_inquiry_snapshots_v140', (
+            '''CREATE TABLE IF NOT EXISTS research_inquiries (
+                id TEXT PRIMARY KEY, topic_id TEXT NOT NULL, question TEXT NOT NULL,
+                created_at TEXT NOT NULL, source_sha256 TEXT NOT NULL,
+                snapshot_json TEXT NOT NULL)''',
+            'CREATE INDEX IF NOT EXISTS idx_inquiries_topic ON research_inquiries(topic_id,created_at DESC,id DESC)',
+            '''CREATE TRIGGER IF NOT EXISTS inquiry_no_update BEFORE UPDATE ON research_inquiries
+                BEGIN SELECT RAISE(ABORT, 'inquiry snapshot is immutable'); END''',
+            '''CREATE TRIGGER IF NOT EXISTS inquiry_no_delete BEFORE DELETE ON research_inquiries
+                BEGIN SELECT RAISE(ABORT, 'inquiry snapshot is immutable'); END''',
+        )),
     ),
     'portal_auth': (
         Migration(1, 'accounts_and_sessions', (
@@ -236,8 +348,73 @@ REGISTRIES: dict[str, tuple[Migration, ...]] = {
                 topic_id TEXT PRIMARY KEY, sources_json TEXT NOT NULL,
                 FOREIGN KEY(topic_id) REFERENCES topics(id) ON DELETE CASCADE)''',
         )),
+        Migration(9,'thousand_paper_workspace_indexes', (
+            'CREATE INDEX IF NOT EXISTS idx_portal_papers_recent ON papers(published DESC,id DESC)',
+            'CREATE INDEX IF NOT EXISTS idx_portal_papers_oldest ON papers(published ASC,id ASC)',
+            'CREATE INDEX IF NOT EXISTS idx_portal_papers_title ON papers(title COLLATE NOCASE,id)',
+            'CREATE INDEX IF NOT EXISTS idx_portal_flags_status ON topic_paper_flags(topic_id,reading_status,paper_id)',
+            'CREATE INDEX IF NOT EXISTS idx_portal_flags_like ON topic_paper_flags(topic_id,feedback,paper_id)',
+            'CREATE INDEX IF NOT EXISTS idx_portal_verified_paper ON verified_evidence(paper_id,sha256,id)',
+            'CREATE INDEX IF NOT EXISTS idx_portal_review_evidence_sha ON evidence_reviews(evidence_id,sha256)',
+        )),
+        Migration(10,'human_reading_notes_and_next_actions', (
+            '''CREATE TABLE IF NOT EXISTS paper_notes (
+                topic_id TEXT NOT NULL, paper_id TEXT NOT NULL,
+                note TEXT NOT NULL DEFAULT '',
+                next_action TEXT NOT NULL DEFAULT 'none'
+                    CHECK(next_action IN ('none','read','replicate','cite','discuss')),
+                revision INTEGER NOT NULL DEFAULT 1 CHECK(revision >= 1),
+                updated_at TEXT NOT NULL,
+                PRIMARY KEY(topic_id,paper_id),
+                FOREIGN KEY(topic_id,paper_id) REFERENCES topic_papers(topic_id,paper_id)
+                    ON DELETE CASCADE)''',
+            'CREATE INDEX IF NOT EXISTS idx_paper_notes_actions ON paper_notes(topic_id,next_action,paper_id)',
+        )),
+        Migration(11, 'research_claims_and_pdf_anchors', (
+            '''CREATE TABLE IF NOT EXISTS research_anchors (
+                id TEXT PRIMARY KEY,topic_id TEXT NOT NULL,paper_id TEXT NOT NULL,
+                pdf_sha256 TEXT NOT NULL,page INTEGER NOT NULL CHECK(page BETWEEN 1 AND 120),
+                quote TEXT NOT NULL,quote_start INTEGER NOT NULL,quote_end INTEGER NOT NULL,
+                chunk_id INTEGER NOT NULL DEFAULT 0,experiment_id TEXT NOT NULL DEFAULT '',
+                note_revision INTEGER NOT NULL DEFAULT 0,
+                note_snapshot TEXT NOT NULL DEFAULT '',
+                note_action_snapshot TEXT NOT NULL DEFAULT 'none',created_at TEXT NOT NULL,
+                FOREIGN KEY(topic_id,paper_id) REFERENCES topic_papers(topic_id,paper_id) ON DELETE CASCADE)''',
+            'CREATE INDEX IF NOT EXISTS idx_anchors_topic_paper ON research_anchors(topic_id,paper_id,created_at)',
+            '''CREATE TABLE IF NOT EXISTS research_claims (
+                id TEXT PRIMARY KEY,topic_id TEXT NOT NULL,body TEXT NOT NULL,
+                kind TEXT NOT NULL CHECK(kind IN ('finding','comparison','limitation','next_step')),
+                decision TEXT NOT NULL DEFAULT 'draft' CHECK(decision IN ('draft','confirmed')),
+                revision INTEGER NOT NULL CHECK(revision>=1),review_note TEXT NOT NULL DEFAULT '',
+                created_at TEXT NOT NULL,updated_at TEXT NOT NULL)''',
+            'CREATE INDEX IF NOT EXISTS idx_claims_topic ON research_claims(topic_id,updated_at DESC)',
+            '''CREATE TABLE IF NOT EXISTS research_claim_links (
+                claim_id TEXT NOT NULL,anchor_id TEXT NOT NULL,topic_id TEXT NOT NULL,
+                PRIMARY KEY(claim_id,anchor_id),
+                FOREIGN KEY(claim_id) REFERENCES research_claims(id) ON DELETE CASCADE,
+                FOREIGN KEY(anchor_id) REFERENCES research_anchors(id) ON DELETE CASCADE)''',
+            'CREATE INDEX IF NOT EXISTS idx_claim_links_anchor ON research_claim_links(anchor_id,claim_id)',
+            '''CREATE TABLE IF NOT EXISTS research_claim_audit (
+                seq INTEGER PRIMARY KEY AUTOINCREMENT,topic_id TEXT NOT NULL,claim_id TEXT NOT NULL,
+                revision INTEGER NOT NULL,decision TEXT NOT NULL,body TEXT NOT NULL,
+                anchors_json TEXT NOT NULL,review_note TEXT NOT NULL,event_at TEXT NOT NULL)''',
+            'CREATE INDEX IF NOT EXISTS idx_claim_audit_topic ON research_claim_audit(topic_id,claim_id,seq)',
+            '''CREATE TRIGGER IF NOT EXISTS research_claim_audit_no_update
+                BEFORE UPDATE ON research_claim_audit BEGIN
+                SELECT RAISE(ABORT, 'research audit is immutable'); END''',
+            '''CREATE TRIGGER IF NOT EXISTS research_claim_audit_no_delete
+                BEFORE DELETE ON research_claim_audit BEGIN
+                SELECT RAISE(ABORT, 'research audit is immutable'); END''',
+        )),
     ),
 }
+
+# Public accounts each have an isolated workspace SQLite file. The same
+# append-only tracking schema is installed per workspace, never in auth.sqlite.
+REGISTRIES['portal_workspace'] += (
+    Migration(12, 'public_topic_following_and_outbox', REGISTRIES['research'][-2].statements),
+    Migration(13, 'public_research_inquiries_v140', REGISTRIES['research'][-1].statements),
+)
 
 
 def migrate(conn: sqlite3.Connection, kind: str) -> int:

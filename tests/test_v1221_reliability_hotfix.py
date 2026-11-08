@@ -75,7 +75,7 @@ def test_append_only_migration_from_v4_preserves_workspace(tmp_path,monkeypatch)
         db.execute("INSERT INTO topic_paper_flags VALUES ('default','x',1,'reading',1,'2026-11-05')")
     monkeypatch.setitem(migrations.REGISTRIES,'portal_workspace',original)
     with p.workspace(uid) as db:
-        assert migrations.status(db,'portal_workspace')['version']==8
+        assert migrations.status(db,'portal_workspace')['version']==len(original)
         assert db.execute('SELECT title FROM papers WHERE id="x"').fetchone()[0]=='X'
         assert tuple(db.execute('SELECT is_starred,reading_status,feedback FROM topic_paper_flags').fetchone())==(1,'reading',1)
     monkeypatch.setitem(migrations.REGISTRIES,'portal_workspace',original[:4])

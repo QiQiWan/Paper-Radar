@@ -18,9 +18,9 @@ ROOT = Path(__file__).resolve().parent.parent
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 EXCLUDED_ROOT = {'.git', '.venv', 'venv', 'env', 'data', 'downloads', 'reports', 'storage',
-                 'logs', 'dist', 'build', '.paper_radar_updates'}
+                 'logs', 'dist', 'build', '.paper_radar_updates', '.paper_radar_recovery'}
 EXCLUDED_ANYWHERE = {'__pycache__', '.pytest_cache', '.mypy_cache', '.ruff_cache', '.idea', '.vscode'}
-EXCLUDED_NAMES = {'settings.json', '.env', '.DS_Store', 'Thumbs.db', '.coverage'}
+EXCLUDED_NAMES = {'settings.json', '.env', '.DS_Store', 'Thumbs.db', '.coverage', '.paper_radar_home'}
 EXCLUDED_SUFFIX = {'.pdf', '.sqlite', '.sqlite3', '.db', '.log', '.pyc', '.pyo', '.bak', '.zip', '.pem', '.key'}
 ALLOWED_ROOT = {'paper_radar', 'tests', 'tools', 'docs', '.github', 'deploy', 'benchmarks',
                 'start_public_windows.bat', 'start_public_macos_linux.sh',
@@ -28,7 +28,7 @@ ALLOWED_ROOT = {'paper_radar', 'tests', 'tools', 'docs', '.github', 'deploy', 'b
                 '.editorconfig', '.env.example', '.gitattributes', '.gitignore',
                 'CHANGELOG.md', 'CONTRIBUTING.md', 'LICENSE', 'NOTICE.md',
                 'README.md', 'SECURITY.md', 'main.py', 'startup.py',
-                'start_windows.bat', 'start_macos_linux.sh', 'pyproject.toml',
+                'start_windows.bat', 'start_macos_linux.sh', 'CHECK_RETRIEVAL_WINDOWS.bat', 'pyproject.toml',
                 'requirements.txt'}
 
 
@@ -53,6 +53,8 @@ def build(output: Path, root: Path = ROOT) -> int:
     output = output.resolve()
     root = Path(root).resolve()
     validate_repo(root)
+    from tools.packaging.feature_parity import validate_tree
+    validate_tree(root)
     output.parent.mkdir(parents=True, exist_ok=True)
     expected_name = f'Paper-Radar_v{__version__}_Source.zip'
     if output.name != expected_name:
@@ -68,6 +70,8 @@ def build(output: Path, root: Path = ROOT) -> int:
             archive.writestr(info,item.read_bytes(),compress_type=ZIP_DEFLATED,compresslevel=8)
         assert archive.testzip() is None
     validate_archive(output, prefix='Paper-Radar/', root=root)
+    from tools.packaging.feature_parity import validate_zip
+    validate_zip(output, 'Paper-Radar/')
     import tempfile
     with tempfile.TemporaryDirectory(prefix='paper-radar-release-check-') as td:
         unpack_verified(output,Path(td),__version__)

@@ -53,7 +53,7 @@ class CloudAPITests(unittest.TestCase):
         return dict(DEFAULTS,
                     api_provider="自定义",
                     api_base_url=f"http://127.0.0.1:{self.server.server_port}/v1",
-                    api_model="mock-model", ai_enabled=True, ai_limit=2, lookback_days=7)
+                    api_model="mock-model", ai_enabled=True, llm_data_consent=True, ai_limit=2, lookback_days=7)
 
     def test_url_https_required(self):
         self.assertEqual(completion_endpoint("https://api.example.org/v1"),

@@ -1,7 +1,7 @@
 # Copyright (c) 2026 @EatRice. SPDX-License-Identifier: MIT
-"""Bounded, background-only GitHub Release checks.
+"""Bounded, background-only GitHub Release checks for source and frozen apps.
 
-No auto-installation, no personal settings or API keys are transmitted.
+No native binary auto-installation, no personal settings or API keys are transmitted.
 Public GitHub Release metadata is the single source of truth: a tag pushed
 without a published Release cannot trigger a software update notification.
 """
@@ -130,7 +130,9 @@ class UpdateChecker:
         copy['startup_update'] = {key:root_status.get(key) for key in
             ('state','message','at','installed_version','previous_version','attempted_version')
             if key in root_status}
-        copy.update(can_install=not getattr(sys,'frozen',False),current_version=__version__, enabled=bool(cfg.get('update_check_enabled', True)),
+        copy.update(can_install=not getattr(sys,'frozen',False),
+                    update_method='signed_source_handoff' if not getattr(sys,'frozen',False) else 'native_package_manual',
+                    current_version=__version__, enabled=bool(cfg.get('update_check_enabled', True)),
                     checking=busy, releases_url=RELEASES_URL)
         copy['dismissed'] = (copy.get('tag_name') and
                              copy.get('tag_name') == cfg.get('dismissed_update_tag')) or False
@@ -139,10 +141,8 @@ class UpdateChecker:
         return copy
 
     def schedule(self, config: dict | None = None, *, force: bool = False) -> bool:
-        # A frozen application is updated by its signed native installer, never
-        # by the source ZIP updater (which cannot safely replace .exe/.app).
-        if getattr(sys, 'frozen', False):
-            return False
+        # All installations may CHECK for releases. Frozen binaries may only
+        # notify; safe native replacement remains a manual installer action.
         cfg = config or read_config()
         if not cfg.get('update_check_enabled', True) and not force:
             return False

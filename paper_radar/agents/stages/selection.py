@@ -5,6 +5,7 @@ from ..contracts import AgentResult
 
 def execute(ctx):
     from ... import core
+    from ...sources.retrieval_trace import current_trace
     ctx.require('database_read')
     ctx.checkpoint()
     with core.open_database(ctx.db_path) as conn:
@@ -20,5 +21,8 @@ def execute(ctx):
         ctx.config['_fulltext_cards']=load_report_cards(conn,
             [p.paper_id for p in recent]+[p.paper_id for p in incoming],db_path=ctx.db_path)
     ctx.task.emit(87,'整理研究报告',detail='正在生成 Word、Markdown 和 CSV')
+    trace=current_trace()
+    if trace: trace.record('stage_count',filter_stage='report_selected',count=len(recent))
+    ctx.config.setdefault('_retrieval_counts',{})['report_selected']=len(recent)
     return AgentResult({'recent':recent,'new_selected':incoming},
                        metrics={'recent':len(recent),'new_selected':len(incoming)})

@@ -36,6 +36,8 @@ def ensure_dependencies(root: Path, *, updated=False, runner=None) -> None:
 def launch(root: Path, *, runner=None, mode=None) -> None:
     runner = runner or subprocess.run
     mode = mode or read_startup_settings(root)['service_run_mode']
+    from paper_radar.storage_layout import resolve_data_root
+    data_root = resolve_data_root(root)
     if mode not in ('foreground','background'):
         raise ValueError('Invalid service run mode')
     # A second shell invocation must not bind the same port twice.
@@ -43,7 +45,7 @@ def launch(root: Path, *, runner=None, mode=None) -> None:
     if runner is subprocess.run:
         from paper_radar.desktop_manager import find_service, free_port
         from paper_radar.desktop_identity import read_or_create_secret, instance_fingerprint
-        owner=instance_fingerprint(read_or_create_secret(root/'data'))
+        owner=instance_fingerprint(read_or_create_secret(data_root/'data'))
         if find_service(owner) is not None:
             from paper_radar.launcher import main as open_existing
             print('检测到本用户已有本地服务，正在打开现有工作台。',flush=True)
@@ -76,7 +78,8 @@ def startup(root: Path = ROOT, *, updater=None, do_update=True,
     settings=read_startup_settings(root)
     enabled = do_update and settings['update_check_enabled'] and settings['auto_update_on_startup']
     result=updater.run(enabled=enabled)
-    print(result.get('message',''),flush=True)
+    if result.get('state') != 'disabled':
+        print(result.get('message',''),flush=True)
     if result.get('state')=='recovery_failed':
         print('更新恢复失败，已阻止启动以免进一步损坏用户资料。',file=sys.stderr)
         return 2

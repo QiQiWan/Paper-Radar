@@ -36,7 +36,7 @@ def test_schema_is_append_only_and_compatible(tmp_path):
     assert __version__==__import__('tools.packaging.release_version',fromlist=['read_version']).read_version()
     p=Portal(tmp_path/'data');uid='c'*32
     with p.workspace(uid) as db:
-        assert status(db,'portal_workspace')['version']==8
+        assert status(db,'portal_workspace')['version']==len(REGISTRIES['portal_workspace'])
         assert db.execute('SELECT name FROM sqlite_master WHERE name="topic_paper_flags"').fetchone()
         db.execute('INSERT INTO papers VALUES (?,?,?,?,?,?,?)',('p','Paper','','','','','now'))
         db.execute('INSERT INTO topic_papers VALUES (?,?)',('default','p'))
@@ -152,7 +152,7 @@ def test_upgrade_existing_v3_workspace_preserves_papers_reports_and_flags(tmp_pa
              '{}', '# Previously saved report'))
     monkeypatch.setitem(migrations.REGISTRIES, 'portal_workspace', original)
     with portal.workspace(uid) as db:
-        assert status(db, 'portal_workspace')['version'] == 8
+        assert status(db, 'portal_workspace')['version'] == len(REGISTRIES['portal_workspace'])
         assert db.execute('SELECT title FROM papers WHERE id=?',
                           ('legacy-p',)).fetchone()[0] == 'Prior paper'
         assert db.execute('SELECT markdown FROM research_reports WHERE id=?',

@@ -1,0 +1,93 @@
+/* Paper-Radar v1.40.6 · public-portal visual alignment.
+   Shared typography and spacing scale with the local workspace. */
+:root {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+  font-size: 16px;
+  --pr-bg: #f4f6fa;
+  --pr-text: #1b2f49;
+  --pr-muted: #52647c;
+  --pr-accent: #176c90;
+  --pr-accent-strong: #135675;
+  --pr-line: #dfe6ef;
+  --pr-shadow: 0 8px 28px rgba(31,49,83,.035);
+}
+body { font-size: 15px; line-height: 1.6; }
+main { padding-top: 30px; }
+.brand strong { font-size: 20px; }
+.brand small { font-size: 13px; }
+.portal-shell { gap: 24px; }
+.primary-nav { padding: 20px 12px; }
+.primary-nav button { font-size: 15px; min-height: 49px; }
+.nav-label, .nav-foot, .nav-foot small { font-size: 12px; }
+.toolbar-title .eyebrow, .page-kicker, .eyebrow { font-size: 12px !important; letter-spacing: .4px; }
+.theme-picker, .section-note { font-size: 13px; }
+.theme-picker select { font-size: 14px; }
+.page-heading { margin-bottom: 7px; }
+.page-heading h1 { font-size: clamp(28px, 3vw, 34px); }
+.panel { padding: 24px 25px; border-radius: 16px; }
+.section-heading { margin-bottom: 16px; }
+.section-heading h2, .panel > h2 { font-size: 19px; }
+.hint, .field-help, .field-caption, .section-note,
+.job-row, .job-row small, .paper small, .admin-row small,
+.report-entry-meta, .report-info { font-size: 13px; line-height: 1.7; color: var(--pr-muted); }
+.paper p, .report-content p, .summary { font-size: 14px; line-height: 1.8; }
+button, .primary, input, select, textarea { min-height: 43px; font-size: 14px; border-radius: 10px; }
+button { padding: 9px 14px; font-weight: 650; }
+input, select, textarea { padding: 10px 13px; }
+textarea { min-height: 100px; line-height: 1.7; }
+label, .password-field { font-size: 14px; line-height: 1.5; }
+small { line-height: 1.5; }
+button:focus-visible, a:focus-visible, input:focus-visible,
+select:focus-visible, textarea:focus-visible, summary:focus-visible {
+  outline: 3px solid #7da8f0; outline-offset: 2px;
+}
+.stat-grid, .next-action-grid, .dashboard-grid { gap: 16px; }
+.section-heading, .row, .report-entry, .job-controls, .paper-tools, .triage-buttons { gap: 12px; }
+.paper { padding: 17px 0; }
+.paper strong { font-size: 15px; line-height: 1.55; }
+.paper small { margin-top: 5px; }
+.papers { gap: 4px; }
+.paper-footer { margin-top: 20px; }
+.library-filters { gap: 13px; align-items: end; }
+.library-filters label { min-width: 0; }
+.triage-toolbar, .reading-export-toolbar { padding: 14px 16px; border-radius: 12px; gap: 12px; }
+.triage-buttons, .reading-export-toolbar > div { gap: 9px; }
+.triage-buttons button, .reading-export-toolbar button, .paper-tools button { font-size: 13px; min-height: 39px; }
+.paper-note-panel { padding: 15px 16px; border-radius: 12px; }
+.paper-note-panel label { font-size: 14px; }
+.paper-note-panel .note-fields { gap: 14px; }
+.job-stages li, .job-row, .admin-row { padding: 12px 0; }
+.job-step-disclosure > summary, .job-details summary { font-size: 14px; }
+.job-flow { padding: 18px; }
+.job-stage-name { font-size: 14px; }
+.job-stage-detail { font-size: 13px; }
+.report-content { padding: 22px; line-height: 1.8; }
+.report-content table { font-size: 14px; }
+.report-content th, .report-content td { padding: 11px 12px; }
+.trace-workbench .trace-item, .trace-workbench .trace-claim { padding: 16px; }
+.trace-workbench .trace-label input:not([type=checkbox]),
+.trace-workbench .trace-label textarea, .trace-workbench .trace-label select { min-height: 43px; font-size: 14px; }
+.inquiry-output { gap: 16px; }
+.auth-panel { padding: 30px 32px; }
+#authForm { gap: 12px; }
+.auth-note { margin-top: 19px; }
+@media (max-width: 1100px) {
+  .portal-shell { grid-template-columns: 200px minmax(0, 1fr); gap: 16px; }
+  main { padding: 24px 16px 46px; }
+  .panel { padding: 20px; }
+}
+@media (max-width: 760px) {
+  .portal-shell { display: block; }
+  .primary-nav { position: static; min-height: 0; margin-bottom: 18px; }
+  .page-heading { flex-wrap: wrap; gap: 12px; }
+  .library-filters { grid-template-columns: 1fr; }
+  .panel { padding: 18px 16px; }
+  .triage-toolbar, .reading-export-toolbar { padding: 13px; }
+  .paper-note-panel .note-fields { grid-template-columns: 1fr; }
+}
+@media (max-width: 420px) {
+  .brand strong { font-size: 17px; }
+  .page-heading h1 { font-size: 27px; }
+  .triage-buttons button, .reading-export-toolbar > div button { flex: 1 1 130px; }
+  .report-content { padding: 14px; }
+}

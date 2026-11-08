@@ -7,6 +7,7 @@ from datetime import datetime, timedelta, timezone
 import html, json, re
 from .credentials import get_credential
 from ..models import Paper
+from .request_policy import request_timeout
 
 BASE = 'https://api.springernature.com/meta/v2/json'
 
@@ -45,7 +46,7 @@ class SpringerSource:
         params={'q':f'keyword: {keyword}', 's':1,'p':min(int(config['max_results']),30),'api_key':key}
         # API key is in the query by official API design; never log the request URL.
         try:
-            with request.urlopen(request.Request(BASE+'?'+parse.urlencode(params),headers={'Accept':'application/json'}),timeout=35) as resp:
+            with request.urlopen(request.Request(BASE+'?'+parse.urlencode(params),headers={'Accept':'application/json'}),timeout=request_timeout(config,35)) as resp:
                 raw=json.load(resp)
         except error.HTTPError as exc:
             raise RuntimeError(f'Springer API 拒绝请求（HTTP {exc.code}），请检查密钥、额度或接口权限。') from None

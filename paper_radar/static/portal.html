@@ -5,7 +5,7 @@
 <meta charset="utf-8"/><meta content="width=device-width,initial-scale=1" name="viewport"/>
 <meta content="light" name="color-scheme"/><meta content="#f5f7fa" name="theme-color"/>
 <title>Paper-Radar · 科研工作台</title>
-<link href="/portal.css" rel="stylesheet"/><script defer="" src="/portal.js"></script>
+<link href="/portal.css" rel="stylesheet"/><link href="/portal_polish.css" rel="stylesheet"/><script defer="" src="/ui_state.js"></script><script defer="" src="/reading_links.js"></script><script defer="" src="/trace_workbench.js"></script><script defer="" src="/inquiry_workbench.js"></script><script defer="" src="/portal.js"></script>
 </head>
 <body>
 <header class="topbar">
@@ -15,7 +15,7 @@
 <div aria-live="polite" class="message" hidden="" id="message" role="status" tabindex="-1"></div>
 <main id="mainContent">
 <section class="auth-grid" id="authView">
-<div class="intro"><div class="eyebrow">RESEARCH WORKSPACE</div><h1>更清楚地追踪<br/>你的研究前沿。</h1><p>检索论文、整理证据、输出研究报告。</p></div>
+<div class="intro"><h1>论文跟进与研究资料管理</h1><p>检索、阅读与整理研究证据。</p></div>
 <div class="panel auth-panel"><div aria-label="账号入口" class="switch" role="tablist"><button aria-controls="authForm" aria-selected="true" class="active" id="loginTab" role="tab" type="button">登录</button><button aria-controls="authForm" aria-selected="false" id="registerTab" role="tab" type="button">注册账号</button></div>
 <form id="authForm"><label for="username">用户名</label><input autocomplete="username" id="username" maxlength="32" minlength="3" placeholder="请输入用户名" required="" type="text"/><label for="password">密码</label><input autocomplete="current-password" id="password" minlength="12" placeholder="至少 12 位字符" required="" type="password"/><button class="primary" id="authSubmit" type="submit">登录账号</button></form><p class="hint auth-note">首次使用请使用管理员提供的账号。</p></div>
 </section>
@@ -26,17 +26,22 @@
 <button aria-current="page" data-view="workspace" type="button"><span aria-hidden="true" class="nav-glyph">⌂</span><span>工作台</span></button>
 <button data-view="library" type="button"><span aria-hidden="true" class="nav-glyph">▤</span><span>论文库</span></button>
 <button data-view="tasks" type="button"><span aria-hidden="true" class="nav-glyph">◷</span><span>任务中心</span></button>
+<button data-view="following" type="button"><span aria-hidden="true" class="nav-glyph">◉</span><span>研究跟进</span></button>
+<button data-view="inquiry" type="button"><span aria-hidden="true" class="nav-glyph">◇</span><span>研究助手</span></button>
 <button data-view="reports" type="button"><span aria-hidden="true" class="nav-glyph">▥</span><span>研究报告</span></button>
 <div class="nav-spacer"></div>
 <button data-view="account" type="button"><span aria-hidden="true" class="nav-glyph">◎</span><span>设置</span></button>
 <a class="help-nav-link" href="/guide/portal"><span aria-hidden="true" class="nav-glyph">?</span><span>使用教程</span></a>
-<div class="nav-foot">Paper-Radar <span id="portalVersion">v1.28.0</span><small>科研数据仅限本人可见</small></div>
+<div class="nav-foot">Paper-Radar <span id="portalVersion">v1.40.6</span><small>科研数据仅限本人可见</small></div>
 </nav>
 <div class="page-body">
-<div class="workspace-toolbar"><div class="toolbar-title"><span hidden="" id="currentPageEn">WORKSPACE</span><span class="toolbar-breadcrumb" id="currentPageName">工作台</span></div><label class="theme-picker" for="topicSelect">研究主题<select aria-label="当前研究主题" id="topicSelect"></select></label><button class="quiet-link" id="openTopicSettings" type="button">编辑主题与检索来源</button></div>
+<div class="workspace-toolbar"><div class="toolbar-title"><span hidden="" id="currentPageEn">WORKSPACE</span><span class="toolbar-breadcrumb" id="currentPageName">工作台</span></div><label class="theme-picker" for="topicSelect">研究主题<select aria-label="当前研究主题" id="topicSelect"></select></label><button class="quiet-link" id="openTopicSettings" type="button">编辑主题与检索来源</button><button class="quiet-link" id="sharePagePortal" type="button">复制当前链接</button><a class="context-help-link" id="contextHelpPortal" href="/guide/portal">本页帮助 ↗</a></div>
 <section aria-labelledby="dashboardTitle" class="portal-page" data-page="workspace" id="viewWorkspace">
-<div class="page-heading"><div><h1 id="dashboardTitle">工作台</h1><p>查看待办，继续研究。</p></div><button class="primary" id="quickStart" type="button">检索论文</button></div><div class="panel next-actions"><div class="section-heading"><h2>待处理</h2></div>
-<div class="next-action-grid"><div><strong id="metricToRead">—</strong><span>篇星标论文尚未读完</span><button id="openReadingQueue" type="button">去阅读</button></div>
+<div class="page-heading"><div><h1 id="dashboardTitle">工作台</h1></div><button class="primary" id="quickStart" type="button">检索论文</button></div><div class="panel next-actions"><div class="section-heading"><h2>待处理</h2></div>
+<div class="next-action-grid">
+<div><strong id="metricInbox">—</strong><span>篇尚待筛选</span><button id="openInboxQueue" type="button">开始筛选</button></div>
+<div><strong id="metricNextActions">—</strong><span>篇安排了后续行动</span><button id="openActionQueue" type="button">查看待办</button></div>
+<div><strong id="metricToRead">—</strong><span>篇星标论文尚未读完</span><button id="openReadingQueue" type="button">去阅读</button></div>
 <div><strong id="metricPendingEvidence">—</strong><span>条实验依据待人工复核</span><button id="openEvidenceQueue" type="button">去复核</button></div></div>
 <div aria-label="待复核论文快捷入口" class="pending-paper-list" hidden="" id="homePendingPapers"></div>
 
@@ -47,36 +52,65 @@
 </div>
 <div class="dashboard-grid">
 <div class="panel hero-panel"><div class="section-heading"><h2>近期研究任务</h2><button class="quiet-link" id="homeOpenTasks" type="button">查看任务中心 →</button></div><p class="hint" id="homeJobSummary">正在查询最近任务…</p><div class="home-status" id="homeJobBadge">暂无运行任务</div></div>
-<details class="panel hero-panel topic-summary-disclosure"><summary>当前主题与检索来源</summary><div class="topic-quick-summary" id="topicQuickSummary">选择主题开始研究</div><div aria-live="polite" class="source-status" id="homeSourceStatus"></div><p class="support-text">已关注 <strong id="metricStarred">—</strong> 篇 · 已读完 <strong id="metricRead">—</strong> 篇</p></details>
+<details class="panel hero-panel topic-summary-disclosure"><summary>当前主题与检索来源</summary><div class="topic-quick-summary" id="topicQuickSummary">选择主题开始研究</div><div aria-live="polite" class="source-status" id="homeSourceStatus"></div><p class="support-text">已关注 <strong id="metricStarred">—</strong> 篇 · 已读 <strong id="metricRead">—</strong> 篇</p></details>
 </div>
 <div class="panel"><div class="section-heading"><h2>最近收录</h2><button class="quiet-link" id="homeOpenLibrary" type="button">进入论文库 →</button></div><div class="recent-papers" id="homeRecentPapers"><p class="hint">正在加载最新论文…</p></div></div>
 </section>
 <section aria-labelledby="libraryTitle" class="portal-page" data-page="library" hidden="" id="viewLibrary">
-<div class="page-heading"><div><h1 id="libraryTitle">论文库</h1><p>阅读、筛选并核对原文。</p></div><button class="primary" id="libraryRunSearch" type="button">检索新论文</button></div>
-<div class="panel"><div class="library-filters"><label class="filter-search" for="paperSearch">搜索论文<input autocomplete="off" id="paperSearch" placeholder="论文题名、摘要或 DOI" type="search"/></label><label for="paperFilter">阅读状态<select id="paperFilter"><option value="all">全部论文</option><option value="starred">全部星标</option><option value="to_read">待读星标</option><option value="unread">未阅读</option><option value="reading">阅读中</option><option value="done">已读完</option><option value="liked">推荐有价值</option></select></label><label for="paperSort">排序<select id="paperSort"><option value="recent">最新发表</option><option value="oldest">最早发表</option><option value="title">题名字母序</option></select></label></div><div class="focus-paper" hidden="" id="focusedPaper"><span>正在查看从工作台打开的指定论文</span><button id="showAllPapers" type="button">返回全部论文</button></div><div aria-live="polite" class="papers" id="paperList"><p class="hint">请选择研究主题。</p></div><div class="paper-footer"><span class="hint" id="paperCount"></span><button hidden="" id="loadPapers" type="button">加载更多论文</button></div></div>
+<div class="page-heading"><div><h1 id="libraryTitle">论文库</h1></div><button class="primary" id="libraryRunSearch" type="button">检索新论文</button></div>
+<div class="panel"><div class="library-filters"><label class="filter-search" for="paperSearch">搜索论文<input autocomplete="off" id="paperSearch" placeholder="论文题名、摘要或 DOI" type="search"/></label><label for="paperFilter">阅读状态<select id="paperFilter"><option value="all">全部论文</option><option value="inbox">待筛选</option><option value="actionable">有后续行动</option>
+<option value="skipped">暂不关注</option><option value="starred">全部星标</option><option value="to_read">待读星标</option><option value="unread">未阅读</option><option value="reading">阅读中</option><option value="done">已读完</option><option value="liked">推荐有价值</option></select></label><label for="paperSort">排序<select id="paperSort"><option value="recent">最新发表</option><option value="oldest">最早发表</option><option value="title">题名字母序</option></select></label></div>
+<div class="triage-toolbar" aria-label="论文批量筛选">
+  <label class="triage-check-all"><input id="paperSelectPage" type="checkbox"/> 选择已加载论文</label>
+  <span id="triageSelectedCount" class="hint" aria-live="polite">未选择论文</span>
+  <div class="triage-buttons">
+    <button id="triageStar" type="button" disabled>批量星标</button>
+    <button id="triageSkip" type="button" disabled>批量暂不关注</button>
+    <button id="triageDone" type="button" disabled>批量标记已读</button>
+    <button id="triageClear" type="button" disabled>取消选择</button>
+  </div>
+</div>
+<div class="reading-export-toolbar">
+ <span class="hint">文献引用：<button type="button" id="portalBibExport">导出 BibTeX</button> <button type="button" id="portalRisExport">导出 RIS</button></span>
+ <a href="/guide/triage" class="hint">查看阅读清单教程</a>
+ <div><button type="button" id="exportStarredReading">导出星标笔记 Markdown</button>
+ <button type="button" id="exportActionReading">导出待行动清单 CSV</button></div>
+</div>
+<div class="focus-paper" hidden="" id="focusedPaper"><span>正在查看从工作台打开的指定论文</span><button id="showAllPapers" type="button">返回全部论文</button></div><div aria-live="polite" class="papers" id="paperList"><p class="hint">请选择研究主题。</p></div><div class="paper-footer"><span class="hint" id="paperCount"></span><button hidden="" id="loadPapers" type="button">加载更多论文</button></div></div>
 <details class="panel evidence-panel library-evidence-disclosure" id="fulltextArea"><summary>当前论文的全文与实验证据</summary><div class="summary" id="fulltextPanel">在上方论文卡片中选择“查看证据”。</div></details>
 </section>
+<section aria-labelledby="publicFollowingTitle" class="portal-page" data-page="following" id="viewFollowing" hidden="">
+<div class="page-heading"><div><h1 id="publicFollowingTitle">研究跟进</h1></div><button class="primary" id="publicFollowingRefresh" type="button">刷新</button></div>
+<div class="panel"><h2>来源检查</h2><div id="publicFollowingSources"></div></div>
+<div class="panel"><h2>最新变化</h2><p class="hint" id="publicFollowingUnread"></p><div id="publicFollowingEvents"></div><button id="publicFollowingSeen" type="button">全部标记已读</button></div>
+<div class="panel"><h2>站内通知</h2><label><input type="checkbox" id="publicFollowNew" checked> 新论文提醒</label><label><input type="checkbox" id="publicFollowUpdated" checked> 版本及元数据更新提醒</label><button id="publicFollowingSave" type="button">保存提醒设置</button><p class="hint">公网工作区暂只提供站内通知，不发送论文邮件。</p></div>
+</section>
 <section aria-labelledby="tasksTitle" class="portal-page" data-page="tasks" hidden="" id="viewTasks">
-<div class="page-heading"><div><h1 id="tasksTitle">任务中心</h1><p>启动任务，查看进度和结果。</p></div><button id="refreshJob" type="button">刷新状态</button></div>
-<div class="panel task-launch"><div class="section-heading"><h2>启动新任务</h2></div><p class="hint">按当前主题检索，或执行完整研究分析。</p><div class="job-controls"><button id="searchNow" type="button">只检索论文</button><button class="primary" id="runResearch" type="button">检索并分析</button><button hidden="" id="cancelJob" type="button">取消当前任务</button></div><details class="task-options"><summary>下载与云模型选项</summary><label class="small-choice"><input checked="" id="fetchPdf" type="checkbox"/> 自动尝试获取最多 2 篇 arXiv 开放 PDF</label><label class="small-choice"><input id="cloudAnalysis" type="checkbox"/> 授权将实验候选页发送至云端模型（每篇至多 12 页、3 批次；按模型调用计费）</label><p class="hint">云模型可能产生费用。仅在你勾选授权后使用，失败会保留已完成的结果。</p></details></div>
-<div class="panel"><div class="section-heading"><h2>当前任务进度</h2></div><div aria-live="polite" class="task-state" id="jobState" role="status">正在读取任务状态…</div><div class="hint" id="researchStage" role="status"></div><p aria-live="polite" class="hint" id="taskQuotas">检索与分析配额独立计算。</p>
+<div class="page-heading"><div><h1 id="tasksTitle">任务中心</h1></div><button id="refreshJob" type="button">刷新状态</button></div>
+<div class="panel task-launch"><div class="section-heading"><h2>新任务</h2></div><div class="job-controls"><button id="searchNow" type="button">检索论文</button><button class="primary" id="runResearch" type="button">检索并分析</button><button hidden="" id="cancelJob" type="button">取消当前任务</button></div><details class="task-options"><summary>下载与云模型选项</summary><label class="small-choice"><input checked="" id="fetchPdf" type="checkbox"/> 自动尝试获取最多 2 篇 arXiv 开放 PDF</label><label class="small-choice"><input id="cloudAnalysis" type="checkbox"/> 使用模型提取实验数据（需授权，可能计费）</label><p class="hint">模型分析可能计费。发送论文内容前需授权。<a href="/guide/ai">查看发送范围与费用</a></p></details></div>
+<div class="panel"><div class="section-heading"><h2>当前任务</h2></div><div aria-live="polite" class="task-state" id="jobState" role="status">正在读取任务状态…</div><div class="hint" id="researchStage" role="status"></div><p aria-live="polite" class="hint" id="taskQuotas">当前账号的任务用量</p>
 <section aria-label="科研任务执行详情" class="job-flow" hidden="" id="jobDetailPanel"><div class="job-flow-head"><strong id="jobDetailTitle">任务执行进度</strong><span class="hint" id="jobDetailMeta"></span></div><details class="job-step-disclosure" id="jobStepsDetail"><summary>查看各执行阶段</summary><ol class="job-stages" id="jobStages"></ol></details><div class="job-outcome" id="jobOutcome" role="status"></div><div aria-label="检索来源状态" class="source-results" id="jobSourceResults"></div><div class="job-detail-actions"><button class="primary" hidden="" id="openTaskReport" type="button">阅读本次研究报告</button><button hidden="" id="retrySafeJob" type="button">重试失败任务（不调用付费模型）</button></div></section></div>
-<div class="panel"><div class="section-heading"><h2>历史执行记录</h2></div><div class="job-list" id="jobHistory"><p class="hint">正在查询历史任务…</p></div></div>
+<div class="panel"><div class="section-heading"><h2>历史任务</h2></div><div class="job-list" id="jobHistory"><p class="hint">正在查询历史任务…</p></div></div>
+</section>
+<section class="portal-page" data-page="inquiry" id="viewInquiry" hidden="">
+<div class="page-heading"><div><h1>研究助手</h1></div></div>
+<section class="panel" aria-label="科研证据简报"><div id="publicInquiryWorkbench"></div></section>
 </section>
 <section aria-labelledby="reportsTitle" class="portal-page" data-page="reports" hidden="" id="viewReports">
-<div class="page-heading"><div><h1 id="reportsTitle">研究报告</h1><p>查看与导出已保存的报告。</p></div><button class="primary" id="runSynthesis" type="button">生成跨论文比较</button></div>
-<div class="panel"><div class="section-heading"><h2>已保存报告</h2><div class="report-tools"><details class="report-tools-more"><summary>更多操作</summary><button id="exportEvidence" type="button">导出实验依据 CSV</button></details><button id="refreshReports" type="button">刷新列表</button></div></div><p class="hint">历史报告保留生成时的证据与审核状态。</p><div aria-label="已保存报告" class="report-history" id="reportHistory" role="region"><p class="hint">正在加载历史报告…</p></div></div>
+<div class="page-heading"><div><h1 id="reportsTitle">研究报告</h1></div><button class="primary" id="runSynthesis" type="button">生成跨论文比较</button></div>
+<div class="panel"><div class="section-heading"><h2>已保存报告</h2><div class="report-tools"><details class="report-tools-more"><summary>更多操作</summary><button id="exportEvidence" type="button">导出实验依据 CSV</button></details><button id="refreshReports" type="button">刷新列表</button></div></div><div aria-label="已保存报告" class="report-history" id="reportHistory" role="region"><p class="hint">正在加载历史报告…</p></div></div>
+<section class="panel trace-panel" aria-label="人工研究结论及 PDF 证据链"><div id="topicTraceWorkbench"></div></section>
 <div aria-label="研究报告在线阅读" class="panel report-reader" hidden="" id="reportReader"><div class="report-reader-top"><div><strong id="reportReaderTitle">研究报告</strong><p class="hint" id="reportReaderInfo"></p></div><div class="report-reader-actions"><button id="reportDownload" type="button">下载 Markdown</button><button id="reportClose" type="button">收起预览</button></div></div><section aria-label="跨论文实验比较矩阵" class="comparison-area" hidden="" id="comparisonArea"><div class="section-heading"><h2>实验对比矩阵</h2><span class="section-note">同字段候选，需人工复核</span></div><p class="hint">跨论文数值可能因条件不同而不可比，请逐条核对原文。</p><label for="comparisonFilter">筛选数据集或指标<input id="comparisonFilter" placeholder="例如 Darcy / error / benchmark" type="search"/></label><div aria-live="polite" class="matrix-list" id="comparisonMatrix" role="region"></div></section><div aria-label="Markdown 报告内容" class="report-content" id="reportContent" role="region" tabindex="0"></div></div>
-<details class="panel disclosure-panel"><summary>实验数据导入与比较摘要 <span class="summary-note">支持桌面版导出的证据 CSV</span></summary><div class="import-content"><p class="hint">导入结果仅属于当前账号。缺少原始 PDF 时标记为“未经过服务器原文复核”。</p><label for="evidenceCsv">实验结果证据 CSV 文件</label><input accept=".csv,text/csv" id="evidenceCsv" type="file"/><button id="importEvidence" type="button">导入当前主题</button><p class="hint" id="importResult"></p><div class="report-quick-synth"><button disabled="" id="downloadSynthesis" type="button">下载当前报告</button><div class="summary" id="summary">选择历史报告可查看比较概要。</div></div></div></details>
+<details class="panel disclosure-panel"><summary>导入实验数据 <span class="summary-note">CSV</span></summary><div class="import-content"><p class="hint">导入结果仅属于当前账号。缺少原始 PDF 时标记为“未经过服务器原文复核”。</p><label for="evidenceCsv">实验结果证据 CSV 文件</label><input accept=".csv,text/csv" id="evidenceCsv" type="file"/><button id="importEvidence" type="button">导入当前主题</button><p class="hint" id="importResult"></p><div class="report-quick-synth"><button disabled="" id="downloadSynthesis" type="button">下载当前报告</button><div class="summary" id="summary">选择历史报告可查看比较概要。</div></div></div></details>
 </section>
 <section aria-labelledby="accountTitle" class="portal-page" data-page="account" hidden="" id="viewAccount">
-<div class="page-heading"><div><h1 id="accountTitle">设置</h1><p>管理研究主题和账号。</p></div></div>
+<div class="page-heading"><div><h1 id="accountTitle">设置</h1></div></div>
 <details class="panel disclosure-panel" id="topicSetup"><summary>研究主题与检索来源</summary>
-<div aria-label="主题操作" class="topic-mode-toggle" role="tablist"><button aria-selected="true" class="active" data-topic-tab="edit" role="tab" type="button">编辑当前主题</button><button aria-selected="false" data-topic-tab="new" role="tab" type="button">新建主题</button></div><div class="topic-manager-grid"><div class="topic-form" data-topic-mode="edit"><label for="editTopicName">主题名称</label><input id="editTopicName" maxlength="80"/><label for="editKeywords">检索关键词（逗号分隔）</label><input id="editKeywords" maxlength="500"/><fieldset class="source-choices"><legend>公开检索来源</legend><label><input data-sources="edit" type="checkbox" value="arxiv"/> arXiv</label><label><input data-sources="edit" type="checkbox" value="openalex"/> OpenAlex</label><label><input data-sources="edit" type="checkbox" value="crossref"/> Crossref</label></fieldset><button class="primary" id="topicSave" type="button">保存当前主题</button></div>
-<div class="topic-form" data-topic-mode="new" hidden=""><label for="newTopic">主题名称</label><input id="newTopic" maxlength="80" placeholder="例如：复杂几何神经算子"/><label for="newKeywords">检索关键词（逗号分隔）</label><input aria-describedby="keywordHelp" id="newKeywords" placeholder="例如：neural operator, geometry"/><span class="field-help" id="keywordHelp">建议填写 1—6 组关键词。</span><fieldset class="source-choices"><legend>公开检索来源</legend><label><input checked="" data-sources="new" type="checkbox" value="arxiv"/> arXiv</label><label><input data-sources="new" type="checkbox" value="openalex"/> OpenAlex</label><label><input data-sources="new" type="checkbox" value="crossref"/> Crossref</label></fieldset><button id="topicAdd" type="button">添加研究主题</button></div></div>
+<div aria-label="主题操作" class="topic-mode-toggle" role="tablist"><button aria-selected="true" class="active" data-topic-tab="edit" role="tab" type="button">编辑当前主题</button><button aria-selected="false" data-topic-tab="new" role="tab" type="button">新建主题</button></div><div class="topic-manager-grid"><div class="topic-form" data-topic-mode="edit"><label for="editTopicName">主题名称</label><input id="editTopicName" maxlength="80"/><label for="editKeywords">检索关键词（逗号分隔）</label><input id="editKeywords" maxlength="500"/><fieldset class="source-choices"><legend>公开检索来源</legend><label><input data-sources="edit" type="checkbox" value="arxiv"/> arXiv</label><label><input data-sources="edit" type="checkbox" value="openalex"/> OpenAlex</label><label><input data-sources="edit" type="checkbox" value="crossref"/> Crossref</label><label><input data-sources="edit" type="checkbox" value="openreview"/> OpenReview（会议投稿）</label></fieldset><button class="primary" id="topicSave" type="button">保存当前主题</button></div>
+<div class="topic-form" data-topic-mode="new" hidden=""><label for="newTopic">主题名称</label><input id="newTopic" maxlength="80" placeholder="例如：复杂几何神经算子"/><label for="newKeywords">检索关键词（逗号分隔）</label><input aria-describedby="keywordHelp" id="newKeywords" placeholder="例如：neural operator, geometry"/><span class="field-help" id="keywordHelp">建议填写 1—6 组关键词。</span><fieldset class="source-choices"><legend>公开检索来源</legend><label><input checked="" data-sources="new" type="checkbox" value="arxiv"/> arXiv</label><label><input data-sources="new" type="checkbox" value="openalex"/> OpenAlex</label><label><input data-sources="new" type="checkbox" value="crossref"/> Crossref</label><label><input data-sources="new" type="checkbox" value="openreview"/> OpenReview（会议投稿）</label></fieldset><button id="topicAdd" type="button">添加研究主题</button></div></div>
 <p class="hint">新增来源只查询公开题录，云模型调用仍需单独授权。</p></details>
 <details class="panel account account-disclosure"><summary>账号安全</summary><p class="hint">修改密码后，所有设备的登录会话都会失效。</p><div class="password-row"><label class="password-field" for="oldPassword">当前密码<input autocomplete="current-password" id="oldPassword" placeholder="输入当前密码" type="password"/></label><label class="password-field" for="newPassword">新密码（至少 12 位）<input autocomplete="new-password" id="newPassword" minlength="12" placeholder="输入新密码" type="password"/></label><button id="changePassword" type="button">修改密码</button></div></details>
-<details class="panel account account-disclosure"><summary>数据与服务范围</summary><p class="support-text">论文、报告和已保存 PDF 隔离存放在你的账号工作区。公网服务不提供服务器本地文件、Zotero 私有资料或系统更新权限。云端模型分析须在任务中心主动授权。</p></details>
+<details class="panel account account-disclosure"><summary>数据与隐私</summary><p class="support-text">论文、报告和已保存 PDF 隔离存放在你的账号工作区。公网服务不提供服务器本地文件、Zotero 私有资料或系统更新权限。云端模型分析须在任务中心主动授权。</p></details>
 <section class="panel account" hidden="" id="adminView"><h2>用户管理</h2><p class="hint">管理员可停用或恢复账号。停用后，该账号已有登录会话立即失效。</p><div class="hint" id="adminJobStats"></div><div id="accountList"></div></section>
 </section>
 </div>

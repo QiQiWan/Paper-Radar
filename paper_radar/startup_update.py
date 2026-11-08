@@ -50,14 +50,14 @@ MANAGED_ITEMS = (
     'paper_radar', 'main.py', 'startup.py', 'requirements.txt',
     'deploy', 'start_public_windows.bat', 'start_public_macos_linux.sh',
     'start_public_worker_windows.bat', 'start_public_worker_macos_linux.sh',
-    'pyproject.toml', 'docs', 'tests', 'tools', '.github', 'benchmarks',
+    'pyproject.toml', 'CHECK_RETRIEVAL_WINDOWS.bat', 'docs', 'tests', 'tools', '.github', 'benchmarks',
     'README.md', 'CHANGELOG.md', 'CONTRIBUTING.md', 'SECURITY.md',
     'NOTICE.md', 'LICENSE', '.editorconfig', '.env.example',
     '.gitattributes', '.gitignore',
 )
 PROTECTED_NAMES = {'.venv', 'venv', 'env', 'settings.json', '.env',
                    'data', 'logs', 'downloads', 'reports', 'storage', '.git',
-                   'start_windows.bat', 'start_macos_linux.sh', '.paper_radar_updates'}
+                   'start_windows.bat', 'start_macos_linux.sh', '.paper_radar_updates', '.paper_radar_recovery', '.paper_radar_home'}
 ALLOWED_HOSTS = {'github.com', 'release-assets.githubusercontent.com',
                  'objects.githubusercontent.com', 'github-releases.githubusercontent.com'}
 
@@ -696,9 +696,20 @@ class StartupUpdater:
 
 def read_startup_settings(root: Path) -> dict:
     """Read only update-specific booleans, no importing the application config."""
-    source = read_json(Path(root)/'settings.json')
-    return {'update_check_enabled':source.get('update_check_enabled',True) is not False,
-            'auto_update_on_startup':source.get('auto_update_on_startup',False) is True,
+    from .storage_layout import resolve_data_root
+    data_root = resolve_data_root(Path(root), create=False)
+    primary = data_root/'settings.json'
+    source = read_json(primary)
+    # When config is missing but a backup remains, treat this as potential
+    # OneDrive synchronization rather than a newly installed workspace.
+    degraded = not source and os.path.lexists(os.fspath(primary))
+    missing_with_backup = not os.path.lexists(os.fspath(primary)) and (data_root/'settings.json.bak').exists()
+    if degraded or missing_with_backup:
+        # Preserve the user's foreground/background preference but NEVER use
+        # an unverified fallback to auto-install code or contact update hosts.
+        source = read_json(data_root/'settings.json.bak')
+    return {'update_check_enabled':not (degraded or missing_with_backup) and source.get('update_check_enabled',True) is not False,
+            'auto_update_on_startup':not (degraded or missing_with_backup) and source.get('auto_update_on_startup',False) is True,
             'service_run_mode':source.get('service_run_mode') if source.get('service_run_mode') in ('foreground','background') else 'foreground'}
 
 

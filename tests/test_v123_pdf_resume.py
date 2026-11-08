@@ -101,7 +101,7 @@ def test_migration_v5_to_v6_keeps_existing_data(tmp_path,monkeypatch):
     db.execute("INSERT INTO topics VALUES ('old','Existing topic','[]','2026-01-01')")
     db.commit()
     monkeypatch.setitem(REGISTRIES,'portal_workspace',steps)
-    assert migrate(db,'portal_workspace')==8
+    assert migrate(db,'portal_workspace')==len(steps)
     assert db.execute("SELECT name FROM topics WHERE id='old'").fetchone()[0]=='Existing topic'
     assert db.execute('SELECT COUNT(*) FROM pdf_batch_checkpoints').fetchone()[0]==0
     db.close()

@@ -151,7 +151,8 @@ def test_bounded_trace_persists_only_metadata():
 def test_v112_run_cycle_is_now_backed_by_agent_dag_and_trace():
     with TemporaryDirectory() as td:
         root=Path(td)
-        output=run_cycle({**DEFAULTS,'output_dir':str(root/'reports')},
+        output=run_cycle({**DEFAULTS,'ai_enabled':False,'ai_rerank_enabled':False,
+                              'output_dir':str(root/'reports')},
                          db_path=root/'data'/'papers.sqlite3',now=NOW,
                          fetcher=lambda *a,**kw:[paper()],logger=lambda *_:None)
         assert output['new']==1 and output['selected']==1

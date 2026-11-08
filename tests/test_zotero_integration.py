@@ -182,7 +182,10 @@ class ZoteroReaderTests(unittest.TestCase):
                 return json.load(request.urlopen(req))
             try:
                 # Patching global config functions only, without requiring user secrets.
-                with patch.object(webapp,'read_config',lambda:read_config(cfgfile)), \
+                # Keep the request guard and writes on the same isolated test config.
+                # Other recovery tests may leave APP_CONFIG in a read-only process state.
+                with patch.object(webapp,'APP_CONFIG',cfgfile), \
+                     patch.object(webapp,'read_config',lambda:read_config(cfgfile)), \
                      patch.object(webapp,'save_config',lambda cfg:save_config(cfg,cfgfile)):
                     payload={'mode':'sqlite','db_path':str(db),'collection_key':'AAA12345','include_children':True}
                     collections=send('/api/zotero/collections',payload)
