@@ -6,6 +6,7 @@ committed WAL pages. Source data is never modified. Restores target an empty,
 separate directory and verify every payload before publishing it atomically.
 """
 from __future__ import annotations
+from contextlib import closing
 from datetime import datetime, timezone
 from hashlib import sha256
 from pathlib import Path
@@ -65,8 +66,11 @@ def _sqlite_backup(source: Path, dest: Path) -> None:
     # Always open read-only: never create an empty replacement at the source.
     if not source.is_file():raise BackupError('数据库文件不存在')
     uri=source.resolve().as_uri()+'?mode=ro'
-    with sqlite3.connect(uri,uri=True,timeout=15) as original:
-        with sqlite3.connect(dest,timeout=15) as replica:
+    # sqlite3.Connection.__exit__ commits but does not close handles. Windows
+    # refuses to rename the verified staging directory while SQLite remains
+    # open, so close both connections before publishing the snapshot.
+    with closing(sqlite3.connect(uri,uri=True,timeout=15)) as original:
+        with closing(sqlite3.connect(dest,timeout=15)) as replica:
             original.backup(replica,pages=100,sleep=.05)
             result=replica.execute('PRAGMA integrity_check').fetchone()[0]
             if result!='ok':raise BackupError('备份数据库完整性检查未通过')
@@ -113,7 +117,7 @@ def _check_manifest(snapshot: Path) -> dict:
             raise BackupError('备份文件校验失败：'+name)
         if row['sqlite']:
             try:
-                with sqlite3.connect(file.resolve().as_uri()+'?mode=ro',uri=True) as db:
+                with closing(sqlite3.connect(file.resolve().as_uri()+'?mode=ro',uri=True)) as db:
                     if db.execute('PRAGMA integrity_check').fetchone()[0]!='ok':
                         raise BackupError('备份数据库损坏：'+name)
             except sqlite3.DatabaseError as exc:
@@ -214,7 +218,7 @@ def _check_manifest_for_files(stage: Path,manifest: dict) -> None:
         if not file.is_file() or file.stat().st_size!=row['bytes'] or _hash(file)!=row['sha256']:
             raise BackupError('恢复副本校验失败：'+row['path'])
         if row['sqlite']:
-            with sqlite3.connect(file.resolve().as_uri()+'?mode=ro',uri=True) as db:
+            with closing(sqlite3.connect(file.resolve().as_uri()+'?mode=ro',uri=True)) as db:
                 if db.execute('PRAGMA integrity_check').fetchone()[0]!='ok':
                     raise BackupError('恢复数据库完整性检查失败：'+row['path'])
 
