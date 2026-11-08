@@ -13,6 +13,10 @@ on:
         default: ''
         type: string
 
+# Force UTF-8 on Windows regardless of the runner's CP1252 locale.
+env:
+  PYTHONUTF8: '1'
+  PYTHONIOENCODING: 'utf-8'
 permissions:
   contents: read
 
@@ -75,6 +79,8 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           python -m pip install -r requirements.txt pytest pyyaml
+      - name: Python syntax preflight
+        run: python -m compileall -q paper_radar tools main.py startup.py
       - name: Validate complete repository before release
         run: |
           python -m tools.packaging.feature_parity
@@ -262,7 +268,7 @@ jobs:
         env:
           VERSION: ${{ needs.prepare.outputs.version }}
         run: python tools/packaging/release_assets.py verify --release-dir release --version "$VERSION"
-      - name: Sign source ZIP with independently pinned Ed25519 key, when configured
+      - name: Sign source ZIP for optional automatic updates after native approval
         id: signing
         shell: bash
         env:
@@ -271,9 +277,16 @@ jobs:
           NATIVE_RELEASE_APPROVED: ${{ vars.PAPER_RADAR_NATIVE_RELEASE_APPROVED }}
         run: |
           set -euo pipefail
+          # Formal public releases can be installed manually; source auto-install
+          # is gated independently by explicit native approval + a trusted signature.
+          if [ "$NATIVE_RELEASE_APPROVED" != "v${VERSION}" ]; then
+            echo "auto_update=false" >> "$GITHUB_OUTPUT"
+            echo "Native OS approval pending: formal Release is manual-download-only; unsigned source auto-update is rejected." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
           if [ -z "${RELEASE_SIGNING_KEY_PEM}" ]; then
-            echo "stable=false" >> "$GITHUB_OUTPUT"
-            echo "No developer signing key: publish as prerelease only; auto-updater must reject." >> "$GITHUB_STEP_SUMMARY"
+            echo "auto_update=false" >> "$GITHUB_OUTPUT"
+            echo "Signing key unavailable: formal Release is manual-download-only; unsigned source auto-update is rejected." >> "$GITHUB_STEP_SUMMARY"
             exit 0
           fi
           umask 077
@@ -282,33 +295,25 @@ jobs:
           printf '%s\n' "$RELEASE_SIGNING_KEY_PEM" > "$keyfile"
           python tools/sign_release.py sign --source "release/Paper-Radar_v${VERSION}_Source.zip" --version "$VERSION" --key "$keyfile" --output release
           python -m tools.packaging.release_gate --release-dir release --version "$VERSION"
-          echo "Source archive detached signature verified against repository pinned public key." >> "$GITHUB_STEP_SUMMARY"
-          if [ "$NATIVE_RELEASE_APPROVED" = "v${VERSION}" ]; then
-            echo "stable=true" >> "$GITHUB_OUTPUT"
-            echo "Native manual acceptance approved; publishing signed stable Release." >> "$GITHUB_STEP_SUMMARY"
-          else
-            echo "stable=false" >> "$GITHUB_OUTPUT"
-            echo "Native manual acceptance not approved: signed prerelease only, no automatic source upgrades." >> "$GITHUB_STEP_SUMMARY"
-          fi
-      - name: Publish a stable signed release, otherwise a non-updatable prerelease
+          echo "auto_update=true" >> "$GITHUB_OUTPUT"
+          echo "Native approval and independently pinned Ed25519 signature verified; safe source auto-update is enabled." >> "$GITHUB_STEP_SUMMARY"
+      - name: Publish verified official Release (automatic updates only when signed)
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ needs.prepare.outputs.tag }}
           VERSION: ${{ needs.prepare.outputs.version }}
-          SIGNED_STABLE: ${{ steps.signing.outputs.stable }}
+          SIGNED_AUTO_UPDATE: ${{ steps.signing.outputs.auto_update }}
         run: |
           set -euo pipefail
           if git ls-remote --exit-code --tags origin "refs/tags/$TAG" >/dev/null 2>&1; then
             echo "Version tag already exists; refusing to overwrite it." >&2
             exit 1
           fi
-          if [ "$SIGNED_STABLE" = true ]; then
-            release_status="Official signed source release. Source updater can verify and install."
-            prerelease_flag=""
+          if [ "$SIGNED_AUTO_UPDATE" = true ]; then
+            release_status="Official Release. Approved signed source update is available."
           else
-            release_status="Prerelease pending signing or native manual acceptance. In-app auto-update deliberately disabled."
-            prerelease_flag="--prerelease"
+            release_status="Official Release for manual installation. Source auto-update is unavailable without native approval and the independent Ed25519 signature."
           fi
           cat > release-notes.md <<EOF
           # Paper-Radar $TAG
@@ -330,10 +335,10 @@ jobs:
           gh release create "$TAG" release/* \
             --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" \
             --title "Paper-Radar $TAG" --notes-file release-notes.md \
-            --draft $prerelease_flag
+            --draft
           # Draft prevents public exposure of a partial upload. Only publish after
           # all 12 files have been accepted by the release creation command.
-          gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" --draft=false $prerelease_flag
+          gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" --draft=false --prerelease=false
           echo "Published $TAG: https://github.com/$GITHUB_REPOSITORY/releases/tag/$TAG" >> "$GITHUB_STEP_SUMMARY"
 
   promote:

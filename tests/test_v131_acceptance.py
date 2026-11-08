@@ -142,11 +142,11 @@ def test_workflow_has_browser_performance_native_and_signed_release_gates():
     text=(ROOT/'.github/workflows/desktop-release.yml').read_text(encoding='utf-8')
     for needle in ['v131_workspace_benchmark','v131_browser_journeys','--enforce',
                    'v131_native_smoke','release_gate','PAPER_RADAR_RELEASE_SIGNING_KEY_PEM','PAPER_RADAR_NATIVE_RELEASE_APPROVED','promote_tag','gh release download',
-                   'stable=false','stable=true','--draft=false']:
+                   'auto_update=false','auto_update=true','--draft=false --prerelease=false']:
         assert needle in text
-    assert 'prerelease_flag="--prerelease"' in text
-    assert 'No developer signing key' in text
-    assert 'can_install=not getattr(sys' in (ROOT/'paper_radar/updates.py').read_text()
+    assert 'prerelease_flag="--prerelease"' not in text
+    assert 'manual-download-only' in text
+    assert 'source_auto_installable' in (ROOT/'paper_radar/updates.py').read_text(encoding='utf-8')
 
 
 def test_browser_journeys_use_real_dom_not_mock_page():

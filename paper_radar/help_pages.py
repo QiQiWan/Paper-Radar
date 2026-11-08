@@ -220,8 +220,13 @@ def render_guide(slug: str, *, public: bool = False) -> bytes | None:
     markdown = _section(markdown, slug)
     if markdown is None:
         return None
-    nav = ''.join(f'<a {"aria-current=\"page\"" if key == slug else ""} '
-                  f'href="/guide/{key}">{escape(label)}</a>' for key, (label, _) in GUIDES.items() if key in _NAV_SLUGS)
+    nav_items = []
+    for key, (label, _) in GUIDES.items():
+        if key not in _NAV_SLUGS:
+            continue
+        current = ' aria-current="page"' if key == slug else ''
+        nav_items.append(f'<a{current} href="/guide/{key}">{escape(label)}</a>')
+    nav = ''.join(nav_items)
     back = '/workspace' if public else '/app/dashboard'
     body = f'''<!doctype html><html lang="zh-CN"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
