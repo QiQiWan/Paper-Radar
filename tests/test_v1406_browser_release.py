@@ -38,3 +38,20 @@ def test_only_one_verified_csv_handoff_is_exempt():
 def test_query_string_does_not_change_verified_export_detection():
     response={'url':'http://127.0.0.1:8000/api/public/evidence/export?from=abc','failure':'net::ERR_ABORTED'}
     assert classify_failed_requests([response],{'evidence_csv'}) == ([],1)
+
+
+def test_triage_browser_release_gate_handles_empty_error_lists(monkeypatch, tmp_path):
+    from tools import v132_browser_journeys
+    monkeypatch.setattr(v132_browser_journeys, 'run', lambda **kwargs: {
+        'summary': {'task_error_rate': 0.0, 'js_exceptions': [], 'http_5xx': []}})
+    assert v132_browser_journeys.main(['--enforce', '--out-dir', str(tmp_path)]) == 0
+
+
+def test_triage_browser_release_gate_rejects_real_failures(monkeypatch, tmp_path):
+    from tools import v132_browser_journeys
+    for key, value in (('task_error_rate', 0.1), ('js_exceptions', ['boom']),
+                       ('http_5xx', ['500'])):
+        summary={'task_error_rate':0.0, 'js_exceptions':[], 'http_5xx':[]}
+        summary[key]=value
+        monkeypatch.setattr(v132_browser_journeys,'run', lambda **kwargs: {'summary':summary})
+        assert v132_browser_journeys.main(['--enforce', '--out-dir',str(tmp_path)])==1

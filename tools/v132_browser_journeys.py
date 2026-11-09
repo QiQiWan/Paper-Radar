@@ -160,7 +160,11 @@ def main(argv=None):
         print(json.dumps(result,ensure_ascii=False))
         return 2
     print(json.dumps(result['summary'],ensure_ascii=False))
-    return int(args.enforce and (result['summary']['task_error_rate']>0 or
-            result['summary']['js_exceptions'] or result['summary']['http_5xx']))
+    # 'or' returns its last operand (an empty list on success). Normalize the
+    # error collections to bool before converting the exit status to int.
+    failed = (result['summary']['task_error_rate'] > 0 or
+              bool(result['summary']['js_exceptions']) or
+              bool(result['summary']['http_5xx']))
+    return int(bool(args.enforce and failed))
 
 if __name__=='__main__':raise SystemExit(main())
