@@ -55,3 +55,15 @@ def test_triage_browser_release_gate_rejects_real_failures(monkeypatch, tmp_path
         summary[key]=value
         monkeypatch.setattr(v132_browser_journeys,'run', lambda **kwargs: {'summary':summary})
         assert v132_browser_journeys.main(['--enforce', '--out-dir',str(tmp_path)])==1
+
+
+
+def test_native_startup_timeout_policy_keeps_intel_under_real_probe():
+    from tools.v131_native_smoke import startup_wait_seconds
+    assert startup_wait_seconds('Darwin','x86_64')==75
+    assert startup_wait_seconds('Darwin','arm64')==40
+    assert startup_wait_seconds('Windows','AMD64')==40
+    assert startup_wait_seconds('Linux','x86_64')==40
+    source=(Path(__file__).resolve().parents[1]/'tools/v131_native_smoke.py').read_text(encoding='utf-8')
+    assert 'exit_code={process.poll()}' in source
+    assert "debug_path=Path(out).with_suffix('.failure.log')" in source

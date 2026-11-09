@@ -35,7 +35,14 @@ def _get(url,*,timeout=2):
         return response.status,raw
 
 
-def _start_and_probe(binary,env,log,*,max_wait=25):
+def startup_wait_seconds(system: str | None = None, machine: str | None = None) -> int:
+    """Allow slow notarization-free macOS Intel cold starts; never skip validation."""
+    system = system or platform.system()
+    machine = machine or platform.machine()
+    return 75 if system == 'Darwin' and machine in ('x86_64', 'i386') else 40
+
+
+def _start_and_probe(binary,env,log,*,max_wait=40):
     port=_port()
     started=time.perf_counter()
     with log.open('a',encoding='utf-8') as stream:
@@ -43,17 +50,27 @@ def _start_and_probe(binary,env,log,*,max_wait=25):
             stdout=stream,stderr=subprocess.STDOUT,env=env,stdin=subprocess.DEVNULL)
     try:
         health=None
+        healthy=False
         deadline=time.monotonic()+max_wait
         while time.monotonic()<deadline:
             if process.poll() is not None:break
             try:
                 status,body=_get(f'http://127.0.0.1:{port}/api/health',timeout=.4)
                 health=json.loads(body)
-                if status==200 and health.get('version')==__version__:break
+                if status==200 and health.get('version')==__version__:
+                    healthy=True
+                    break
             except (OSError,ValueError,TimeoutError):pass
             time.sleep(.15)
-        if not health or health.get('version')!=__version__:
-            raise RuntimeError('Frozen local HTTP server did not become healthy')
+        if not healthy:
+            try:
+                tail=log.read_text(encoding='utf-8',errors='replace')[-3200:]
+            except OSError:
+                tail='<log unavailable>'
+            raise RuntimeError(
+                f'Frozen local HTTP server did not become healthy within {max_wait}s '
+                f'(exit_code={process.poll()}, last_health={health!r}, port={port}). '
+                f'Frozen stdout/stderr tail: {tail!r}')
         startup_ms=(time.perf_counter()-started)*1000
         status,html=_get(f'http://127.0.0.1:{port}/app/library')
         if status!=200 or b'Paper-Radar' not in html:
@@ -110,7 +127,8 @@ def run(*,bundle:Path, executable_relative:str, archive:Path|None=None, deb:Path
         result=subprocess.run([str(installed_binary),'--doctor-output',str(doctor_path)],
             capture_output=True,text=True,timeout=35,env=env)
         if result.returncode!=0 or not doctor_path.is_file():
-            raise RuntimeError('Frozen executable doctor failed; return '+str(result.returncode))
+            raise RuntimeError('Frozen executable doctor failed; return '
+                               +str(result.returncode)+' stderr '+result.stderr[-1200:])
         payload=json.loads(doctor_path.read_text(encoding='utf-8'))
         if payload.get('version')!=__version__ or Path(payload.get('data_dir','')).resolve()!=data.resolve():
             raise RuntimeError('Frozen version or per-user data path mismatch')
@@ -120,7 +138,21 @@ def run(*,bundle:Path, executable_relative:str, archive:Path|None=None, deb:Path
         samples=[]
         log=base/'service.log'
         for _ in range(2):
-            samples.append(_start_and_probe(installed_binary,env,log))
+            try:
+                samples.append(_start_and_probe(installed_binary,env,log,
+                                                max_wait=startup_wait_seconds()))
+            except Exception as exc:
+                # Retain actionable evidence outside TemporaryDirectory even
+                # when a native build times out or crashes on the runner.
+                if out:
+                    debug_path=Path(out).with_suffix('.failure.log')
+                    debug_path.parent.mkdir(parents=True,exist_ok=True)
+                    try:
+                        tail=log.read_text(encoding='utf-8',errors='replace')[-10000:]
+                    except OSError:
+                        tail='<service log unavailable>'
+                    debug_path.write_text(f'{type(exc).__name__}: {exc}\n\n{tail}\n',encoding='utf-8')
+                raise
         if marker.read_text(encoding='utf-8')!='synthetic acceptance marker; no user data':
             raise RuntimeError('Frozen restart erased per-user files')
         # Startup failures retain only a short log excerpt for debugging.
