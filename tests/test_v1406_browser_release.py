@@ -67,3 +67,54 @@ def test_native_startup_timeout_policy_keeps_intel_under_real_probe():
     source=(Path(__file__).resolve().parents[1]/'tools/v131_native_smoke.py').read_text(encoding='utf-8')
     assert 'exit_code={process.poll()}' in source
     assert "debug_path=Path(out).with_suffix('.failure.log')" in source
+
+
+def _benchmark_trial(note_ms, failures=None):
+    failures=failures or []
+    return {'gate':{'passed':not failures,'reasons':failures},
+            'groups':{kind:{'p95_ms':note_ms if kind=='note' else 30.0}
+                      for kind in ('note','batch','read','export')}}
+
+
+def test_repeated_performance_gate_ignores_one_runner_spike():
+    from tools.v132_triage_benchmark import evaluate_repeated_trials
+    result=evaluate_repeated_trials([_benchmark_trial(132),_benchmark_trial(1729),
+                                     _benchmark_trial(140)],1500)
+    assert result['passed'] is True
+    assert result['median_group_p95_ms']['note']==140
+    assert result['trial_group_p95_ms']['note']==[132.0,1729.0,140.0]
+
+
+def test_repeated_performance_gate_blocks_consistent_slowness_and_data_errors():
+    from tools.v132_triage_benchmark import evaluate_repeated_trials
+    result=evaluate_repeated_trials([_benchmark_trial(1700),_benchmark_trial(1600),
+                                     _benchmark_trial(130)],1500)
+    assert result['passed'] is False and 'p95_budget_exceeded' in result['reasons']
+    corruption=evaluate_repeated_trials([_benchmark_trial(130),
+        _benchmark_trial(140,['sqlite_integrity']),_benchmark_trial(135)],1500)
+    assert corruption['passed'] is False and 'sqlite_integrity' in corruption['reasons']
+
+
+def test_direct_loopback_probe_ignores_http_proxy(monkeypatch):
+    from tools.v131_native_smoke import _get
+    from http.server import HTTPServer, BaseHTTPRequestHandler
+    from threading import Thread
+    class Handler(BaseHTTPRequestHandler):
+        def do_GET(self):
+            self.send_response(200)
+            self.end_headers()
+            self.wfile.write(b'health-ok')
+        def log_message(self, fmt, *args):
+            pass
+    server=HTTPServer(('127.0.0.1',0), Handler)
+    thread=Thread(target=server.serve_forever,daemon=True)
+    thread.start()
+    try:
+        monkeypatch.setenv('HTTP_PROXY','http://127.0.0.1:1')
+        monkeypatch.setenv('http_proxy','http://127.0.0.1:1')
+        monkeypatch.delenv('NO_PROXY',raising=False)
+        assert _get(f'http://127.0.0.1:{server.server_port}/health') == (200,b'health-ok')
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=2)

@@ -8,6 +8,7 @@ from a different historical executable.
 from __future__ import annotations
 import argparse
 from datetime import datetime,timezone
+from http.client import HTTPConnection
 import json
 import os
 from pathlib import Path
@@ -17,7 +18,7 @@ import socket
 import subprocess
 import tempfile
 import time
-from urllib.request import urlopen
+from urllib.parse import urlsplit
 
 from paper_radar import __version__
 from tools.packaging.release_assets import verify_zip, sha256
@@ -30,9 +31,19 @@ def _port():
 
 
 def _get(url,*,timeout=2):
-    with urlopen(url,timeout=timeout) as response:
-        raw=response.read(1000000)
-        return response.status,raw
+    """Probe the loopback server directly, ignoring CI host proxy variables."""
+    parts=urlsplit(url)
+    if parts.scheme!='http' or parts.hostname!='127.0.0.1' or not parts.port or parts.username:
+        raise ValueError('Native smoke may only probe the local HTTP server')
+    conn=HTTPConnection('127.0.0.1',parts.port,timeout=timeout)
+    path=parts.path or '/'
+    if parts.query:path+='?'+parts.query
+    try:
+        conn.request('GET',path)
+        response=conn.getresponse()
+        return response.status,response.read(1000000)
+    finally:
+        conn.close()
 
 
 def startup_wait_seconds(system: str | None = None, machine: str | None = None) -> int:

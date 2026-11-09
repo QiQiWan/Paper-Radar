@@ -13,6 +13,7 @@ from datetime import datetime,timezone
 import json
 from pathlib import Path
 import platform
+from statistics import median
 from time import perf_counter
 from urllib import request
 
@@ -111,6 +112,29 @@ def run(*,papers=1000,note_writes=80,batches=10,concurrency=8,p95_budget_ms=1500
             'gate':{'passed':not reasons,'reasons':reasons}}
 
 
+def evaluate_repeated_trials(trials: list[dict], p95_budget_ms: float) -> dict:
+    """Require every trial to preserve data, and typical P95 to meet the budget.
+
+    CI runners share resources, so one sporadic high-latency trial should
+    remain visible in evidence without turning a healthy Release red.
+    Persistent performance degradation still fails the three-trial median.
+    """
+    if not trials:
+        raise ValueError('At least one benchmark trial is required')
+    data_errors = sorted({reason for trial in trials
+                          for reason in trial['gate']['reasons']
+                          if reason != 'p95_budget_exceeded'})
+    p95_by_group={kind:[float(trial['groups'][kind]['p95_ms']) for trial in trials]
+                  for kind in ('note','batch','read','export')}
+    median_group_p95_ms={kind:round(median(vals),2) for kind,vals in p95_by_group.items()}
+    reasons=list(data_errors)
+    if any(value > p95_budget_ms for value in median_group_p95_ms.values()):
+        reasons.append('p95_budget_exceeded')
+    return {'passed':not reasons, 'reasons':reasons,
+            'trial_count':len(trials), 'median_group_p95_ms':median_group_p95_ms,
+            'trial_group_p95_ms':p95_by_group}
+
+
 def main(argv=None):
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--papers',type=int,default=1000)
@@ -120,13 +144,25 @@ def main(argv=None):
     parser.add_argument('--p95-budget-ms',type=float,default=1500)
     parser.add_argument('--out',type=Path,required=True)
     parser.add_argument('--enforce',action='store_true')
+    parser.add_argument('--repeat',type=int,default=1,choices=(1,3),help='Independent trials (3 for noisy CI performance gates)')
     a=parser.parse_args(argv)
-    result=run(papers=a.papers,note_writes=a.note_writes,batches=a.batches,
-               concurrency=a.concurrency,p95_budget_ms=a.p95_budget_ms,enforce=a.enforce)
+    trials=[run(papers=a.papers,note_writes=a.note_writes,batches=a.batches,
+                concurrency=a.concurrency,p95_budget_ms=a.p95_budget_ms,enforce=a.enforce)
+            for _ in range(a.repeat)]
+    if a.repeat==1:
+        report=trials[0]
+        summary={'groups':report['groups'],'persisted':report['persisted'],'gate':report['gate']}
+    else:
+        aggregate=evaluate_repeated_trials(trials,a.p95_budget_ms)
+        report={'version':__version__,'mode':'repeatable_synthetic_http_sqlite_ci',
+                'settings':{'repeat':a.repeat,'p95_budget_ms':a.p95_budget_ms,
+                            'concurrency':a.concurrency,'note_writes':a.note_writes,'batches':a.batches},
+                'gate':{'passed':aggregate['passed'],'reasons':aggregate['reasons']},
+                'aggregation':aggregate,'trials':trials}
+        summary={'gate':report['gate'],'aggregation':aggregate}
     a.out.parent.mkdir(parents=True,exist_ok=True)
-    a.out.write_text(json.dumps(result,ensure_ascii=False,indent=2)+'\n',encoding='utf-8')
-    print(json.dumps({'groups':result['groups'],'persisted':result['persisted'],
-                      'gate':result['gate']},ensure_ascii=False,indent=2))
-    return int(a.enforce and not result['gate']['passed'])
+    a.out.write_text(json.dumps(report,ensure_ascii=False,indent=2)+'\n',encoding='utf-8')
+    print(json.dumps(summary,ensure_ascii=False,indent=2))
+    return int(a.enforce and not report['gate']['passed'])
 
 if __name__=='__main__':raise SystemExit(main())
