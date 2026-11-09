@@ -12,10 +12,35 @@ from datetime import datetime,timezone
 import json
 from pathlib import Path
 import platform
+import re
 import statistics
 from tempfile import TemporaryDirectory
 from threading import Thread
 from time import perf_counter
+
+def classify_failed_requests(requests: list[dict], verified_downloads: set[str]) -> tuple[list[dict], int]:
+    """Account for Chromium download handoffs without suppressing genuine failures.
+
+    Playwright may report net::ERR_ABORTED when the browser hands a successful
+    attachment response to its download manager. Ignore *one* such event for
+    the CSV export only after the export file was actually saved and verified.
+    All other failed requests remain release-blocking.
+    """
+    unexpected = []
+    verified_csv_abort_count = 0
+    for item in requests:
+        is_verified_csv_handoff = (
+            verified_csv_abort_count == 0
+            and "evidence_csv" in verified_downloads
+            and item.get("failure") == "net::ERR_ABORTED"
+            and str(item.get("url") or "").split("?", 1)[0].endswith("/api/public/evidence/export")
+        )
+        if is_verified_csv_handoff:
+            verified_csv_abort_count += 1
+        else:
+            unexpected.append(item)
+    return unexpected, verified_csv_abort_count
+
 
 from paper_radar import __version__
 from paper_radar.portal_auth import db as auth_db
@@ -24,13 +49,14 @@ from tools.v131_workspace_benchmark import pct,seed_workspace
 
 
 def run(*,out_dir:Path, browser_path: str|None=None, papers:int=1000):
-    try:from playwright.sync_api import sync_playwright
+    try:from playwright.sync_api import expect, sync_playwright
     except ImportError as exc:raise RuntimeError('Playwright is required for Chromium acceptance') from exc
     out_dir=Path(out_dir)
     out_dir.mkdir(parents=True,exist_ok=True)
     tasks=[]
     javascript_errors=[]
     failed_requests=[]
+    verified_downloads=set()
     server_errors=[]
     started=perf_counter()
     with TemporaryDirectory(prefix='paper-radar-v131-browser-') as folder:
@@ -65,14 +91,14 @@ def run(*,out_dir:Path, browser_path: str|None=None, papers:int=1000):
                         try:page.screenshot(path=str(out_dir/f'failure_{len(tasks):02}.png'),full_page=True,timeout=3000)
                         except Exception:pass
                 def expect_count(value):
-                    page.wait_for_function("expected=>document.querySelector('#paperCount')?.textContent.trim()==='显示 '+expected+' 篇'",arg=value)
+                    expect(page.locator('#paperCount')).to_have_text(f'显示 {value} 篇')
                 def login():
                     page.goto(base,wait_until='domcontentloaded')
                     page.locator('#username').fill('benchmark_user')
                     page.locator('#password').fill('v131-benchmark-password-long-enough')
                     page.locator('#authSubmit').click()
                     page.locator('#appView').wait_for(state='visible')
-                    page.wait_for_function("value=>document.querySelector('#metricPapers').textContent.trim()===value",arg=str(papers))
+                    expect(page.locator('#metricPapers')).to_have_text(str(papers))
                 # Use the normal UI to log into the isolated pre-seeded workspace.
                 from paper_radar.portal_auth import create_account
                 with auth_db(portal.auth_path) as db:
@@ -102,14 +128,14 @@ def run(*,out_dir:Path, browser_path: str|None=None, papers:int=1000):
                     assert button.get_attribute('aria-pressed')=='false'
                     with page.expect_response(lambda r:'/api/public/papers/flags' in r.url and r.request.method=='POST' and r.status==200):
                         button.click()
-                    page.wait_for_function("document.querySelector('#paperList .star-toggle')?.getAttribute('aria-pressed')==='true'")
+                    expect(button).to_have_attribute('aria-pressed','true')
                     return 'star persisted to SQLite'
                 step('star_paper',star)
                 def mark_read():
                     select=page.locator('#paperList .reading-select').first
                     with page.expect_response(lambda r:'/api/public/papers/flags' in r.url and r.request.method=='POST' and r.status==200):
                         select.select_option('done')
-                    page.wait_for_function("document.querySelector('#paperList .reading-select')?.value==='done'")
+                    expect(select).to_have_value('done')
                     page.reload(wait_until='domcontentloaded')
                     expect_count('1 / 1')
                     assert page.locator('#paperList .reading-select').first.input_value()=='done'
@@ -123,7 +149,7 @@ def run(*,out_dir:Path, browser_path: str|None=None, papers:int=1000):
                 step('combined_filter',filter_starred)
                 def share_and_restore():
                     page.locator('#sharePagePortal').click()
-                    page.wait_for_function("location.search.includes('filter=starred')")
+                    expect(page).to_have_url(re.compile(r'[?&]filter=starred(?:&|$)'))
                     url=page.url
                     assert 'q=Study+000124' in url or 'q=Study%20000124' in url
                     page.reload(wait_until='domcontentloaded')
@@ -158,6 +184,10 @@ def run(*,out_dir:Path, browser_path: str|None=None, papers:int=1000):
                     with page.expect_download(timeout=12000) as download:
                         page.locator('#exportEvidence').click()
                     assert download.value.suggested_filename=='paper-radar-evidence.csv'
+                    saved_file=Path(download.value.path())
+                    assert saved_file.is_file() and saved_file.stat().st_size>0, 'CSV download is empty or absent'
+                    assert download.value.failure() is None, 'CSV download failed'
+                    verified_downloads.add('evidence_csv')
                     return 'CSV exported using browser cookie'
                 step('csv_export',evidence_export)
                 def mobile():
@@ -190,12 +220,13 @@ def run(*,out_dir:Path, browser_path: str|None=None, papers:int=1000):
                     page.locator('#password').fill('another-long-password-v131')
                     page.locator('#authSubmit').click()
                     page.locator('#appView').wait_for(state='visible')
-                    page.wait_for_function("document.querySelector('#metricPapers').textContent.trim()==='0'")
+                    expect(page.locator('#metricPapers')).to_have_text('0')
                     return 'registered secondary user cannot see seeded papers'
                 step('registration_account_isolation',create_account_ui)
                 context.close();browser.close()
         finally:
             server.shutdown();server.server_close();thread.join(timeout=5)
+    unexpected_requests, verified_download_aborts = classify_failed_requests(failed_requests, verified_downloads)
     valid=[t['seconds']*1000 for t in tasks]
     passed=sum(t['status']=='pass' for t in tasks)
     result={'schema_version':1,'version':__version__,'kind':'automated_real_chromium',
@@ -206,9 +237,10 @@ def run(*,out_dir:Path, browser_path: str|None=None, papers:int=1000):
             'task_error_rate':round((len(tasks)-passed)/len(tasks),4),
             'p50_task_ms':pct(valid,50),'p95_task_ms':pct(valid,95),
             'max_task_ms':round(max(valid),2),'js_exception_count':len(javascript_errors),
-            'failed_network_count':len(failed_requests),'http_5xx_count':len(server_errors),
+            'failed_network_count':len(unexpected_requests),
+            'verified_download_abort_count':verified_download_aborts,'http_5xx_count':len(server_errors),
             'wall_seconds':round(perf_counter()-started,2)},
-        'failures':{'javascript':javascript_errors[:20], 'requests':failed_requests[:20], 'server':server_errors[:20]},
+        'failures':{'javascript':javascript_errors[:20], 'requests':unexpected_requests[:20], 'server':server_errors[:20]},
         'at':datetime.now(timezone.utc).isoformat(timespec='seconds')}
     (out_dir/'browser_journeys.json').write_text(json.dumps(result,ensure_ascii=False,indent=2)+'\n',encoding='utf-8')
     return result
