@@ -19,7 +19,7 @@ from tools.v131_workspace_benchmark import seed_workspace,pct
 
 
 def run(out_dir: Path,*,papers=1000,browser_path=None):
-    from playwright.sync_api import sync_playwright
+    from playwright.sync_api import expect, sync_playwright
     out_dir.mkdir(parents=True,exist_ok=True)
     tasks=[];js_errors=[];server_errors=[]
     with TemporaryDirectory(prefix='paper-radar-follow-browser-') as tmp:
@@ -82,7 +82,7 @@ def run(out_dir: Path,*,papers=1000,browser_path=None):
                 def seen():
                     with page.expect_response(lambda r:'/api/public/following/seen' in r.url and r.status==200):
                         page.locator('#publicFollowingSeen').click()
-                    page.wait_for_function("document.querySelector('#publicFollowingUnread')?.textContent.includes('0')")
+                    expect(page.locator('#publicFollowingUnread')).to_contain_text('0')
                 step('seen_and_persisted',seen)
                 def narrow():
                     page.set_viewport_size({'width':390,'height':844})

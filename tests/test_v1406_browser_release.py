@@ -12,6 +12,14 @@ def test_browser_journeys_use_csp_safe_locator_assertions():
     assert 'saved_file.stat().st_size>0' in source
 
 
+def test_triage_and_following_journeys_are_csp_safe():
+    root=Path(__file__).resolve().parents[1]/'tools'
+    for script in ('v132_browser_journeys.py','v136_browser_journeys.py'):
+        source=(root/script).read_text(encoding='utf-8')
+        assert 'wait_for_function(' not in source
+        assert 'from playwright.sync_api import expect, sync_playwright' in source
+
+
 def test_verified_download_handoff_is_not_a_network_failure():
     failures=[{'url':'http://127.0.0.1:8000/api/public/evidence/export','failure':'net::ERR_ABORTED'}]
     assert classify_failed_requests(failures,{'evidence_csv'}) == ([],1)

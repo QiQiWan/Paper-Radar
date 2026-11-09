@@ -20,7 +20,7 @@ from tools.v131_workspace_benchmark import seed_workspace,pct
 
 
 def run(*,out_dir:Path,papers=1000,browser_path=None):
-    try:from playwright.sync_api import sync_playwright
+    try:from playwright.sync_api import expect, sync_playwright
     except ImportError as exc:raise RuntimeError('playwright package unavailable') from exc
     out_dir.mkdir(parents=True,exist_ok=True)
     tasks=[];js_errors=[];server_errors=[]
@@ -59,7 +59,7 @@ def run(*,out_dir:Path,papers=1000,browser_path=None):
                     page.locator('#password').fill('v132_browser_password_very_long')
                     page.locator('#authSubmit').click()
                     page.locator('#appView').wait_for(state='visible')
-                    page.wait_for_function("n=>document.querySelector('#metricPapers')?.textContent.trim()===String(n)",arg=papers)
+                    expect(page.locator('#metricPapers')).to_have_text(str(papers))
                     return 'authenticated, seeded account'
                 step('login',login)
                 def inbox():
@@ -90,7 +90,7 @@ def run(*,out_dir:Path,papers=1000,browser_path=None):
                     p.locator('.paper-note-panel select').select_option('replicate')
                     with page.expect_response(lambda r:'/api/public/papers/note' in r.url and r.status==200):
                         p.locator('.paper-note-panel button.primary').click()
-                    page.wait_for_function("document.querySelector('.paper-note-panel .paper-note-actions .hint')?.textContent.includes('已保存')")
+                    expect(p.locator('.paper-note-panel .paper-note-actions .hint')).to_contain_text('已保存')
                     chosen.append(pid)
                     return 'manual note and action saved'
                 step('save_note',note)
