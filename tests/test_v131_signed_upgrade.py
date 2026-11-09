@@ -160,7 +160,13 @@ def test_invalid_offline_release_rejected_without_side_effects(tmp_path,failure)
     updater=StartupUpdater(root,opener=transport)
     updater.is_web_running=lambda:False
     result=updater.run()
-    assert result['state']=='error',result
+    # An unsigned official Release remains manual-download-only.
+    # Invalid signed artifacts must fail closed without installation.
+    if failure == 'missing_signature':
+        assert result['state']=='up_to_date',result
+        assert transport.requests == ['https://api.github.com/repos/QiQiWan/Paper-Radar/releases/latest']
+    else:
+        assert result['state']=='error',result
     assert (root/'main.py').read_text()=='print("original build")\n'
     assert (root/'paper_radar/stale.py').exists()
     assert not updater.journal_path.exists()
