@@ -1,0 +1,30 @@
+name: Real PDF corpus acquisition probe
+on:
+  push:
+    branches: [benchmark/real-pdf-eval-30]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - name: Request two versioned arXiv PDFs
+        shell: bash
+        run: |
+          python - <<'PY'
+          import urllib.request,time
+          for arxiv_id in ["2010.08895v3", "2111.03794v4"]:
+              url="https://arxiv.org/pdf/"+arxiv_id
+              headers={"User-Agent":"PaperRadarEvidenceBenchmark/1.0 (academic research)", "Accept":"application/pdf"}
+              t=time.monotonic()
+              try:
+                  with urllib.request.urlopen(urllib.request.Request(url,headers=headers),timeout=35) as r:
+                      magic=r.read(8)
+                      print("PDF_CHECK",arxiv_id,r.status,magic,"seconds",round(time.monotonic()-t,1),flush=True)
+              except Exception as e:
+                  print("PDF_ERROR",arxiv_id,type(e).__name__,str(e)[:200],flush=True)
+              time.sleep(3.2)
+          PY
