@@ -82,15 +82,22 @@ jobs:
         run: |
           python -m pip install -r requirements.txt playwright
           python -m playwright install --with-deps chromium
-      - name: Browser release regression with 1,000 papers
+      - name: Full release acceptance with 1,000 papers
         run: |
-          mkdir -p acceptance/browser
+          mkdir -p acceptance/browser acceptance/triage_browser acceptance/following_browser
+          python -m pip install psutil
+          python -m tools.v131_workspace_benchmark --papers 1000 --requests 240 --concurrency 8 --soak-seconds 20 --enforce --out acceptance/workspace_1000.json
+          python -m tools.v131_mutation_benchmark --papers 1000 --writes 100 --concurrency 8 --enforce --out acceptance/mutations_100.json
           python -m tools.v131_browser_journeys --papers 1000 --enforce --out-dir acceptance/browser
+          python -m tools.v132_triage_benchmark --papers 1000 --note-writes 80 --batches 10 --repeat 3 --enforce --out acceptance/triage_1000.json
+          python -m tools.v132_browser_journeys --papers 1000 --enforce --out-dir acceptance/triage_browser
+          python -m tools.v136_following_benchmark --papers 1000 --requests 240 --workers 8 --soak 20 --output acceptance/following_1000.json
+          python -m tools.v136_browser_journeys --papers 1000 --out-dir acceptance/following_browser
       - name: Retain Chromium evidence on failure or success
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: browser-v131-acceptance
-          path: acceptance/browser/
+          name: browser-release-acceptance
+          path: acceptance/
           if-no-files-found: warn
           retention-days: 14

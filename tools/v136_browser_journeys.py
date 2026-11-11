@@ -64,9 +64,17 @@ def run(out_dir: Path,*,papers=1000,browser_path=None):
                     page.locator('#authSubmit').click()
                     page.locator('#appView').wait_for(state='visible')
                 step('authenticated_login',login)
-                def follow():
+                def navigate_to_following():
+                    # v1.52 moved secondary pages under a collapsed native
+                    # details menu. Expand it as an actual user would.
+                    menu=page.locator('#primaryNav details.portal-side-more')
+                    menu.wait_for(state='visible')
+                    if not menu.evaluate('(node) => node.open'):
+                        menu.locator('summary').click()
                     page.locator('#primaryNav [data-view="following"]').click()
                     page.locator('#viewFollowing').wait_for(state='visible')
+                def follow():
+                    navigate_to_following()
                     page.get_by_text('Deterministic tracked arxiv paper').wait_for()
                     assert '1' in page.locator('#publicFollowingUnread').inner_text()
                 step('following_inbox',follow)
@@ -76,7 +84,7 @@ def run(out_dir: Path,*,papers=1000,browser_path=None):
                         page.locator('#publicFollowingSave').click()
                     page.reload(wait_until='domcontentloaded')
                     page.locator('#appView').wait_for(state='visible')
-                    page.locator('#primaryNav [data-view="following"]').click()
+                    navigate_to_following()
                     assert not page.locator('#publicFollowNew').is_checked()
                 step('preference_persists',preference)
                 def seen():
