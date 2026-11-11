@@ -18,26 +18,53 @@ from tempfile import TemporaryDirectory
 from threading import Thread
 from time import perf_counter
 
-def classify_failed_requests(requests: list[dict], verified_downloads: set[str]) -> tuple[list[dict], int]:
-    """Account for Chromium download handoffs without suppressing genuine failures.
+def classify_failed_requests(requests: list[dict], verified_downloads: set[str], *,
+                             document_navigations: list[dict] | None = None,
+                             site_origin: str = '') -> tuple[list[dict], int]:
+    """Filter only verifiably expected browser-level request cancellations.
 
-    Playwright may report net::ERR_ABORTED when the browser hands a successful
-    attachment response to its download manager. Ignore *one* such event for
-    the CSV export only after the export file was actually saved and verified.
-    All other failed requests remain release-blocking.
+    Chromium may abort an in-flight GET when a successful same-origin document
+    navigation replaces its page, or when a verified CSV is handed to the
+    download manager. Neither indicates a failed user journey. Correlation is
+    required: a same-origin 200 document navigation within one second, an
+    allowed GET/XHR API path, and the precise ERR_ABORTED failure. A random
+    aborted request, failed navigation, POST, timeout, 5xx or JS exception
+    remains release-blocking. Return format is kept compatible with v1.40.6.
     """
+    from urllib.parse import urlsplit
     unexpected = []
     verified_csv_abort_count = 0
+    navigation_docs = document_navigations or []
+    origin = urlsplit(site_origin)
+    allowed_paths = {'/api/public/papers', '/api/public/dashboard'}
     for item in requests:
+        url = str(item.get('url') or '').split('?', 1)[0]
+        is_aborted = item.get('failure') == 'net::ERR_ABORTED'
         is_verified_csv_handoff = (
             verified_csv_abort_count == 0
-            and "evidence_csv" in verified_downloads
-            and item.get("failure") == "net::ERR_ABORTED"
-            and str(item.get("url") or "").split("?", 1)[0].endswith("/api/public/evidence/export")
+            and 'evidence_csv' in verified_downloads
+            and is_aborted and url.endswith('/api/public/evidence/export')
         )
         if is_verified_csv_handoff:
             verified_csv_abort_count += 1
-        else:
+            continue
+        uri = urlsplit(url)
+        is_expected_navigation_abort = (
+            is_aborted
+            and bool(origin.scheme) and uri.scheme == origin.scheme
+            and uri.netloc == origin.netloc and uri.path in allowed_paths
+            and item.get('method') == 'GET'
+            and item.get('resource_type') in {'xhr', 'fetch'}
+            and type(item.get('at')) in (float, int)
+            and any(
+                nav.get('status') == 200
+                and str(nav.get('url') or '').startswith(site_origin.rstrip('/') + '/')
+                and type(nav.get('at')) in (float, int)
+                and abs(item['at'] - nav['at']) <= 1.0
+                for nav in navigation_docs
+            )
+        )
+        if not is_expected_navigation_abort:
             unexpected.append(item)
     return unexpected, verified_csv_abort_count
 
@@ -57,6 +84,7 @@ def run(*,out_dir:Path, browser_path: str|None=None, papers:int=1000):
     javascript_errors=[]
     failed_requests=[]
     verified_downloads=set()
+    verified_document_navigations=[]
     server_errors=[]
     started=perf_counter()
     with TemporaryDirectory(prefix='paper-radar-v131-browser-') as folder:
@@ -72,8 +100,26 @@ def run(*,out_dir:Path, browser_path: str|None=None, papers:int=1000):
                 page=context.new_page()
                 page.set_default_timeout(12000)
                 page.on('pageerror',lambda exc:javascript_errors.append(str(exc)[:220]))
-                page.on('requestfailed',lambda req:failed_requests.append({'url':req.url.split('?')[0][-95:],'failure':req.failure}))
-                page.on('response',lambda r:server_errors.append({'status':r.status,'path':r.url.split('?')[0][-95:]}) if r.status>=500 else None)
+                # Preserve the failure time, method and resource type: a bare
+                # ERR_ABORTED string cannot distinguish a reload from a bug.
+                def on_request_failed(req):
+                    failed_requests.append({'url':req.url.split('?',1)[0],
+                                            'failure':req.failure,
+                                            'method':req.method,
+                                            'resource_type':req.resource_type,
+                                            'at':perf_counter()})
+                page.on('requestfailed',on_request_failed)
+                def on_response(response):
+                    if response.status>=500:
+                        server_errors.append({'status':response.status,
+                                              'path':response.url.split('?',1)[0][-95:]})
+                    # Chromium's document-navigation response confirms a real
+                    # successful page transition (SPA route updates do not).
+                    if response.status==200 and response.request.is_navigation_request():
+                        verified_document_navigations.append({'url':response.url.split('?',1)[0],
+                                                              'status':response.status,
+                                                              'at':perf_counter()})
+                page.on('response',on_response)
                 base=f'http://127.0.0.1:{server.server_port}'
                 # Detect policy/network denial before starting timed tasks.
                 # Managed Chromium deployments can block localhost entirely.
@@ -226,7 +272,10 @@ def run(*,out_dir:Path, browser_path: str|None=None, papers:int=1000):
                 context.close();browser.close()
         finally:
             server.shutdown();server.server_close();thread.join(timeout=5)
-    unexpected_requests, verified_download_aborts = classify_failed_requests(failed_requests, verified_downloads)
+    unexpected_requests, verified_download_aborts = classify_failed_requests(
+        failed_requests, verified_downloads,
+        document_navigations=verified_document_navigations, site_origin=base)
+    verified_navigation_aborts = len(failed_requests)-len(unexpected_requests)-verified_download_aborts
     valid=[t['seconds']*1000 for t in tasks]
     passed=sum(t['status']=='pass' for t in tasks)
     result={'schema_version':1,'version':__version__,'kind':'automated_real_chromium',
@@ -238,9 +287,20 @@ def run(*,out_dir:Path, browser_path: str|None=None, papers:int=1000):
             'p50_task_ms':pct(valid,50),'p95_task_ms':pct(valid,95),
             'max_task_ms':round(max(valid),2),'js_exception_count':len(javascript_errors),
             'failed_network_count':len(unexpected_requests),
-            'verified_download_abort_count':verified_download_aborts,'http_5xx_count':len(server_errors),
+            'verified_download_abort_count':verified_download_aborts,
+            'verified_navigation_abort_count':verified_navigation_aborts,
+            'http_5xx_count':len(server_errors),
             'wall_seconds':round(perf_counter()-started,2)},
         'failures':{'javascript':javascript_errors[:20], 'requests':unexpected_requests[:20], 'server':server_errors[:20]},
+        'navigation_evidence':{'documents':[
+            {'url':item['url'].split('?',1)[0][-95:], 'status':item['status'],
+             'at_seconds':round(item['at']-started,3)}
+            for item in verified_document_navigations[-40:]],
+            'request_failures':[
+            {'url':item['url'].split('?',1)[0][-95:], 'failure':item['failure'],
+             'method':item['method'], 'resource_type':item['resource_type'],
+             'at_seconds':round(item['at']-started,3)}
+            for item in failed_requests[:40]]},
         'at':datetime.now(timezone.utc).isoformat(timespec='seconds')}
     (out_dir/'browser_journeys.json').write_text(json.dumps(result,ensure_ascii=False,indent=2)+'\n',encoding='utf-8')
     return result
