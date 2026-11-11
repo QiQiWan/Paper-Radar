@@ -69,8 +69,18 @@ def run(*,out_dir:Path,papers=1000,browser_path=None):
                     page.locator('#paperList article.paper').first.wait_for(state='visible')
                     return 'inbox opens from dashboard'
                 step('inbox',inbox)
+                def open_library_extra_tools():
+                    # The v1.52 library intentionally keeps expert actions
+                    # inside a collapsed native <details>. The browser journey
+                    # must reveal it through the real UI before clicking.
+                    panel=page.locator('#viewLibrary details.library-extra-tools')
+                    panel.wait_for(state='visible')
+                    if not panel.evaluate('(node) => node.open'):
+                        panel.locator('summary').click()
+                    assert panel.evaluate('(node) => node.open'), 'Bulk tools did not expand'
                 chosen=[]
                 def batch():
+                    open_library_extra_tools()
                     first=page.locator('#paperList .paper-selection input').first
                     second=page.locator('#paperList .paper-selection input').nth(1)
                     chosen[:]=[first.input_value(),second.input_value()]
@@ -105,6 +115,8 @@ def run(*,out_dir:Path,papers=1000,browser_path=None):
                     return 'note survived reload, action view filters correctly'
                 step('reload_filter_action',persistence)
                 def export():
+                    # A hard reload in the previous journey closes the details.
+                    open_library_extra_tools()
                     with page.expect_download() as d:
                         page.locator('#exportActionReading').click()
                     assert d.value.suggested_filename.endswith('.csv')
@@ -114,6 +126,7 @@ def run(*,out_dir:Path,papers=1000,browser_path=None):
                     return 'action CSV and starred Markdown downloaded'
                 step('download_lists',export)
                 def skip():
+                    open_library_extra_tools()
                     with page.expect_response(lambda r:'/api/public/papers/bulk' in r.url and r.status==200):
                         page.locator('#paperList .paper-selection input').first.check()
                         page.locator('#triageSkip').click()
