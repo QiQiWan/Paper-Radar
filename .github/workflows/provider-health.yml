@@ -1,0 +1,37 @@
+name: External literature source health (advisory)
+
+# Independent of release gates. An upstream rate limit should not silently
+# publish a broken build, but a third-party outage must not block offline tests.
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '23 4 * * 1'
+
+permissions:
+  contents: read
+
+jobs:
+  official-public-api-health:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, ubuntu-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Probe approved public APIs with bounded requests
+        shell: bash
+        run: |
+          mkdir -p acceptance
+          python -m paper_radar.sources.diagnostics --timeout 7 > acceptance/sources.json
+      - name: Retain report even on source outages
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sources-${{ matrix.os }}
+          path: acceptance/sources.json
+          if-no-files-found: warn
+          retention-days: 14

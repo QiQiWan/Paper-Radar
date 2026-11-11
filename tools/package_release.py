@@ -26,7 +26,7 @@ ALLOWED_ROOT = {'paper_radar', 'tests', 'tools', 'docs', '.github', 'deploy', 'b
                 '.editorconfig', '.env.example', '.gitattributes', '.gitignore',
                 'CHANGELOG.md', 'CONTRIBUTING.md', 'LICENSE', 'NOTICE.md',
                 'README.md', 'SECURITY.md', 'main.py', 'startup.py',
-                'start_windows.bat', 'start_macos_linux.sh', 'pyproject.toml',
+                'start_windows.bat', 'start_macos_linux.sh', 'CHECK_RETRIEVAL_WINDOWS.bat', 'pyproject.toml',
                 'requirements.txt'}
 
 
