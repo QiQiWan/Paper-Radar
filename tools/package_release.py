@@ -22,12 +22,12 @@ EXCLUDED_ROOT = {'.git', '.venv', 'venv', 'env', 'data', 'downloads', 'reports',
 EXCLUDED_ANYWHERE = {'__pycache__', '.pytest_cache', '.mypy_cache', '.ruff_cache', '.idea', '.vscode'}
 EXCLUDED_NAMES = {'settings.json', '.env', '.DS_Store', 'Thumbs.db', '.coverage', '.paper_radar_home'}
 EXCLUDED_SUFFIX = {'.pdf', '.sqlite', '.sqlite3', '.db', '.log', '.pyc', '.pyo', '.bak', '.zip', '.pem', '.key'}
-ALLOWED_ROOT = {'paper_radar', 'tests', 'tools', 'docs', '.github', 'deploy', 'benchmarks',
-                '.editorconfig', '.env.example', '.gitattributes', '.gitignore',
-                'CHANGELOG.md', 'CONTRIBUTING.md', 'LICENSE', 'NOTICE.md',
-                'README.md', 'SECURITY.md', 'main.py', 'startup.py',
-                'start_windows.bat', 'start_macos_linux.sh', 'CHECK_RETRIEVAL_WINDOWS.bat', 'pyproject.toml',
-                'requirements.txt'}
+# Share the updater's managed-file contract. The two stable launchers are
+# distributed but intentionally never overwritten by an in-process update.
+# A legacy root diagnostic BAT must never enter a signed source release.
+from paper_radar.startup_update import MANAGED_ITEMS
+
+ALLOWED_ROOT = frozenset(MANAGED_ITEMS) | {'start_windows.bat', 'start_macos_linux.sh'}
 
 
 def include(rel: Path) -> bool:
