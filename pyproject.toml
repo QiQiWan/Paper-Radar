@@ -16,7 +16,7 @@ Documentation = "https://github.com/QiQiWan/Paper-Radar/tree/main/docs"
 
 [project.optional-dependencies]
 pdf_layout = ["PyMuPDF>=1.24,<2"]
-dev = ["pytest>=8"]
+dev = ["pytest>=8,<10", "PyYAML>=6,<7", "beautifulsoup4>=4.12,<5"]
 
 [build-system]
 requires = ["setuptools>=68"]
