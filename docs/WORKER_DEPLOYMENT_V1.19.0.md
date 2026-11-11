@@ -22,14 +22,14 @@
 ```bash
 export PAPERRADAR_PORTAL_DATA=/var/lib/paperradar/portal
 export PAPERRADAR_PUBLIC_ORIGIN=https://papers.example.com
-PYTHON=.venv/bin/python sh start_public_macos_linux.sh 9009
+PYTHON=.venv/bin/python sh ./start_macos_linux.sh --public 9009
 ```
 
 另一个终端执行：
 
 ```bash
 export PAPERRADAR_PORTAL_DATA=/var/lib/paperradar/portal
-PYTHON=.venv/bin/python sh start_public_worker_macos_linux.sh
+PYTHON=.venv/bin/python sh ./start_macos_linux.sh --worker
 ```
 
 两个进程必须指向 **相同的 `PAPERRADAR_PORTAL_DATA`**；在线更新程序应在两个服务都已停止后才可执行。Nginx 只反代 Web 端口 `127.0.0.1:9009`，不要暴露 Worker 端口（Worker 本身不监听 HTTP）。
@@ -55,10 +55,10 @@ sudo journalctl -u 'paperradar-worker@*' -n 50 --no-pager
 ```powershell
 $env:PAPERRADAR_PUBLIC_ORIGIN = 'http://127.0.0.1:9009'
 $env:PAPERRADAR_PORTAL_DATA = 'D:\PaperRadarData\portal'
-.\start_public_windows.bat 9009
+.\start_windows.bat --public 9009
 ```
 
-在新的 PowerShell 中运行 `start_public_worker_windows.bat`。请验证排队、取消、后台更新、服务终止和 Worker 重启恢复。Windows 上的 CPU/内存限制需要通过 Job Object 或其他宿主控制补齐，目前仅实现进程终止能力，不能视为完全的 Windows 资源沙箱。
+在新的 PowerShell 中运行 `start_windows.bat --worker`。请验证排队、取消、后台更新、服务终止和 Worker 重启恢复。Windows 上的 CPU/内存限制需要通过 Job Object 或其他宿主控制补齐，目前仅实现进程终止能力，不能视为完全的 Windows 资源沙箱。
 
 ## 5. 上线验收步骤
 

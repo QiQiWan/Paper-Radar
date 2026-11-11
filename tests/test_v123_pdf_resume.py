@@ -15,11 +15,11 @@ from tests.test_v122_fulltext_and_synthesis import service,synthetic_pdf,extract
 
 def test_raised_pdf_bounds_match_proxy_and_browser():
     assert research.MAX_PDF==32*1024*1024
-    assert MAX_PAGES==120
+    assert MAX_PAGES==240
     root=Path(__file__).resolve().parents[1]
     assert 'client_max_body_size 34m;' in (root/'deploy/nginx-paper-radar.conf').read_text()
     assert '32*1024*1024' in (root/'paper_radar/static/portal.js').read_text()
-    assert '1<=page<=120' in (root/'paper_radar/public_portal.py').read_text()
+    assert 'page<=MAX_EVIDENCE_PAGES' in (root/'paper_radar/public_portal.py').read_text()
 
 
 def test_65_page_pdf_index_and_deep_preview(tmp_path):
@@ -101,7 +101,7 @@ def test_migration_v5_to_v6_keeps_existing_data(tmp_path,monkeypatch):
     db.execute("INSERT INTO topics VALUES ('old','Existing topic','[]','2026-01-01')")
     db.commit()
     monkeypatch.setitem(REGISTRIES,'portal_workspace',steps)
-    assert migrate(db,'portal_workspace')==8
+    assert migrate(db,'portal_workspace')==len(steps)
     assert db.execute("SELECT name FROM topics WHERE id='old'").fetchone()[0]=='Existing topic'
     assert db.execute('SELECT COUNT(*) FROM pdf_batch_checkpoints').fetchone()[0]==0
     db.close()
@@ -109,7 +109,7 @@ def test_migration_v5_to_v6_keeps_existing_data(tmp_path,monkeypatch):
 
 def test_parser_enforces_page_limit(tmp_path):
     pdf=tmp_path/'too_long.pdf'
-    pdf.write_bytes(synthetic_pdf(pages=121))
+    pdf.write_bytes(synthetic_pdf(pages=241))
     import subprocess,sys
     worker=subprocess.run([sys.executable,'-m','paper_radar.portal_pdf_worker',str(pdf)],
         capture_output=True,text=True,timeout=35)

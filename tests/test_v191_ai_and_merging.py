@@ -85,7 +85,7 @@ class NewQualityTests(unittest.TestCase):
         with TemporaryDirectory() as d:
             with connect(Path(d)/'x.sqlite3') as conn:
                 save_papers(conn,[p])
-                cfg={**DEFAULTS,'keywords':['neural operator'],'ai_enabled':True,'ai_limit':1}
+                cfg={**DEFAULTS,'keywords':['neural operator'],'ai_enabled':True,'llm_data_consent':True,'ai_limit':1}
                 with patch('paper_radar.cloud_api.get_api_key',return_value='test-key'):
                     with patch('paper_radar.cloud_api.summarize_paper',return_value=summary):
                         log=[]

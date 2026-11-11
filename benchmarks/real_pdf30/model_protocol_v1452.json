@@ -1,0 +1,12 @@
+{
+  "api_provider": "",
+  "api_base_url": "",
+  "api_model": "",
+  "max_output_tokens": 900,
+  "max_total_tokens": 2000000,
+  "max_cost_usd": 0,
+  "usd_per_1m_input_tokens": 0,
+  "usd_per_1m_output_tokens": 0,
+  "timeout_seconds": 45,
+  "comment": "No cloud calls until two human reviews pass and provider/model/current price/maximum USD cost are configured. Do not put API keys here."
+}

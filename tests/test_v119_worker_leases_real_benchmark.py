@@ -176,14 +176,12 @@ def test_scoring_model_predictions_reports_false_claims(tmp_path):
 
 def test_worker_deployment_scripts_separate_http_and_science():
     root=Path(__file__).resolve().parents[1]
-    web=(root/'start_public_macos_linux.sh').read_text()
-    worker=(root/'start_public_worker_macos_linux.sh').read_text()
-    assert 'paper_radar.public_portal' in web
-    assert 'paper_radar.portal_worker' in worker
-    assert '--port "$PORT"' in web
-    assert '--data-root "$DATA"' in worker
+    launcher=(root/'paper_radar/cli_launcher.py').read_text(encoding='utf-8')
+    assert 'paper_radar.public_portal' in launcher
+    assert 'paper_radar.portal_worker' in launcher
+    assert '--public' in launcher and '--worker' in launcher
+    assert '--data-root' in launcher and '--port' in launcher
     assert (root/'deploy/paperradar-worker@.service').is_file()
-
 
 def test_bounded_worker_output_is_always_valid_json():
     small={'state':'success','result':{'name':'ok'}}

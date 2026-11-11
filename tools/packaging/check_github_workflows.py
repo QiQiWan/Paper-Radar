@@ -15,6 +15,7 @@ ROOT = Path(__file__).resolve().parents[2]
 WORKFLOWS = (
     '.github/workflows/ci.yml',
     '.github/workflows/desktop-release.yml',
+    '.github/workflows/reliability.yml',
 )
 REQUIRED_RELEASE_MARKERS = (
     'workflow_dispatch:', 'push:', 'build:', 'publish:',
@@ -37,6 +38,8 @@ def validate_repo(root: Path = ROOT) -> None:
         raise ValueError('Missing packaging entrypoint referenced by workflow')
     if not (root / 'tools/packaging/release_assets.py').is_file():
         raise ValueError('Missing release verification referenced by workflow')
+    if not (root / 'tools/packaging/feature_parity.py').is_file():
+        raise ValueError('Missing feature parity verification referenced by workflow')
 
 
 def validate_archive(archive: Path, *, prefix: str, root: Path = ROOT) -> None:

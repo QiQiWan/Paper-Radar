@@ -30,7 +30,9 @@ def main(argv=None):
         from paper_radar.portal_worker import main as portal_worker_main
         return portal_worker_main(args[args.index('--portal-worker')+1:])
     if '--pdf-child' in args:
-        from paper_radar.portal_pdf_worker import parse
+        from paper_radar.portal_pdf_worker import parse, _limit_process
+        # PyInstaller --pdf-child is its own process; limit only this child.
+        _limit_process()
         from pathlib import Path
         import json
         try:

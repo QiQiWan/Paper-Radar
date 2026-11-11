@@ -1,6 +1,40 @@
+# 当前版本 v1.52.1
+
+- [本版研究分析范围、批次、操作与72篇实机验收](INQUIRY_SCOPE_V1521.md)
+- [本版测试结果](TEST_RESULTS_V1521.md)
+
+- [摘要优先研究分析、摘要补取及真实文献库试点](ABSTRACT_FIRST_RESEARCH_V151.md)
+- [本版测试与边界](TEST_RESULTS_V151.md)
+
+## v1.50.0 历史研发版本
+
+- [PDF 批量证据流程：操作方式、模型授权、页码追踪和科研边界](EVIDENCE_PIPELINE_V150.md)
+- [测试记录与待验证事项](TEST_RESULTS_V150.md)
+
+## v1.49.3 历史文档
+
+
+- [研究分析结果分层、论文卡片与分阶段日志审阅](UX_AUDIT_V1493.md)
+- [测试与验证边界](TEST_RESULTS_V1493.md)
+- [研究分析分阶段诊断日志说明](RUNTIME_DIAGNOSTICS_V1493.md)
+
+## v1.49.2 历史文档
+
+- [本次阅读卡片、摘要、模型检索与研究分析的修改及审阅](UX_AUDIT_V1492.md)
+- [新增错误类型、日志汇总与导出](RUNTIME_DIAGNOSTICS_V1492.md)
+- [本轮代码及验证记录](TEST_RESULTS_V1492.md)
+- [面向使用者的完整操作说明](USER_GUIDE.md)
+- [真人可用性试用任务（仍需实施）](USABILITY_PROTOCOL_V1490.md)
+
+## v1.49.0–v1.49.1 历史文档
+
+- [模型向导与论文阅读改版](UX_AUDIT_V1490.md)
+- [旧版测试结果](TEST_RESULTS_V1490.md)
+- [v1.49.1 运行日志和异常诊断](RUNTIME_DIAGNOSTICS_V1491.md)
+
 # Paper-Radar 文档总览
 
-## v1.26.0 当前版本（优先阅读）
+## v1.26.0 历史版本（安装与发行参考）
 
 - [桌面安装和运行手册](DESKTOP_PACKAGING_V1.26.0.md)：Windows、Ubuntu、macOS 双击启动目标、用户目录、管理器和构建验收边界。
 - [真实论文评估方法](REAL_PAPER_EVALUATION_V1.26.0.md)：固定论文、双人标注模板、指标定义与未测量原因。

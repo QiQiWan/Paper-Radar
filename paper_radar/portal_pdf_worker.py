@@ -14,9 +14,9 @@ import re
 import subprocess
 import sys
 
-MAX_PAGES = 120
+MAX_PAGES = 240
 MAX_PAGE_CHARS = 7200
-MAX_TOTAL_CHARS = 440_000
+MAX_TOTAL_CHARS = 1_800_000
 MAX_LAYOUT_ROWS = 480
 MAX_LAYOUT_TABLES = 60
 TABLE_HINT = re.compile(r'\b(?:table|tab\.?\s*\d+|results|benchmark)\b|表\s*\d+|实验结果',re.I)
@@ -26,7 +26,7 @@ def _limit_process():
     if sys.platform.startswith('linux'):
         import resource
         for kind, limits in ((resource.RLIMIT_AS,(1024*1024*1024,1024*1024*1024)),
-                             (resource.RLIMIT_CPU,(42,46))):
+                             (resource.RLIMIT_CPU,(75,80))):
             try:resource.setrlimit(kind,limits)
             except (OSError,ValueError):pass
 
@@ -79,7 +79,8 @@ def _ocr_page(page):
 
 
 def parse(path:Path):
-    _limit_process()
+    # Called in-process by tests and diagnostic utilities; resource limits
+    # are applied at worker subprocess entrypoints, never to the caller.
     from pypdf import PdfReader
     doc=PdfReader(str(path),strict=False)
     if doc.is_encrypted:raise ValueError('Encrypted PDF is not supported')
@@ -132,6 +133,7 @@ def parse(path:Path):
 
 
 if __name__=='__main__':
+    _limit_process()
     # Third-party PDF packages occasionally print setup messages on stdout.
     # Reserve the worker's stdout exclusively for one machine-readable JSON.
     wire=sys.stdout
@@ -139,8 +141,8 @@ if __name__=='__main__':
     try:
         result=parse(Path(sys.argv[1]))
     except Exception as exc:
-        wire.write(json.dumps({'error':type(exc).__name__},ensure_ascii=False)+'\n')
+        wire.write(json.dumps({'error':type(exc).__name__},ensure_ascii=True)+'\n')
         sys.exit(2)
     else:
-        wire.write(json.dumps(result,ensure_ascii=False)+'\n')
+        wire.write(json.dumps(result,ensure_ascii=True)+'\n')
 

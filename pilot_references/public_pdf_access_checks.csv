@@ -1,0 +1,12 @@
+arxiv_id,title,pdf_url,web_pdf_text_status,pdf_pages_observed,inspection_method,notes
+2611.10217,Rethinking How to Leverage Cheap Physics for Data-Efficient Neural Operators,https://arxiv.org/pdf/2611.10217,text_accessible,26,public_web_pdf_parser,Available in public PDF browser; no local file download performed
+2611.10945,CoupledFlow One-Step Neural Operators for Coupled Multi-Physics PDEs,https://arxiv.org/pdf/2611.10945,text_accessible,34,public_web_pdf_parser,Table 1 inspected visually
+2611.12275,SimpFlow Transferable Pretraining for Fluid Dynamics via Simplified Physics,https://arxiv.org/pdf/2611.12275,web_reader_size_limit,,public_web_pdf_parser,Public PDF is approximately 14 MB; parser refused due content-length cap; does not indicate unavailable PDF
+2611.09621,BiLoGo Reducing the Smoothing of Localised Responses in Transformer-Based Neural Operators,https://arxiv.org/pdf/2611.09621,web_reader_size_limit,,public_web_pdf_parser,Public PDF is approximately 24 MB; parser refused due content-length cap; does not indicate unavailable PDF
+2611.10865,Neural Operator Surrogates for Landweber Iteration in Solving Inverse Problems,https://arxiv.org/pdf/2611.10865,text_accessible,50,public_web_pdf_parser,Text available in public web reader
+2611.11805,Operator Learning of Microstructure-Dependent Internal-Variable Models for Inelastic Homogenization,https://arxiv.org/pdf/2611.11805,text_accessible,52,public_web_pdf_parser,Text available in public web reader
+2611.10468,Dynamic State Estimation from Sparse PMUs via Physics-Informed Graph Neural Operators,https://arxiv.org/pdf/2611.10468,text_accessible,10,public_web_pdf_parser,Text available in public web reader
+2611.09430,EDP-PI-DOSnet An Energy Dissipation Preserving Neural Solver for Two-Phase Flow Problems,https://arxiv.org/pdf/2611.09430,text_accessible,28,public_web_pdf_parser,Text available in public web reader
+2611.09053,Equidistribution of Solution Gradients in Physics-Informed Neural Networks via Coordinate Transformations,https://arxiv.org/pdf/2611.09053,text_accessible,35,public_web_pdf_parser,Text available in public web reader
+2611.11540,Hydrograd v2.0 A Differentiable Two-Dimensional Shallow-Water Model,https://arxiv.org/pdf/2611.11540,text_accessible,31,public_web_pdf_parser,Text available in public web reader
+2611.11252,ALETHEIA A Multi-Frequency Eddy Current Pulsed Thermography Dataset,https://arxiv.org/pdf/2611.11252,text_accessible,62,public_web_pdf_parser,Public paper includes irregular geometry and OOD dataset design

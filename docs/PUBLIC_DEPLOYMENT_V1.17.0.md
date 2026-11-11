@@ -21,7 +21,7 @@ python3 -m venv .venv
 export PAPERRADAR_PUBLIC_ORIGIN=https://papers.example.com
 export PAPERRADAR_PORTAL_DATA=/var/lib/paperradar/portal
 export PAPERRADAR_TRUST_PROXY_IP=1
-PYTHON=.venv/bin/python sh start_public_macos_linux.sh 9009
+PYTHON=.venv/bin/python sh ./start_macos_linux.sh --public 9009
 ```
 
 脚本只绑定 `127.0.0.1:9009`。配置 `PAPERRADAR_PUBLIC_ORIGIN` 为浏览器实际访问的 HTTPS 域名。如果只在本机测试，可以改为 `http://127.0.0.1:9009`；此时默认不需要 `PAPERRADAR_TRUST_PROXY_IP`。
@@ -32,7 +32,7 @@ python tools/render_public_nginx.py --domain papers.example.com --port 9009 --ou
 
 检查证书文件路径、`server_name`、`proxy_pass`，使用 `nginx -t` 验证后启用。Nginx 必须显式设置 `proxy_set_header Host $host;` 和 `proxy_set_header X-Real-IP $remote_addr;`。**仅在可信 Nginx 覆盖 X-Real-IP 时设置 `PAPERRADAR_TRUST_PROXY_IP=1`**，否则保持默认关闭，禁止浏览器直接访问后端端口。
 
-Windows 本机测试：设置 `PAPERRADAR_PUBLIC_ORIGIN=http://127.0.0.1:9009`，然后运行 `start_public_windows.bat 9009`。这不构成实际 Windows 自动升级及公网 HTTPS 验收。
+Windows 本机测试：设置 `PAPERRADAR_PUBLIC_ORIGIN=http://127.0.0.1:9009`，然后运行 `start_windows.bat --public 9009`。这不构成实际 Windows 自动升级及公网 HTTPS 验收。
 
 ## 4. 管理员初始化
 

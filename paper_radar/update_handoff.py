@@ -102,9 +102,10 @@ def shutdown_user_services(root: Path, *, timeout: int = HANDOFF_TIMEOUT) -> boo
     """
     from .desktop_manager import PORTS, read_health
     from .core import APP_ROOT
-    # APP_ROOT and installation root must agree in source mode.
-    if Path(APP_ROOT).resolve() != Path(root).resolve():
-        raise RuntimeError('运行目录与升级目标不一致，已中止。')
+    # A source install may keep writable research data outside OneDrive.
+    from .storage_layout import resolve_data_root
+    if Path(APP_ROOT).resolve() != resolve_data_root(Path(root), create=False):
+        raise RuntimeError('服务所用研究数据目录与升级目标不一致，已中止。')
     secret=read_or_create_secret(Path(APP_ROOT)/'data')
     owner=instance_fingerprint(secret)
     deadline=time.monotonic()+timeout
@@ -141,7 +142,8 @@ def _resume_surviving_services(root: Path):
 
 def restart_local_service(root: Path, port: int, expected_version: str, *, wait=RESTART_TIMEOUT):
     from .desktop_manager import read_health
-    log = root/'logs'/'web_server.log'
+    from .core import APP_ROOT
+    log = APP_ROOT/'logs'/'web_server.log'
     log.parent.mkdir(parents=True,exist_ok=True)
     with log.open('a',encoding='utf-8') as output:
         child=subprocess.Popen([sys.executable,str(root/'main.py'),'--serve','--port',str(port)],

@@ -200,8 +200,9 @@ def test_new_user_guide_does_not_run_remote_code():
 
 def test_detached_launcher_only_attaches_to_current_account(monkeypatch):
     from paper_radar import launcher, desktop_manager, desktop_identity
-    other={'port':8765,'version':'1.28.0','desktop_instance':'another-user'}
-    own={'port':8766,'version':'1.28.0','desktop_instance':'current-owner'}
+    from paper_radar import __version__
+    other={'port':8765,'version':__version__,'desktop_instance':'another-user'}
+    own={'port':8766,'version':__version__,'desktop_instance':'current-owner'}
     monkeypatch.setattr(desktop_identity,'read_or_create_secret',lambda p:'local-secret')
     monkeypatch.setattr(desktop_identity,'instance_fingerprint',lambda s:'current-owner')
     monkeypatch.setattr(desktop_manager,'read_health',lambda p,**kwargs:other if p==8765 else own if p==8766 else None)
@@ -209,6 +210,18 @@ def test_detached_launcher_only_attaches_to_current_account(monkeypatch):
     monkeypatch.setattr(launcher.webbrowser,'open',lambda address:opened.append(address))
     launcher.main()
     assert opened==['http://127.0.0.1:8766']
+
+
+def test_detached_launcher_refuses_stale_service_version(monkeypatch):
+    import pytest
+    from paper_radar import launcher, desktop_manager, desktop_identity
+    monkeypatch.setattr(desktop_identity,'read_or_create_secret',lambda _: 'local-secret')
+    monkeypatch.setattr(desktop_identity,'instance_fingerprint',lambda _: 'owner')
+    monkeypatch.setattr(desktop_manager,'read_health',lambda port,**kwargs:
+        {'port':port,'desktop_instance':'owner','version':'1.28.0'} if port==8765 else None)
+    monkeypatch.setattr(launcher.webbrowser,'open',lambda address: pytest.fail('must not attach to stale service'))
+    with pytest.raises(RuntimeError,match='版本与当前程序不同'):
+        launcher.main()
 
 
 def test_native_bundle_includes_all_help_documents():

@@ -36,7 +36,7 @@ def test_schema_is_append_only_and_compatible(tmp_path):
     assert __version__==__import__('tools.packaging.release_version',fromlist=['read_version']).read_version()
     p=Portal(tmp_path/'data');uid='c'*32
     with p.workspace(uid) as db:
-        assert status(db,'portal_workspace')['version']==8
+        assert status(db,'portal_workspace')['version']==len(REGISTRIES['portal_workspace'])
         assert db.execute('SELECT name FROM sqlite_master WHERE name="topic_paper_flags"').fetchone()
         db.execute('INSERT INTO papers VALUES (?,?,?,?,?,?,?)',('p','Paper','','','','','now'))
         db.execute('INSERT INTO topic_papers VALUES (?,?)',('default','p'))
@@ -152,7 +152,7 @@ def test_upgrade_existing_v3_workspace_preserves_papers_reports_and_flags(tmp_pa
              '{}', '# Previously saved report'))
     monkeypatch.setitem(migrations.REGISTRIES, 'portal_workspace', original)
     with portal.workspace(uid) as db:
-        assert status(db, 'portal_workspace')['version'] == 8
+        assert status(db, 'portal_workspace')['version'] == len(REGISTRIES['portal_workspace'])
         assert db.execute('SELECT title FROM papers WHERE id=?',
                           ('legacy-p',)).fetchone()[0] == 'Prior paper'
         assert db.execute('SELECT markdown FROM research_reports WHERE id=?',
@@ -162,17 +162,17 @@ def test_upgrade_existing_v3_workspace_preserves_papers_reports_and_flags(tmp_pa
         assert db.execute('SELECT COUNT(*) FROM topic_paper_flags').fetchone()[0] == 1
 
 
-def test_release_keeps_independent_worker_launchers():
+def test_release_keeps_unified_public_and_worker_launcher():
     from tools.package_release import include
-    for filename in ('start_public_macos_linux.sh','start_public_windows.bat',
-                     'start_public_worker_macos_linux.sh','start_public_worker_windows.bat'):
+    for filename in ('start_macos_linux.sh','start_windows.bat','paper_radar/cli_launcher.py'):
         assert include(Path(filename)), filename
+    assert not any(Path(name).exists() for name in ('start_public_macos_linux.sh',
+        'start_public_windows.bat','start_public_worker_macos_linux.sh','start_public_worker_windows.bat'))
 
 
-def test_signed_updater_accepts_independent_worker_launchers():
+def test_signed_updater_accepts_unified_worker_launcher():
     from paper_radar.startup_update import _safe_member
-    for filename in ('start_public_worker_windows.bat','start_public_worker_macos_linux.sh'):
-        assert _safe_member('Paper-Radar/'+filename, 'Paper-Radar') == filename
+    assert _safe_member('Paper-Radar/paper_radar/cli_launcher.py','Paper-Radar')=='paper_radar/cli_launcher.py'
 
 
 def test_release_includes_real_paper_evaluation_seed():

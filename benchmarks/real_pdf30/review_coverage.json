@@ -1,0 +1,30 @@
+{
+  "benchmark_id": "paper_radar_real_pdf_30_v1",
+  "papers": 30,
+  "task_counts": {
+    "single_paper_evidence": 88,
+    "cross_paper_method_comparison": 34,
+    "potential_conflict_detection": 17
+  },
+  "question_review": {
+    "items": 139,
+    "double_reviewed": 0,
+    "agreed": 0,
+    "disagreement": 0,
+    "completed": false,
+    "agreement_rate": null,
+    "human_rubric_mean": null
+  },
+  "cross_paper_pair_review": {
+    "items": 34,
+    "double_reviewed": 0,
+    "agreed": 0,
+    "disagreement": 0,
+    "completed": false,
+    "agreement_rate": null,
+    "confirmed_comparable_positive": null,
+    "confirmed_conflict_positive": null
+  },
+  "scientific_model_accuracy_measured": false,
+  "notice": "Question/pair review coverage is not model accuracy. Real model results and complete human gold are required."
+}

@@ -22,6 +22,8 @@ from tools.packaging.check_github_workflows import validate_repo, validate_archi
 def build(output: Path, root: Path = ROOT) -> int:
     root, output = Path(root).resolve(), Path(output).resolve()
     validate_repo(root)
+    from tools.packaging.feature_parity import validate_tree
+    validate_tree(root)
     output.parent.mkdir(parents=True, exist_ok=True)
     files = sorted(
         f for f in root.rglob('*') if f.is_file() and not f.is_symlink()
@@ -36,6 +38,8 @@ def build(output: Path, root: Path = ROOT) -> int:
             z.writestr(info, f.read_bytes(), compress_type=ZIP_DEFLATED, compresslevel=8)
         assert z.testzip() is None
     validate_archive(output, prefix='', root=root)
+    from tools.packaging.feature_parity import validate_zip
+    validate_zip(output, '')
     digest = hashlib.sha256(output.read_bytes()).hexdigest()
     output.with_name(output.name + '.sha256').write_text(f'{digest}  {output.name}\n', encoding='ascii')
     print(f'Git-ready ZIP: {output} ({len(files)} files; SHA-256 {digest})')

@@ -1,0 +1,35 @@
+<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/><title>Paper-Radar 非开发用户试用记录</title>
+<style>
+:root{font-family:system-ui,-apple-system,"Segoe UI","Noto Sans CJK SC","Microsoft YaHei",sans-serif;color:#1a2b40;background:#f5f7fa}*{box-sizing:border-box}body{margin:0}main{max-width:840px;margin:30px auto;padding:24px}h1{font-size:26px;margin:0 0 8px}p{line-height:1.6;color:#4a5e74}header{margin-bottom:24px}.info,.task{background:#fff;border:1px solid #dde5ef;border-radius:14px;padding:22px;margin:16px 0}label{display:block;font-size:14px;margin:8px 0 4px}input,select,textarea{border:1px solid #c6d3e3;border-radius:7px;font:inherit;font-size:14px;padding:9px;width:100%;background:#fff}textarea{min-height:64px}button{border:1px solid #cbd6e5;background:#fff;border-radius:8px;padding:10px 16px;cursor:pointer;font:inherit;font-size:14px}button.primary{background:#1457a7;border-color:#1457a7;color:#fff}button:disabled{opacity:.45;cursor:default}.actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px}.tag{font-weight:600;color:#1457a7}.timer{font-variant-numeric:tabular-nums;font-weight:700}.row{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}.muted{font-size:13px;color:#64748b}.status{min-height:20px;color:#165e34}.hidden{display:none!important}@media(max-width:600px){main{padding:14px;margin:6px auto}.row{grid-template-columns:1fr}}</style>
+</head><body><main><header><h1>Paper-Radar 实际用户试用记录</h1><p>用于未参与开发的科研人员独立操作测试。请把本页面留在一个浏览器标签页，在另一个标签页操作 Paper-Radar。每项任务由测试者自行计时和记录；不会上传任何数据。</p></header>
+<section class="info"><label for="pid">匿名测试编号（例：T01）</label><input id="pid" maxlength="20" value="T01" autocomplete="off"/><label for="role">自评技术经验</label><select id="role"><option>无编程经验</option><option>仅了解简单脚本</option><option>有开发经验（对照组）</option></select><p class="muted">请使用预先准备的测试账号和示例论文。不要在本页面填写真实 API Key、论文内容、个人身份信息或联系方式。</p></section>
+<div id="tasks"></div>
+<section class="info"><h2>试用结束</h2><p>请先完成或结束所有任务，再导出 CSV。每行包含任务是否完成、用时、错误次数、求助次数和简短反馈。测试完成前文件只保存在本浏览器内存中，刷新页面会丢失本次记录。</p><div class="actions"><button class="primary" id="export">导出匿名 CSV</button><button id="reset">清空记录</button></div><p id="status" class="status" role="status"></p></section>
+</main><script>
+'use strict';
+const jobs=[
+  ['T1','首次了解页面并查找论文','打开 Paper-Radar，找到“找论文”，输入 neural operator，选择公开来源，能说明检索结果会保存在哪里。'],
+  ['T2','了解如何连接模型','找到连接模型的引导，说明哪里申请 API Key、在哪里粘贴、哪些内容会发送给服务商。没有测试密钥时直接选择跳过；不要购买或调用付费服务。'],
+  ['T3','设置每天自动跟踪','找到每天自动跟踪设置，选择当前主题和 08:30；在 Windows 测试机上按指引启用，在不支持的平台说明原因，避免自行安装或提权。'],
+  ['T4','打开一篇 PDF 并查看原文','从已收录论文打开预装的示例 PDF，查找指定页码。请测试协调员预先准备一份具有文字层的 PDF。'],
+  ['T5','向当前论文提出问题','使用“向论文提问”寻找一个实验基线，并跳转到对应 PDF 页核对；允许不启用模型。'],
+  ['T6','查找或生成研究报告','进入“我的报告”，阅读已生成的示例报告，指出哪些只是题录、哪些有原文证据，然后导出可用格式。']
+];
+const root=document.getElementById('tasks');const results=new Map();let active=null;
+const el=(tag,cls,text,parent)=>{const o=document.createElement(tag);o.className=cls||'';o.textContent=text||'';(parent||root).appendChild(o);return o;};
+for(const [id,title,desc] of jobs){
+ const box=el('section','task','');const head=el('h2','','',box);el('span','tag',id+' · ',head);el('span','',title,head);el('p','',desc,box);
+ const meter=el('p','timer','未开始',box);const row=el('div','row','',box);
+ const status=el('div','','',row);el('label','','完成情况',status);const choice=el('select','',null,status);for(const x of ['已完成','部分完成','未完成']){const o=document.createElement('option');o.textContent=x;choice.appendChild(o)}
+ const err=el('div','','',row);el('label','','错误操作次数',err);const errors=el('input','',null,err);errors.type='number';errors.min=0;errors.value='0';
+ const help=el('div','','',row);el('label','','向旁人求助次数',help);const helps=el('input','',null,help);helps.type='number';helps.min=0;helps.value='0';
+ el('label','','最让你犹豫的一步（可留空）',box);const note=el('textarea','',null,box);note.maxLength=250;note.placeholder='例如：不知道从哪里填写模型密钥';
+ const actions=el('div','actions','',box);const start=el('button','primary','开始计时',actions);const stop=el('button','','结束并记录',actions);stop.disabled=true;
+ start.addEventListener('click',()=>{if(active&&active!==id){document.getElementById('status').textContent='请先结束当前计时的任务。';return}
+   active=id;results.set(id,{start:performance.now(),seconds:null});meter.textContent='正在计时';start.disabled=true;stop.disabled=false});
+ stop.addEventListener('click',()=>{const item=results.get(id);if(!item)return;item.seconds=Math.round((performance.now()-item.start)/1000*10)/10;item.outcome=choice.value;item.errors=+errors.value||0;item.help=+helps.value||0;item.note=note.value.trim();results.set(id,item);meter.textContent='用时 '+item.seconds+' 秒 · '+item.outcome;start.disabled=false;start.textContent='重新计时';stop.disabled=true;active=null;document.getElementById('status').textContent='已保存 '+id+' 的本地记录。'});
+}
+function csv(s){let val=String(s??'').replaceAll(/[\r\n]/g,' ');if(/^[\s]*[=+\-@]/.test(val))val="'"+val;return '"'+val.replaceAll('"','""')+'"'}
+document.getElementById('export').addEventListener('click',()=>{const rows=[['id','experience','task','seconds','status','errors','help_requests','notes']];for(const [id] of jobs){const x=results.get(id);if(!x||x.seconds===null)continue;rows.push([document.getElementById('pid').value,document.getElementById('role').value,id,x.seconds,x.outcome,x.errors,x.help,x.note])}if(rows.length===1){document.getElementById('status').textContent='尚无已完成的任务记录。';return}const blob=new Blob(['\ufeff'+rows.map(row=>row.map(csv).join(',')).join('\r\n')],{type:'text/csv;charset=utf-8'});const a=document.createElement('a');const url=URL.createObjectURL(blob);a.href=url;a.download='paper-radar-usability-'+(document.getElementById('pid').value.replace(/[^a-zA-Z0-9_-]/g,'')||'anonymous')+'.csv';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);document.getElementById('status').textContent='本次记录已导出到电脑。'});
+document.getElementById('reset').addEventListener('click',()=>{if(confirm('要清空所有尚未导出的试用记录吗？'))location.reload()});
+</script></body></html>

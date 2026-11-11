@@ -1,0 +1,14 @@
+{
+  "product": "Paper-Radar",
+  "version": "1.50.0",
+  "edition": "research-validation / source code",
+  "file_count": 580,
+  "private_runtime_content_excluded": true,
+  "usage": "Extract to a new program directory; back up and preserve the existing user data directory.",
+  "central_entrypoints": [
+    "start_windows.bat",
+    "start_macos_linux.sh"
+  ],
+  "new_module": "paper_radar/evidence_batch.py",
+  "diagnostics": "docs/EVIDENCE_PIPELINE_V150.md"
+}

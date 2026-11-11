@@ -24,7 +24,7 @@ def test_public_default_source_uses_subprocess(monkeypatch,tmp_path):
     monkeypatch.setattr('paper_radar.sources.supervisor.fetch_isolated',isolated)
     result=portal.search(uid,'default')
     assert result['retrieved']==0
-    assert seen==[('arxiv',25,True)]
+    assert seen==[('arxiv',portal.source_timeout_seconds,True)]
     assert result['source_results'][0]['mode']=='isolated_process'
     with auth_db(portal.auth_path) as db:
         assert db.execute("SELECT COUNT(*) FROM auth_attempts WHERE identifier='source:arxiv_public'").fetchone()[0]==1

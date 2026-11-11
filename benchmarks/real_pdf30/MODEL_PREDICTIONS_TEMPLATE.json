@@ -1,0 +1,14 @@
+{
+  "model": "fill-exact-provider-model-version",
+  "prompt_version": "fill-version",
+  "records": [
+    {
+      "paper_id": "2010.08895",
+      "page": 8,
+      "method": "FNO-3D",
+      "dataset": "Navier-Stokes 2D",
+      "metric": "error",
+      "value": "0.0086"
+    }
+  ]
+}

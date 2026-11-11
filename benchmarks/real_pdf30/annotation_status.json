@@ -1,0 +1,13 @@
+{
+  "status": "pending_human_review",
+  "papers": 30,
+  "candidate_evidence": 117,
+  "independently_double_reviewed": 0,
+  "review_agreement_items": 0,
+  "adjudication_needed": 0,
+  "adjudication_resolved": 0,
+  "accepted_human_gold": 0,
+  "model_precision": null,
+  "model_recall": null,
+  "model_f1": null
+}

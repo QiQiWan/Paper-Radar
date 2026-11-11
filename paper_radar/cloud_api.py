@@ -15,6 +15,16 @@ from . import __version__
 SERVICE = "Paper-Radar-API"
 SUMMARY_PROMPT_VERSION = "v1.9.1-evidence-1"
 LEGACY_SERVICES = ("LiteratureTracker-API", "PaperRadar-Cloud-API")
+
+class ModelServiceError(RuntimeError):
+    """Actionable provider failure, distinct from an application crash."""
+    def __init__(self, code: str, message: str):
+        super().__init__(message)
+        self.code = code
+
+class CredentialError(RuntimeError):
+    """OS credential manager needs attention, not a generic HTTP 500."""
+
 # Model IDs and prices change. Presets are editable conveniences, not an entitlement.
 PRESETS = {
     "DeepSeek": ("https://api.deepseek.com", "deepseek-flash"),
@@ -48,7 +58,7 @@ def _credential_backend():
         import keyring
         return keyring
     except Exception as exc:
-        raise RuntimeError("无法读取 API Key。请重新运行启动脚本安装依赖。") from exc
+        raise CredentialError("无法读取 API Key。请重新运行启动脚本安装依赖。") from exc
 
 
 def get_api_key(provider: str) -> str:
@@ -67,7 +77,7 @@ def get_api_key(provider: str) -> str:
                     break
         return key
     except Exception as exc:
-        raise RuntimeError("无法读取系统保存的 API Key。请检查凭据管理器。") from exc
+        raise CredentialError("无法读取系统保存的 API Key。请检查凭据管理器。") from exc
 
 
 def save_api_key(provider: str, value: str) -> None:
@@ -77,7 +87,7 @@ def save_api_key(provider: str, value: str) -> None:
     try:
         _credential_backend().set_password(SERVICE, provider, value)
     except Exception as exc:
-        raise RuntimeError("无法保存 API Key。请检查系统凭据管理器。") from exc
+        raise CredentialError("无法保存 API Key。请检查系统凭据管理器。") from exc
 
 
 def clear_api_key(provider: str) -> None:
@@ -88,7 +98,7 @@ def clear_api_key(provider: str) -> None:
             if current:
                 keyring.delete_password(service, provider)
     except Exception as exc:
-        raise RuntimeError("无法清除 API Key。请检查系统凭据管理器。") from exc
+        raise CredentialError("无法清除 API Key。请检查系统凭据管理器。") from exc
 
 
 def completion_endpoint(base_url: str) -> str:
@@ -133,10 +143,10 @@ def chat_completion(config: dict, prompt: str, *, key: str | None = None, timeou
     provider = config.get("api_provider", "DeepSeek")
     key = (key if key is not None else get_api_key(provider)).strip()
     if not key:
-        raise RuntimeError("请先配置 API Key。")
+        raise ModelServiceError("MODEL_KEY_MISSING", "请先配置 API Key。")
     model = str(config.get("api_model", "")).strip()
     if not model:
-        raise RuntimeError("请填写模型名称。")
+        raise ModelServiceError("MODEL_NAME_MISSING", "请填写模型名称。")
     if system_prompt is None:
         system_prompt = ("请用学术中文准确解释论文摘要，优先写清研究对象、具体任务、方法、结果及局限。"
                          "只依据用户提供的题名和摘要，凡摘要未交代的指标、提升幅度、数据集、对照和结论，必须注明\"摘要未说明\"。"
@@ -160,11 +170,16 @@ def chat_completion(config: dict, prompt: str, *, key: str | None = None, timeou
         with request.urlopen(req, timeout=timeout) as resp:
             raw = json.loads(resp.read(1024*1024).decode('utf-8'))
     except error.HTTPError as exc:
-        raise RuntimeError(_safe_error(exc)) from None
+        raise ModelServiceError(
+            ('MODEL_AUTH' if exc.code in (401,403) else
+             'MODEL_BILLING' if exc.code==402 else
+             'MODEL_RATE_LIMIT' if exc.code==429 else
+             'MODEL_CONFIG' if exc.code in (400,404) else 'MODEL_PROVIDER_ERROR'),
+            _safe_error(exc)) from None
     except (error.URLError, TimeoutError, OSError) as exc:
-        raise RuntimeError('无法连接 API，请检查网络或接口地址。') from exc
+        raise ModelServiceError('MODEL_CONNECT_FAILED', '模型服务暂时无法连接。请检查网络和接口地址，或继续使用普通检索。') from exc
     except (ValueError, UnicodeDecodeError) as exc:
-        raise RuntimeError('API 返回的数据格式不受支持。') from exc
+        raise ModelServiceError('MODEL_RESPONSE_INVALID', '模型服务返回格式异常，请检查模型设置并重试。') from exc
     try:
         if provider == 'Claude (Anthropic)':
             result='\n'.join(part.get('text','') for part in raw.get('content',[]) if isinstance(part,dict) and part.get('type')=='text').strip()
@@ -185,7 +200,7 @@ def chat_completion(config: dict, prompt: str, *, key: str | None = None, timeou
             pass # Accounting must never prevent report generation.
         return result
     except (KeyError,IndexError,TypeError,ValueError) as exc:
-        raise RuntimeError('API 未返回有效文本。') from exc
+        raise ModelServiceError('MODEL_EMPTY_RESPONSE', '模型未返回有效文本，请检查模型名称或稍后重试。') from exc
 
 
 def get_balance(provider: str) -> dict:
@@ -206,7 +221,12 @@ def get_balance(provider: str) -> dict:
                 "balances":[{"currency":str(b.get('currency') or ''),"total_balance":str(b.get('total_balance') or '')}
                             for b in (data.get('balance_infos') or [])]}
     except error.HTTPError as exc:
-        raise RuntimeError(_safe_error(exc)) from None
+        raise ModelServiceError(
+            ('MODEL_AUTH' if exc.code in (401,403) else
+             'MODEL_BILLING' if exc.code==402 else
+             'MODEL_RATE_LIMIT' if exc.code==429 else
+             'MODEL_CONFIG' if exc.code in (400,404) else 'MODEL_PROVIDER_ERROR'),
+            _safe_error(exc)) from None
     except (error.URLError,TimeoutError,OSError,ValueError) as exc:
         raise RuntimeError('余额查询失败，请前往 DeepSeek 控制台查看。') from exc
 

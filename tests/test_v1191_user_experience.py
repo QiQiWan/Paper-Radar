@@ -39,7 +39,7 @@ def seed(portal, uid, pid='paper-001', value='0.126'):
 def test_version_and_sequential_schema(tmp_path):
     assert __version__==__import__('tools.packaging.release_version',fromlist=['read_version']).read_version()
     assert len(REGISTRIES['portal_auth'])==6
-    assert len(REGISTRIES['portal_workspace'])==8
+    assert len(REGISTRIES['portal_workspace'])>=8
     p=Portal(tmp_path/'data')
     uid=account(p)
     with auth_db(p.auth_path) as db:
@@ -47,7 +47,7 @@ def test_version_and_sequential_schema(tmp_path):
         assert migrate(db,'portal_auth')==6
         assert db.execute('SELECT name FROM sqlite_master WHERE name="portal_job_events"').fetchone()
     with p.workspace(uid) as db:
-        assert status(db,'portal_workspace')['version']==8
+        assert status(db,'portal_workspace')['version']==len(REGISTRIES['portal_workspace'])
         assert db.execute('SELECT name FROM sqlite_master WHERE name="research_reports"').fetchone()
 
 

@@ -2,3 +2,5 @@ python-docx>=1.1.0,<2.0
 keyring>=25,<27
 pypdf>=5,<7
 cryptography>=43,<48
+tomli>=2,<3; python_version < "3.11"
+PyMuPDF>=1.24,<2

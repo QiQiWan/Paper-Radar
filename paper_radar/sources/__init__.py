@@ -18,3 +18,6 @@ register(ScienceDirectSource)
 
 from .openalex_semantic import OpenAlexSemanticSource
 register(OpenAlexSemanticSource)
+
+from .openreview import OpenReviewSource
+register(OpenReviewSource)

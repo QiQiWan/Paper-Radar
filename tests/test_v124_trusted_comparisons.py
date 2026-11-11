@@ -56,7 +56,7 @@ def test_append_only_upgrade_v6_to_v7_with_existing_evidence(tmp_path,monkeypatc
     db.execute("INSERT INTO topics VALUES ('old','Legacy theme','[]','2026-01-01')")
     db.commit()
     monkeypatch.setitem(REGISTRIES,'portal_workspace',steps)
-    assert migrate(db,'portal_workspace')==8
+    assert migrate(db,'portal_workspace')==len(steps)
     assert db.execute('SELECT name FROM topics WHERE id="old"').fetchone()[0]=='Legacy theme'
     assert db.execute('SELECT COUNT(*) FROM evidence_reviews').fetchone()[0]==0
     assert db.execute('SELECT COUNT(*) FROM comparison_pair_reviews').fetchone()[0]==0

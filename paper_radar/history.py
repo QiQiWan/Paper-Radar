@@ -4,6 +4,7 @@ from __future__ import annotations
 from datetime import datetime,timezone
 from pathlib import Path
 import json
+import re
 import sqlite3
 from .core import APP_ROOT
 
@@ -19,13 +20,18 @@ def record_run(topic_id: str, mode: str, state: str, *, result: dict | None = No
     # Keep only a bounded metadata digest; never persist model keys or paper text.
     res=dict(result or {})
     summary={k:res[k] for k in ('retrieved','new','selected','topics_succeeded','topics_failed') if k in res}
+    run_id=str(res.get('diagnostic_run_id',''))
+    if re.fullmatch(r'\d{8}T\d{6}Z-[0-9a-f]{10}',run_id):
+        summary['diagnostic_run_id']=run_id
+    from .sources.failures import MESSAGES
     diagnostics=res.get('source_results', [])
     if isinstance(diagnostics,list):
         summary['sources']=[{'name':str(r.get('name',''))[:48],
                              'count':int(r.get('count',0)),
                              'ok':bool(r.get('ok',False)),
                              'partial':bool(r.get('partial',False)),
-                             'query_count':len(r.get('queries') or [])}
+                             'query_count':len(r.get('queries') or []),
+                             'error_code':str(r.get('error_code','')) if str(r.get('error_code','')) in MESSAGES else ''}
                             for r in diagnostics[:15] if isinstance(r,dict)]
     summary['ai_rerank']=res.get('ai_rerank',{}) if isinstance(res.get('ai_rerank',{}),dict) else {}
     with sqlite3.connect(path,timeout=10) as conn:

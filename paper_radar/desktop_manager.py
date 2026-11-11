@@ -123,6 +123,9 @@ class Controller:
         active=find_service(self.instance_id)
         if active:
             self.port=active['port']
+            if active.get('version') != __version__:
+                return {'state':'error','port':self.port,
+                    'message':'发现仍在运行的旧版本服务。请先在旧版工作台安全停止服务，再启动本版本。'}
             return {'state':'attached','port':self.port, 'version':active['version']}
         port=free_port()
         if port is None:return {'state':'error','message':'本机 8765—8776 端口均不可用'}

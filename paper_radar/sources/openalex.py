@@ -6,17 +6,61 @@ is never silently treated as a free downloadable PDF.
 """
 from __future__ import annotations
 from datetime import datetime, timedelta, timezone
+from time import monotonic
 from urllib import parse, request, error
 import html
 import json
-import os
 import time
 import re
 from .. import __version__
 from ..models import Paper
-from .request_policy import retry_seconds
+from .credentials import get_credential
+from .request_policy import request_timeout, remaining_timeout, is_configuration_network_error
+from .rate_limit import backoff_for_429
+from .failures import SourceQueryError
 
 BASE = 'https://api.openalex.org/works'
+
+
+def fetch_openalex_json(req, config: dict, *, started: float, semantic=False) -> dict:
+    """Bound OpenAlex retries by the child deadline and Retry-After header.
+
+    A daily-budget 429 must not generate three more identical paid-endpoint
+    calls. A short server-requested pause may be retried once. This also
+    distinguishes rate limits from invalid credentials and response formats.
+    """
+    attempts = 2
+    for attempt in range(attempts):
+        socket_limit = remaining_timeout(config, request_timeout(config, 35 if semantic else 30), started)
+        try:
+            with request.urlopen(req, timeout=socket_limit) as response:
+                data = json.load(response)
+            if not isinstance(data, dict) or not isinstance(data.get('results'), list):
+                raise RuntimeError('OpenAlex 响应格式错误')
+            return data
+        except error.HTTPError as exc:
+            if exc.code == 429:
+                delay = backoff_for_429(exc.headers, attempt=attempt,
+                    remaining_seconds=remaining_timeout(config, 30, started),
+                    semantic=semantic)
+                if delay is None:
+                    raise SourceQueryError('RATE_LIMIT') from exc
+                time.sleep(delay)
+                continue
+            if exc.code in (401, 403, 409):
+                raise SourceQueryError('AUTH_REQUIRED') from exc
+            if exc.code in (400, 402, 404, 422):
+                raise SourceQueryError('BAD_QUERY') from exc
+            if attempt == attempts - 1 or exc.code < 500:
+                raise SourceQueryError('REMOTE_SERVER_ERROR') from exc
+            time.sleep(min(1.0 * (attempt + 1), max(0, remaining_timeout(config, 30, started)-3)))
+        except (error.URLError, TimeoutError, OSError) as exc:
+            if is_configuration_network_error(exc):
+                raise RuntimeError('OpenAlex 网络解析、证书或代理失败') from exc
+            if attempt == attempts - 1:
+                raise RuntimeError('OpenAlex 网络请求失败') from exc
+            time.sleep(min(1.0 * (attempt+1), max(0, remaining_timeout(config, 30, started)-3)))
+    raise SourceQueryError('RATE_LIMIT')
 
 
 def rebuild_abstract(inverted: dict | None) -> str:
@@ -65,46 +109,46 @@ class OpenAlexSource:
     note = '免费索引；大规模定时使用可配置 OpenAlex API Key。'
 
     def fetch(self, config, logger=print, now=None):
+        started = monotonic()
         now = now or datetime.now(timezone.utc)
         if now.tzinfo is None: now = now.replace(tzinfo=timezone.utc)
-        since = (now - timedelta(days=int(config['lookback_days']))).date().isoformat()
+        since = str(config.get('_window_start') or (now - timedelta(days=int(config['lookback_days']))).isoformat())[:10]
+        until = str(config.get('_window_end') or now.isoformat())[:10]
         keywords = config.get('keywords', [])[:3]
         if len(config.get('keywords', [])) > 3:
             logger('OpenAlex 当前最多按前 3 组关键词单独检索；完整关键词将用于本地相关性筛选。')
         if not keywords:
             logger('OpenAlex 需要至少一个英文关键词，本次跳过。')
             return []
-        api_key = os.environ.get('OPENALEX_API_KEY','').strip()
+        api_key = get_credential('openalex')
         limit = min(int(config['max_results']), 100)
+        cap=min(500,int(config['max_results']))
         results = {}
         for idx, keyword in enumerate(keywords):
             if idx:
                 time.sleep(.5)
-            params = {'search': keyword, 'filter':f'from_publication_date:{since},to_publication_date:{now.astimezone(timezone.utc).date().isoformat()},type:article|preprint',
-                      'per_page':limit, 'page':1, 'sort':'publication_date:desc'}
-            if api_key:
-                params['api_key'] = api_key
-            url = BASE + '?' + parse.urlencode(params)
-            req = request.Request(url, headers={
-                'User-Agent':f'Paper-Radar/{__version__} (+local research tool)', 'Accept':'application/json'})
-            data = None
-            for attempt in range(3):
+            for page in range(1,1+(cap+limit-1)//limit):
+                remaining=cap-len(results)
+                if remaining<=0:break
+                params = {'search': keyword, 'filter':f'from_publication_date:{since},to_publication_date:{until},type:article|preprint',
+                          'per_page':min(limit,remaining), 'page':page, 'sort':'publication_date:desc'}
+                if api_key:
+                    params['api_key'] = api_key
+                url = BASE + '?' + parse.urlencode(params)
+                req = request.Request(url, headers={
+                    'User-Agent':f'Paper-Radar/{__version__} (+local research tool)', 'Accept':'application/json'})
                 try:
-                    with request.urlopen(req, timeout=30) as response:
-                        data = json.load(response)
-                    break
-                except (error.HTTPError, error.URLError, TimeoutError) as exc:
-                    if isinstance(exc, error.HTTPError) and exc.code in (400,401,403):
-                        raise RuntimeError('OpenAlex 查询参数或访问凭证被拒绝') from exc
-                    if attempt == 2:
-                        raise RuntimeError('OpenAlex 公共接口连接失败或已触发限流') from exc
-                    if isinstance(exc,error.HTTPError) and exc.code in (429,503):
-                        time.sleep(retry_seconds(exc.headers.get('Retry-After'),attempt=attempt))
-                    else:
-                        time.sleep(1.5 * (attempt + 1))
-            for item in (data or {}).get('results', []):
-                p = parse_work(item)
-                if p: results[p.paper_id] = p
-            if len(results) >= config['max_results']:
-                break
+                    data = fetch_openalex_json(req, config, started=started)
+                except (RuntimeError,TimeoutError):
+                    if results:
+                        from .supervisor import SourceBatch
+                        logger('OpenAlex 部分检索页成功，后续请求未完成，保留现有论文并等待补检。')
+                        return SourceBatch(list(results.values())[:config['max_results']],
+                                           partial=True,warning_code='SOURCE_PARTIAL')
+                    raise
+                batch=(data or {}).get('results', [])
+                for item in batch:
+                    p = parse_work(item)
+                    if p: results[p.paper_id] = p
+                if len(batch)<params['per_page']:break
         return list(results.values())[:config['max_results']]

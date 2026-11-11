@@ -39,7 +39,7 @@ def test_additive_schema_sources_and_legacy_fallback(web):
     p,port=web; a=Client(port);user=register(a,'SourcesUserA')
     uid=user['user']['id']
     with p.workspace(uid) as db:
-        assert status(db,'portal_workspace')['version']==8
+        assert status(db,'portal_workspace')['version']==len(REGISTRIES['portal_workspace'])
         assert topic_sources(db,'default')==['arxiv']
         assert db.execute('SELECT COUNT(*) FROM topic_sources').fetchone()[0]==0
     code,data=a.post('/api/public/topics',{'name':'Hybrid operators',

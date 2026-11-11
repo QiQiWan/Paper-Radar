@@ -61,7 +61,7 @@ def test_migration_and_existing_account_compatibility(service):
 def test_full_multitenant_research_pipeline(service):
     p,port=service;a=Client(port);b=Client(port)
     u=register(a,'PipelineUser')['user']['id'];register(b,'AnotherUser')
-    code,data=a.post('/api/public/research/start',{'topic_id':'default','fetch_pdf':True,'cloud_analysis':True})
+    code,data=a.post('/api/public/research/start',{'topic_id':'default','fetch_pdf':True,'cloud_analysis':True,'confirm_cloud_data_transfer':True})
     assert code==202,data
     j=finished(p,u);assert j['state']=='success',j
     assert j['result']['analyzed']==2,j

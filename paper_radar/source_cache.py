@@ -18,18 +18,22 @@ import time
 from .models import Paper
 
 CACHE_FIELDS = ('keywords', 'categories', 'lookback_days', 'max_results',
-                'max_queries_per_source', 'research_goal')
-CACHE_VERSION = 1
+                'max_queries_per_source', 'research_goal',
+                '_window_start', '_window_end', '_watch_arxiv_ids', 'openreview_invitation')
+CACHE_VERSION = 2
 FRESH_SECONDS = {'arxiv': 3600, 'openalex': 3600, 'crossref': 7200}
 MAX_STALE_SECONDS = 24 * 3600
 MAX_BYTES = 1_750_000
 MAX_ENTRIES = 250
 
 class SourceResponse(list):
-    def __init__(self, papers=(), *, cache_state='miss', age_seconds=0):
+    def __init__(self, papers=(), *, cache_state='miss', age_seconds=0,
+                 partial=False, warning_code=''):
         super().__init__(papers)
         self.cache_state = cache_state
         self.cache_age_seconds = age_seconds
+        self.partial = bool(partial)
+        self.warning_code = warning_code
 
 
 def cache_key(source: str, cfg: dict, *, clock=None) -> str:

@@ -25,15 +25,19 @@ def health(port: int) -> bool:
 
 def main():
     root=Path(__file__).resolve().parent.parent
+    from .core import APP_ROOT
     # A local port can be used by another account. Only attach to an
     # installation carrying our private per-user service fingerprint.
     from .desktop_identity import read_or_create_secret, instance_fingerprint
     from .desktop_manager import read_health
-    owner=instance_fingerprint(read_or_create_secret(root/'data'))
+    owner=instance_fingerprint(read_or_create_secret(APP_ROOT/'data'))
     selected=None
     for port in range(BASE_PORT,BASE_PORT+12):
         online=read_health(port)
         if online and online.get('desktop_instance')==owner:
+            from . import __version__
+            if online.get('version') != __version__:
+                raise RuntimeError('正在运行的 Paper-Radar 版本与当前程序不同。请安全关闭旧版服务后重新启动；已保存的数据不会被删除。')
             webbrowser.open(f'http://127.0.0.1:{port}')
             print('已打开当前用户的 Paper-Radar 工作台')
             return
@@ -47,7 +51,7 @@ def main():
                 break
     if selected is None:
         raise RuntimeError('本地可用端口不足。请先关闭占用 8765—8776 端口的程序。')
-    log_path=root/'logs'/'web_server.log'
+    log_path=APP_ROOT/'logs'/'web_server.log'
     log_path.parent.mkdir(parents=True,exist_ok=True)
     exe=Path(sys.executable)
     if os.name=='nt':

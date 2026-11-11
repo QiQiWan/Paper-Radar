@@ -1,0 +1,134 @@
+{
+  "annotation_status": "six_existing_seed_fields_only_not_newly_double_reviewed",
+  "reviewed_at": "2026-11-05",
+  "fields": [
+    {
+      "id": "fno_ns_3d",
+      "paper_id": "2010.08895",
+      "page_index": 7,
+      "method": "FNO-3D",
+      "kind": "metric",
+      "dataset": "Navier-Stokes 2D",
+      "metric": "error",
+      "value": "0.0086",
+      "baseline": "FNO-2D",
+      "setting": "nu=1e-3; T=50; N=1000; 64x64",
+      "anchor": "0.0086",
+      "context_anchor": "FNO-3D",
+      "quote": "FNO-3D 6, 558, 537 38.99s 0.0086",
+      "reference": "Table 1, PDF physical page 8 (0-index 7)"
+    },
+    {
+      "id": "fno_ns_2d",
+      "paper_id": "2010.08895",
+      "page_index": 7,
+      "method": "FNO-2D",
+      "kind": "metric",
+      "dataset": "Navier-Stokes 2D",
+      "metric": "error",
+      "value": "0.0128",
+      "baseline": "U-Net",
+      "setting": "nu=1e-3; T=50; N=1000; 64x64",
+      "anchor": "0.0128",
+      "context_anchor": "FNO-2D",
+      "quote": "FNO-2D 414, 517 127.80s 0.0128",
+      "reference": "Table 1, PDF physical page 8 (0-index 7)"
+    },
+    {
+      "id": "ufno_front_sat",
+      "paper_id": "2109.03697",
+      "page_index": 18,
+      "method": "U-FNO",
+      "kind": "metric",
+      "dataset": "CO2-water multiphase flow",
+      "metric": "gas saturation front error (%)",
+      "value": "3.4",
+      "baseline": "CNN",
+      "setting": "test set; saturation threshold=0.01",
+      "anchor": "3.4",
+      "context_anchor": "Gas saturation",
+      "quote": "Gas saturation front error (%) 9.2 3.4",
+      "reference": "Table 2a, PDF physical page 19 (0-index 18)"
+    },
+    {
+      "id": "ufno_front_pressure",
+      "paper_id": "2109.03697",
+      "page_index": 18,
+      "method": "U-FNO",
+      "kind": "metric",
+      "dataset": "CO2-water multiphase flow",
+      "metric": "pressure buildup front error (%)",
+      "value": "12.0",
+      "baseline": "CNN",
+      "setting": "test set; pressure threshold=0.5 bar",
+      "anchor": "12.0",
+      "context_anchor": "Pressure buildup",
+      "quote": "Pressure buildup front error (%) 21.2 12.0",
+      "reference": "Table 2b, PDF physical page 19 (0-index 18)"
+    },
+    {
+      "id": "pino_darcy_data",
+      "paper_id": "2111.03794",
+      "page_index": 12,
+      "method": "PINO with data",
+      "kind": "metric",
+      "dataset": "Darcy flow",
+      "metric": "solution error (%)",
+      "value": "1.22",
+      "baseline": "DeepONet with data",
+      "setting": "61x61 train/test; data and PDE constraints",
+      "anchor": "1.22",
+      "context_anchor": "PINO with data",
+      "quote": "PINO with data 1.22 ± 0.03%",
+      "reference": "Table 2, PDF physical page 13 (0-index 12)"
+    },
+    {
+      "id": "pino_darcy_nodata",
+      "paper_id": "2111.03794",
+      "page_index": 12,
+      "method": "PINO without data",
+      "kind": "metric",
+      "dataset": "Darcy flow",
+      "metric": "solution error (%)",
+      "value": "1.50",
+      "baseline": "DeepONet with data",
+      "setting": "61x61 train/test; physics constraints only",
+      "anchor": "1.50",
+      "context_anchor": "PINO w/o data",
+      "quote": "PINO w/o data 1.50 ± 0.03%",
+      "reference": "Table 2, PDF physical page 13 (0-index 12)"
+    }
+  ],
+  "pairwise_comparability_gold": [
+    {
+      "a": "fno_ns_3d",
+      "b": "ufno_front_sat",
+      "comparable": false,
+      "reason": "Different PDE dataset, metric and unit"
+    },
+    {
+      "a": "fno_ns_3d",
+      "b": "pino_darcy_data",
+      "comparable": false,
+      "reason": "Different PDE data and experimental conditions"
+    },
+    {
+      "a": "ufno_front_pressure",
+      "b": "pino_darcy_data",
+      "comparable": false,
+      "reason": "Different physics, metrics and test sets"
+    },
+    {
+      "a": "fno_ns_3d",
+      "b": "fno_ns_2d",
+      "comparable": false,
+      "reason": "Same paper; cross-paper synthesis must not count these as independent studies"
+    },
+    {
+      "a": "pino_darcy_data",
+      "b": "pino_darcy_nodata",
+      "comparable": false,
+      "reason": "Same paper with different training regimen"
+    }
+  ]
+}

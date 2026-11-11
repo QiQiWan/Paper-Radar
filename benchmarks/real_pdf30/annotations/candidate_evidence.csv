@@ -1,0 +1,407 @@
+﻿candidate_id,paper_id,version,pdf_sha256,page,source_quote,metric_candidate,value_candidate,dataset_candidate,method_candidate,baseline_candidate,setting_candidate,source_type,status
+P221007182-1,2210.07182,v1,da46eaddc7be152feb22c08314c0e80a484e2e86607e84db7ac84449aa445a9e,3,"sical statistical error measures such as the RMSE over the whole domain and at most
+PDE-motivated variants such as the RMSE of the gradient [44]. Measures based",RMSE,44,,,,,pdf_text_candidate,machine_suggested_unreviewed
+P221007182-2,2210.07182,v1,da46eaddc7be152feb22c08314c0e80a484e2e86607e84db7ac84449aa445a9e,38,"magnitude smaller than that
+of the classical simulations. Concerning the resolution dependence, both of the ML models show a
+similar dependence to the inviscid ",,,,,,,pdf_text_candidate,machine_suggested_unreviewed
+P221007182-3,2210.07182,v1,da46eaddc7be152feb22c08314c0e80a484e2e86607e84db7ac84449aa445a9e,8,"NO                                Normalized RMSE, DarcyFlow                 100      RMSEcRMSE",RMSE,100,,,,,pdf_text_candidate,machine_suggested_unreviewed
+P221007182-4,2210.07182,v1,da46eaddc7be152feb22c08314c0e80a484e2e86607e84db7ac84449aa445a9e,9,"RMSE 10
+                                                                                   10 2RMSE",RMSE,10,,,,,pdf_text_candidate,machine_suggested_unreviewed
+P230808468-1,2308.08468,v1,afae5ab4ddf2a59b5fdf00516d0145ab1d0b09491e8d03e32be77610efbe0348,11,"Benchmark                          Relative L2 error
+                         Allen-Cahn equation                    5.37 × 10−5
+                         Advect",Relative L2,5.37,,,,,pdf_text_candidate,machine_suggested_unreviewed
+P230808468-2,2308.08468,v1,afae5ab4ddf2a59b5fdf00516d0145ab1d0b09491e8d03e32be77610efbe0348,12,ithm yields the best performance in terms of relative L2 error of 5.84 × 10−4.Removing any individual component from the algorithm generally leads to a worse pe,relative L2,5.84,,,,,pdf_text_candidate,machine_suggested_unreviewed
+P230808468-3,2308.08468,v1,afae5ab4ddf2a59b5fdf00516d0145ab1d0b09491e8d03e32be77610efbe0348,16,"t with the
+reference solution and achieves a relative L2 error of 8.04 × 10−5. The detailed hyper-parameter configuration and theloss convergence are respective",relative L2,8.04,,,,,pdf_text_candidate,machine_suggested_unreviewed
+P230808468-4,2308.08468,v1,afae5ab4ddf2a59b5fdf00516d0145ab1d0b09491e8d03e32be77610efbe0348,18,"rom the
+hyper-parameter sweep. The resulting relative L2 error is 8.04 × 10−5. The hyper-parameter configuration can befound in Table 8.
+
+
+consider the Kuramoto",relative L2,8.04,,,,,pdf_text_candidate,machine_suggested_unreviewed
+P240202366-1,2402.02366,v1,35dd9dbd82f897b4981fe7734642d63abe319fcd05ed9c534860e8b243dfab94,20,"arger model size, especially for Elasticity (Relative L2: 0.0064 for 8 layers, 0.0047 for 40 layers) and
+Airfoil (Relative L2: 0.0053 for 8 layers and 0.0037 fo",Relative L2,0.0064,,,,,pdf_text_candidate,machine_suggested_unreviewed
+P240202366-2,2402.02366,v1,35dd9dbd82f897b4981fe7734642d63abe319fcd05ed9c534860e8b243dfab94,16,"N ALL BASELINES)        MODEL CONFIGURATION
+ BENCHMARKS
+                 LOSS   EPOCHS INITIAL LR OPTIMIZER BATCH SIZE LAYERS L HEADS CHANNELS C SLICES M
+
+ ELAS",,,,,,,pdf_text_candidate,machine_suggested_unreviewed
+P240202366-3,2402.02366,v1,35dd9dbd82f897b4981fe7734642d63abe319fcd05ed9c534860e8b243dfab94,6,"best is underlined. Promotion refers to the relative error reduction w.r.t. the second best
+model (1 − The secondOur errorbest error) on each benchmark. “/” mea",relative error,1,,,,,pdf_text_candidate,machine_suggested_unreviewed
+P240202366-4,2402.02366,v1,35dd9dbd82f897b4981fe7734642d63abe319fcd05ed9c534860e8b243dfab94,14,"Solver for PDEs on General Geometries
+
+B.1. Benchmarks
+
+We extensively evaluate our model in eight benchmarks, whose information is summarized in Table 5. Note ",,5,,,,,pdf_text_candidate,machine_suggested_unreviewed
+P220313181-1,2203.13181,v1,7adfd7d4c6b6aac124e665236d4b780de86edfb9887730f21282d9077d792409,8,"for all
+test problems, highlighting the cost-accuracy trade-oﬀfor learning operators by neural networks.
+
+    4.1. Neural Network Architectures. Figure 1 summar",accuracy,4.1,,,,,pdf_text_candidate,machine_suggested_unreviewed
+P220313181-2,2203.13181,v1,7adfd7d4c6b6aac124e665236d4b780de86edfb9887730f21282d9077d792409,16,"ases left to right.
+
+defer discussion of the accuracy-online evaluation cost tradeoﬀto the next section. Figure 11 plots the test
+error vs. network width for ea",accuracy,11,,,,,pdf_text_candidate,machine_suggested_unreviewed
+P220313181-3,2203.13181,v1,7adfd7d4c6b6aac124e665236d4b780de86edfb9887730f21282d9077d792409,9,"Detailed quantitative discussion of the cost-accuracy trade-oﬀs of the networks is deferred
+to Subsection 4.3.
+
+    4.2.1. Navier-Stokes Equation.
+    Formulati",accuracy,4.3,Navier-Stokes,,,,pdf_text_candidate,machine_suggested_unreviewed
+P220313181-4,2203.13181,v1,7adfd7d4c6b6aac124e665236d4b780de86edfb9887730f21282d9077d792409,17,"106      108
+                    Evaluation cost       Evaluation cost       Evaluation cost       Evaluation cost
+
+Fig. 12: Test error vs. evaluation cost fo",,12,,,,,pdf_text_candidate,machine_suggested_unreviewed
+P210209618-1,2102.09618,v1,93fcd489bf8b8e65b4334b48c4cc67d0bdc9f62e41ef6a088da0fb3afe20b424,61,"61
+
+  Thus, the analysis and results of this paper clearly prove that DeepOnets can
+eﬃciently approximate operators in very general settings that inclu",,,,,,,pdf_text_candidate,machine_suggested_unreviewed
+P210209618-2,2102.09618,v1,93fcd489bf8b8e65b4334b48c4cc67d0bdc9f62e41ef6a088da0fb3afe20b424,57,"ite
+G(Zj) = G(Uj)(Yj), Nθ(Zj) = Nθ(Uj)(Yj).  Recall that with the random choice
+(5.8), the Zj are iid random variables. We denote
+
+                        N",Recall,5.8,,,,,pdf_text_candidate,machine_suggested_unreviewed
+P210209618-3,2102.09618,v1,93fcd489bf8b8e65b4334b48c4cc67d0bdc9f62e41ef6a088da0fb3afe20b424,39,"in (4.17).
+  A diﬀerent underlying measure µ results from choosing an algebraic decay of the
+coeﬃcients αk in (4.4).  Clearly, the bound (4.16) will also hold i",,4.4,,,,,pdf_text_candidate,machine_suggested_unreviewed
+P210209618-4,2102.09618,v1,93fcd489bf8b8e65b4334b48c4cc67d0bdc9f62e41ef6a088da0fb3afe20b424,58,"ally i.e B ∼eN r for some r < 1/2 will still result in a
+decay of the error with increasing N. Given that such an exponential blowup may
+not occur in practice, ",,,,,,,pdf_text_candidate,machine_suggested_unreviewed
+P210903697-1,2109.03697,v3,3ac2875f51a30b644213275ad380a929415ef85401049d889e22c7131869755e,16,"buildup, the U-FNO also achieves the lowest relative error
+for both training and validation data sets.  As shown in Figure 3B, the
+training and validation relat",relative error,3,,,,,pdf_text_candidate,machine_suggested_unreviewed
+P210903697-2,2109.03697,v3,3ac2875f51a30b644213275ad380a929415ef85401049d889e22c7131869755e,20,"so use the Conv-FNO which provides both high accuracy and
+relatively fast training.
+
+5.3. Inference at unseen time steps
+   FNO-based architectures are inﬁnite-",accuracy,5.3,,,,,pdf_text_candidate,machine_suggested_unreviewed
+P210903697-3,2109.03697,v3,3ac2875f51a30b644213275ad380a929415ef85401049d889e22c7131869755e,14,"NO, and U-FNO. B. Pressure buildup ﬁeld
+mean relative error (MRE) and R2 scores using the same four models.
+
+   Figure 4A demonstrates the testing set plume mea",relative error,4,,,,,pdf_text_candidate,machine_suggested_unreviewed
+P210903697-4,2109.03697,v3,3ac2875f51a30b644213275ad380a929415ef85401049d889e22c7131869755e,13,"nd pressure
+buildup model respectively.
+
+
+4. Results
+
+   This section compares 4 types of model architectures: original FNO pro-
+posed in Li et al. [34], the ne",,4,,,,,pdf_text_candidate,machine_suggested_unreviewed
+P221102556-1,2211.02556,v1,b3d88357a66fd002be67baf9e9e0c63e646e013ff33d14ec514980007854d79a,12,"ather-   observe a clear trend that forecast accuracy drops with the
+Bench [10], a benchmark for low-resolution weather fore-  number of iterations, e.g., 3 cal",accuracy,10,,,,,pdf_text_candidate,machine_suggested_unreviewed
+P221102556-2,2211.02556,v1,b3d88357a66fd002be67baf9e9e0c63e646e013ff33d14ec514980007854d79a,7,"1, λ′1) and (h′2, φ′2, λ′2), to call for the bias  Attention(Q, K, V) = SoftMax(QK⊤/ D + B)V,   (1)
+                                                         val",bias,1,,,,,pdf_text_candidate,machine_suggested_unreviewed
+P221102556-3,2211.02556,v1,b3d88357a66fd002be67baf9e9e0c63e646e013ff33d14ec514980007854d79a,10,2.0      RMSE 1.50            1.25                                         RMSE                                            RMSE,RMSE,1.50,,,,,pdf_text_candidate,machine_suggested_unreviewed
+P221102556-4,2211.02556,v1,b3d88357a66fd002be67baf9e9e0c63e646e013ff33d14ec514980007854d79a,8,odel size which is one of the critical       RMSE         200                                                                  factors of improvement. In additi,RMSE,200,,,,,pdf_text_candidate,machine_suggested_unreviewed
+P221212794-1,2212.12794,v1,9413bfbc57f610e61d65307c2a7630b2047ec7c71d5b4e7c5e81b9eaa7f83e3b,11,"kill (RMSE): z850 (m2/s2)          c) Skill (RMSE): t500 (K)           d) Skill (RMSE): t850 (K)
+                                     600
+     800      better",RMSE,600,,,,,pdf_text_candidate,machine_suggested_unreviewed
+P221212794-2,2212.12794,v1,9413bfbc57f610e61d65307c2a7630b2047ec7c71d5b4e7c5e81b9eaa7f83e3b,14,"orizons (x-axis). Rows 1 and 3 show absolute RMSE, and rows 2 and 4 show the corresponding
+normalized diﬀerences in RMSE. From the initial 6-hour step, through ",RMSE,2,,,,,pdf_text_candidate,machine_suggested_unreviewed
+P221212794-3,2212.12794,v1,9413bfbc57f610e61d65307c2a7630b2047ec7c71d5b4e7c5e81b9eaa7f83e3b,15,"obal weather forecasting
+
+
+        a) Skill (RMSE): z500 (m2/s2)         b) Skill (RMSE): t850 (K)              c) Skill (RMSE): 2t (K)             d) Skill (RM",RMSE,2,,,,,pdf_text_candidate,machine_suggested_unreviewed
+P221212794-4,2212.12794,v1,9413bfbc57f610e61d65307c2a7630b2047ec7c71d5b4e7c5e81b9eaa7f83e3b,16,"l score (RMSE): t500         g) Skill score (RMSE): t850         h) Skill score (RMSE): q500
+                                          0.6",RMSE,0.6,,,,,pdf_text_candidate,machine_suggested_unreviewed
+P220805419-1,2208.05419,v1,7b54372112d7305d0d90bb4726a361fb2f951a45379b04d267f99180020facf4,2,"esent these cloud  workloads at single/mixed precision, nor are they capable of ef-
+processes is on the order of 1 m, which would require 100   ﬁciently leverag",precision,1,,,,,pdf_text_candidate,machine_suggested_unreviewed
+P220805419-2,2208.05419,v1,7b54372112d7305d0d90bb4726a361fb2f951a45379b04d267f99180020facf4,7,"GPU and iteration, precision and model instance size can be
+tasks. As of November 2021, Perlmutter is ranked ﬁfth on   found in Table II. For t",precision,2021,,,,,pdf_text_candidate,machine_suggested_unreviewed
+P220805419-3,2208.05419,v1,7b54372112d7305d0d90bb4726a361fb2f951a45379b04d267f99180020facf4,3,"to achieve unprecedented accuracy and resolution.the 5 km case using a performance model that assumes perfect
+weak scaling and neglects I/O.",accuracy,5,,,,,pdf_text_candidate,machine_suggested_unreviewed
+P220805419-4,2208.05419,v1,7b54372112d7305d0d90bb4726a361fb2f951a45379b04d267f99180020facf4,10,"nd rapid data movement; (iv) optimized mixed precision    [3] T. Schneider, J. Teixeira, C. S. Bretherton, F. Brient, K. G.
+including FP8; (v) a tiered architec",precision,3,,,,,pdf_text_candidate,machine_suggested_unreviewed
+P200401806-1,2004.01806,v1,b3038a3c8077ddfac3be7725f0fb537408aa88a26d76e05d2a46366083c86c42,17,"L2 Error                                                                       L2 Error
+   102",L2 Error,102,,,,,pdf_text_candidate,machine_suggested_unreviewed
+P200401806-2,2004.01806,v1,b3038a3c8077ddfac3be7725f0fb537408aa88a26d76e05d2a46366083c86c42,4,"er, since it is unavailable in practice, the empirical loss function is
+employed. This leads to the following minimization problem:
+
+(2.4)                      ",,2.4,,,,,pdf_text_candidate,machine_suggested_unreviewed
+P200401806-3,2004.01806,v1,b3038a3c8077ddfac3be7725f0fb537408aa88a26d76e05d2a46366083c86c42,13,"g the initial and boundary condi-
+tions. The result indicates that one would put more weights on not only the boundary
+penalties but also the initial penalty in",,,,,,,pdf_text_candidate,machine_suggested_unreviewed
+P200401806-4,2004.01806,v1,b3038a3c8077ddfac3be7725f0fb537408aa88a26d76e05d2a46366083c86c42,14,"KIS
+
+goes to ∞. Next, we show that a similar result holds without the assumption on the
+function class having u∗.
+   Theorem 3.14. For the elliptic PDEs  (3.6),",,3.14,,,,,pdf_text_candidate,machine_suggested_unreviewed
+P211103794-1,2111.03794,v4,bc7fbaddfc6f87d5afeb8af7fe757d2224b30ff0d7e9e8f5be38495f46b9985d,14,"al
+gradient. It takes 2 minutes to achieve a relative error of 14.52%. Figure 5 shows the ground truth and prediction of the
+velocity field at t = 10 where the ",relative error,14.52%,,,,,pdf_text_candidate,machine_suggested_unreviewed
+P211103794-2,2111.03794,v4,bc7fbaddfc6f87d5afeb8af7fe757d2224b30ff0d7e9e8f5be38495f46b9985d,22,"single Nvidia 3090 GPU. PINO achieves 0.38% relative l2 error averaged over 200 testing
+instances. PINN-DeepONet achieves 1.38% which is taken from Wang et al. ",relative l2,200,,,,,pdf_text_candidate,machine_suggested_unreviewed
+P211103794-3,2111.03794,v4,bc7fbaddfc6f87d5afeb8af7fe757d2224b30ff0d7e9e8f5be38495f46b9985d,13,"achieves better accuracy. On Burgers (18), PI-DeepONet achieves 1.38% [52]; PINO achieves 0.38%. Similarly, on
+Darcy flow (19), PINO outper",accuracy,18,Burgers,,,,pdf_text_candidate,machine_suggested_unreviewed
+P211103794-4,2111.03794,v4,bc7fbaddfc6f87d5afeb8af7fe757d2224b30ff0d7e9e8f5be38495f46b9985d,12,"ata and the same 800 PDE instances. The mean relative L2 error and its standard
+deviation are reported over 200 test instances at resolution 32 × 25, 64 × 50, a",relative L2,200,,,,,pdf_text_candidate,machine_suggested_unreviewed
+P220602016-1,2206.02016,v1,0f68a33b3d908905598a7713530b7b8ce68a47ad64f039dab45bafed64ecd667,9,"maximization. The
+two panel show the domain relative error and the boundary relative error (%) respectively.
+
+
+1, both the data points inside the domain and the",relative error,1,,,,,pdf_text_candidate,machine_suggested_unreviewed
+P220602016-2,2206.02016,v1,0f68a33b3d908905598a7713530b7b8ce68a47ad64f039dab45bafed64ecd667,7,"he problem. Performances are measured by the relative error in the domain
+[0, 1]n × [0, T] (the “domain” column) and the relative error in the boundary [0, 1]n ",relative error,0,,,,,pdf_text_candidate,machine_suggested_unreviewed
+P220602016-3,2206.02016,v1,0f68a33b3d908905598a7713530b7b8ce68a47ad64f039dab45bafed64ecd667,27,"f Lemma A.2.
+
+This concludes the proof.
+
+
+F  Experimental Settings
+
+
+The hyperparameters used in our experiment is described in Table 3.
+
+
+                    T",,3,,,,,pdf_text_candidate,machine_suggested_unreviewed
+P220602016-4,2206.02016,v1,0f68a33b3d908905598a7713530b7b8ce68a47ad64f039dab45bafed64ecd667,8,"sponding to x1 and x2 respectively.
+
+
+domain relative error is larger than 5% when n = 250. This empirical observation aligns well with
+our theoretical analysis",relative error,5%,,,,,pdf_text_candidate,machine_suggested_unreviewed
+P220211214-1,2202.11214,v1,cee61c60a35e9533f59dcebb8c621faa6e2f9b1bddfa0e7048d809b38d42e1d8,8,"forecast, are used for comparing our model’s accuracy to
+that of the IFS model.
+
+
+3  Results
+
+Figure 1 qualitatively shows the forecast skill of our FourCastNet",accuracy,3,FourCastNet,,,,pdf_text_candidate,machine_suggested_unreviewed
+P220211214-2,2202.11214,v1,cee61c60a35e9533f59dcebb8c621faa6e2f9b1bddfa0e7048d809b38d42e1d8,11,"e FourCastNet
+model has very good prediction accuracy for TCWV , with ACC> 0.6 out beyond 8 days as shown by the ACC plot in
+Figure 14(d). For this atmospheric ",accuracy,0.6,FourCastNet,,,,pdf_text_candidate,machine_suggested_unreviewed
+P220211214-3,2202.11214,v1,cee61c60a35e9533f59dcebb8c621faa6e2f9b1bddfa0e7048d809b38d42e1d8,14,"ime step. We also plot the latitude weighted
+RMSE curves for the FourCastNet and IFS models in Figure 13 in Appendix D
+
+
+and unit variance and ξ ∼N(0, 1) is a n",RMSE,13,FourCastNet,,,,pdf_text_candidate,machine_suggested_unreviewed
+P220211214-4,2202.11214,v1,cee61c60a35e9533f59dcebb8c621faa6e2f9b1bddfa0e7048d809b38d42e1d8,27,"A PREPRINT
+
+
+Appendix D: Additional ACC and RMSE results
+
+Figures 13(a-d) show the forecast skill of the FourCastNet model for a few key variables of interest a",RMSE,13,FourCastNet,,,,pdf_text_candidate,machine_suggested_unreviewed
+P210812515-1,2108.12515,v1,4adc93bec176ee9ab8d7278fa9fe58913c1fc7263fc088daec66e79d06664ff9,19,"0.7                          Experiment
+
+    0.6                                                        0.6",,0.6,,,,,pdf_text_candidate,machine_suggested_unreviewed
+P210812515-2,2108.12515,v1,4adc93bec176ee9ab8d7278fa9fe58913c1fc7263fc088daec66e79d06664ff9,3,"-
+dimensional input and output spaces, these results do not apply to our simpler linear operator
+regression setting (1.1).  This is because their requirement th",,1.1,,,,,pdf_text_candidate,machine_suggested_unreviewed
+P210812515-3,2108.12515,v1,4adc93bec176ee9ab8d7278fa9fe58913c1fc7263fc088daec66e79d06664ff9,18,"ear least square ﬁts to the logarithm of the experimental error data.
+
+    5.1.1. In-Distribution. Here we take α0 = α1 = 4.5, τ1 = 15 and deﬁne the prior smoot",,5.1,,,,,pdf_text_candidate,machine_suggested_unreviewed
+P210812515-4,2108.12515,v1,4adc93bec176ee9ab8d7278fa9fe58913c1fc7263fc088daec66e79d06664ff9,9,"Y DATA               9
+
+
+and the regularized empirical risk is
+
+                                         1              2",,1,,,,,pdf_text_candidate,machine_suggested_unreviewed
+P250413480-1,2504.13480,v1,53dfb121f25b309cab57f5bcc02d53084aaff6f188504878765e64d9cc2be991,3,"solutions ui. A common choice is the relative L2-norm,
+local patch concept inspired by Swin Transformers [23], albeit",relative L2,23,,,,,pdf_text_candidate,machine_suggested_unreviewed
+P210500862-1,2105.00862,v1,974f622d396b14c4e465b8fe0210a83fbe3baaa0320129787056ec30e29c0efb,8,"Figure 5 illustrates the training
+ and test performance measures as intermediate steps of the gradient descent optimization. The ﬁrst row shows the
+ data-based ",,,,,,,pdf_text_candidate,machine_suggested_unreviewed
+P210500862-2,2105.00862,v1,974f622d396b14c4e465b8fe0210a83fbe3baaa0320129787056ec30e29c0efb,13,"loss is weighted greater than the other. The accuracy,
+ in this context, is measured by the relative ℓ2-error on a test set after optimized and full model train",accuracy,2,,,,,pdf_text_candidate,machine_suggested_unreviewed
+P210500862-3,2105.00862,v1,974f622d396b14c4e465b8fe0210a83fbe3baaa0320129787056ec30e29c0efb,7,"settings were used, strong variations in the accuracy of the
+learned function can be observed. For M = 1 (middle panel) and M = 5 (right panel) the model’s pred",accuracy,1,,,,,pdf_text_candidate,machine_suggested_unreviewed
+P210500862-4,2105.00862,v1,974f622d396b14c4e465b8fe0210a83fbe3baaa0320129787056ec30e29c0efb,3,"s is discussed. In
+ section 4 we present our results and provide further discussion in section 5. Additional in section 4 and 5, we analyse the
+ effectiveness o",,5,,,,,pdf_text_candidate,machine_suggested_unreviewed
+P201008895-1,2010.08895,v3,6cd2645d4a50d1a61a261529b33747c674d78851bdbe6993b0961f81a17dc6f2,15,"CLR 2021
+
+
+
+
+
+A.3.3  NAVIER-STOKES EQUATION
+
+Recall the 2-d Navier-Stokes equation for a viscous, incompressible ﬂuid in vorticity form on the
+unit torus:
+     ",Recall,2,NAVIER-STOKES,,,,pdf_text_candidate,machine_suggested_unreviewed
+P201008895-2,2010.08895,v3,6cd2645d4a50d1a61a261529b33747c674d78851bdbe6993b0961f81a17dc6f2,9,"learns the solution operator with excellent accuracy.
+
+
+6  DISCUSSION AND CONCLUSION
+
+Requirements on Data. Data-driven methods rely on the quality and quantity",accuracy,6,,,,,pdf_text_candidate,machine_suggested_unreviewed
+P201008895-3,2010.08895,v3,6cd2645d4a50d1a61a261529b33747c674d78851bdbe6993b0961f81a17dc6f2,6,"at the linear parameterization has a similar performance to the
+previously described direct parameterization, while neural networks have worse performance. This",,,,,,,pdf_text_candidate,machine_suggested_unreviewed
+P201008895-4,2010.08895,v3,6cd2645d4a50d1a61a261529b33747c674d78851bdbe6993b0961f81a17dc6f2,14,"y in term of kmax
+
+
+A.3.1  BURGERS EQUATION
+
+Recall the 1-d Burger’s equation on the unit torus:
+
+              ∂tu(x, t) + ∂x(u2(x, t)/2) = ν∂xxu(x, t),    x ∈",Recall,1,BURGERS,,,,pdf_text_candidate,machine_suggested_unreviewed
+P230510157-1,2305.10157,v1,239bac4661e8f45679fbb02a2048becb9ae5b11128ab52e8f810d39060ec75d2,6,"empirical samples Ns, # branches per split Ndtion 5.1, depending on the sign of the coef-
+ﬁcients µU and µL. As in Section 5",,5.1,,,,,pdf_text_candidate,machine_suggested_unreviewed
+P230510157-2,2305.10157,v1,239bac4661e8f45679fbb02a2048becb9ae5b11128ab52e8f810d39060ec75d2,9,"maxD′ |fθ|
+form an empirical analysis on Burgers’ equation using
+                                                    Figure 3: Residual and sol",,3,Burgers,,,,pdf_text_candidate,machine_suggested_unreviewed
+P230510157-3,2305.10157,v1,239bac4661e8f45679fbb02a2048becb9ae5b11128ab52e8f810d39060ec75d2,13,"A  Reducing empirical and certiﬁed errors through Physics-Informed
+    Adversarial Training
+
+The goal of reducing the solution errors ob",,,,,,,pdf_text_candidate,machine_suggested_unreviewed
+P230510157-4,2305.10157,v1,239bac4661e8f45679fbb02a2048becb9ae5b11128ab52e8f810d39060ec75d2,28,"tions for different sets of lb and ub.
+
+D.2  Case study: 2sech(x) for x ∈[−5, 5]
+We start by observing that the function 2sech(x) is similar to the derivative o",,2,,,,,pdf_text_candidate,machine_suggested_unreviewed
+P230603838-1,2306.03838,v1,3d24e686dc3dab1192bc691815363bd5f545a0d4bac31a31b40b2afd11c928ae,16,"he performance of our models, the we use the relative L2 and L1 losses as defined in equation (30). Another
+common metric used in weather prediction is the anom",relative L2,30,,,,,pdf_text_candidate,machine_suggested_unreviewed
+P230603838-2,2306.03838,v1,3d24e686dc3dab1192bc691815363bd5f545a0d4bac31a31b40b2afd11c928ae,8,"dynamics of a whole year, in 13 minutes on a
+accuracy for medium-range forecasts (5- to 10-day, Table     single GPU.
+2), the advantage of respecting the underl",accuracy,5,,,,,pdf_text_candidate,machine_suggested_unreviewed
+P230603838-3,2306.03838,v1,3d24e686dc3dab1192bc691815363bd5f545a0d4bac31a31b40b2afd11c928ae,6,"refrain
+from doing so as this leads to large performance overheads                                                        5. Numerical Experiments
+and limit our",,5,,,,,pdf_text_candidate,machine_suggested_unreviewed
+P230603838-4,2306.03838,v1,3d24e686dc3dab1192bc691815363bd5f545a0d4bac31a31b40b2afd11c928ae,11,"high-performance deep learning library. 12 2019. URL
+  //openreview.net/forum?id=po-oqRst4Xm.",,12,,,,,pdf_text_candidate,machine_suggested_unreviewed
+P191003193-1,1910.03193,v1,71929b9618892fdc8c0555a10ce6a908202bbfac3a936c4103df00ffba2365fd,9,"(best)   (no bias)    (bias)   (no bias)    (bias)
+
+Figure 3: Errors of DeepONets trained to learn the antiderivative operator (line",bias,3,,,,,pdf_text_candidate,machine_suggested_unreviewed
+P191003193-2,1910.03193,v1,71929b9618892fdc8c0555a10ce6a908202bbfac3a936c4103df00ffba2365fd,7,"from 0.0001 to 0.01. The mean squared error (MSE) of the test dataset with learning rate 0.01, 0.001, and
+0.0001 are shown in Fig. 2. Although we only choose de",MSE,0.01,,,,,pdf_text_candidate,machine_suggested_unreviewed
+P191003193-3,1910.03193,v1,71929b9618892fdc8c0555a10ce6a908202bbfac3a936c4103df00ffba2365fd,10,"Test
+       10-2
+    MSE                                                                                    10-4",MSE,10,,,,,pdf_text_candidate,machine_suggested_unreviewed
+P191003193-4,1910.03193,v1,71929b9618892fdc8c0555a10ce6a908202bbfac3a936c4103df00ffba2365fd,11,"sensors, Fig. 6A):
+
+                         MSE ∝4.6−#sensors.
+When m is already large, the eﬀect of increasing m is negligible. The transition occurs at ∼10 s",MSE,4.6,,,,,pdf_text_candidate,machine_suggested_unreviewed
+P171110561-1,1711.10561,v1,2a8db6776a110a4f36bd1e36af79cf31a2e74baa5af8f7ee3d9286a75fdc400d,16,"urons per layer, and
+monitored the resulting relative L2 error for the predicted solution at timet = 0.9. Evidently, as the neural network capacity is increased",relative L2,0.9,,,,,pdf_text_candidate,machine_suggested_unreviewed
+P171110561-2,1711.10561,v1,2a8db6776a110a4f36bd1e36af79cf31a2e74baa5af8f7ee3d9286a75fdc400d,9,"and Nf =
+10, 000, respectively.
+
+
+predictive accuracy is increased.
+
+2.2. Example (Shr¨odinger Equation)
+   This example aims to highlight the ability of our me",accuracy,2.2,,,,,pdf_text_candidate,machine_suggested_unreviewed
+P171110561-3,1711.10561,v1,2a8db6776a110a4f36bd1e36af79cf31a2e74baa5af8f7ee3d9286a75fdc400d,8,"e white vertical
+lines in the top panel. The relative L2 error for this case is 6.7·10−4. Model training tookapproximately 60 seconds on a single NVIDIA Titan X",relative L2,6.7,,,,,pdf_text_candidate,machine_suggested_unreviewed
+P171110561-4,1711.10561,v1,2a8db6776a110a4f36bd1e36af79cf31a2e74baa5af8f7ee3d9286a75fdc400d,4,"e models,
+and highlight their properties and performance through the lens of diﬀerent
+benchmark problems. All code and data-sets accompanying this manuscript
+ar",,,,,,,pdf_text_candidate,machine_suggested_unreviewed
+P210402741-1,2104.02741,v1,53af6eb350d18ae74e33e01c24ba1425655efd65ff7dc1301c225c5b36f4dcd0,14,"gence. Thus, we set γ = 1.
+  We compared the performance for two diﬀerent layouts of the neural network. One with two
+hidden layers made of four neurons each (2",,,,,,,pdf_text_candidate,machine_suggested_unreviewed
+P210402741-2,2104.02741,v1,53af6eb350d18ae74e33e01c24ba1425655efd65ff7dc1301c225c5b36f4dcd0,12,"the system [9].
+    In order to compare the numerical result with the analytical solution of (18), we simply
+truncate the problem domain and apply natural bound",,18,,,,,pdf_text_candidate,machine_suggested_unreviewed
+P210402741-3,2104.02741,v1,53af6eb350d18ae74e33e01c24ba1425655efd65ff7dc1301c225c5b36f4dcd0,16,"ed training neural network for coercive ﬁeld evaluation may serve
+as a basic building block for an active learning scheme [43] for magnetic materials developmen",,43,,,,,pdf_text_candidate,machine_suggested_unreviewed
+P210402741-4,2104.02741,v1,53af6eb350d18ae74e33e01c24ba1425655efd65ff7dc1301c225c5b36f4dcd0,11,"x phase: ¯a = As/Ah and ¯m = Ms,s/Ms,h.
+
+
+4. Results
+
+4.1. Text book example
+
+  We now demonstrate how to solve a simple eigenvalue problem by training and eval",,4.1,,,,,pdf_text_candidate,machine_suggested_unreviewed
+P240806292-1,2408.06292,v1,670300c77b3a043b90c24223e96bcb664f2019073364eb6e7e7b633635ad0765,91,"AI-Scientist Generated Preprint
+
+
+
+       6  RESULTS
+
+          In this section, we present the results of our experiments to evaluate the performance of the GA",,,,,,,pdf_text_candidate,machine_suggested_unreviewed
+P240806292-2,2408.06292,v1,670300c77b3a043b90c24223e96bcb664f2019073364eb6e7e7b633635ad0765,167,"nt” as the training step at which validation accuracy
+          reaches 95%.
+        Our analysis involved tracking and visualizing key metrics, including train",accuracy,95%,,,,,pdf_text_candidate,machine_suggested_unreviewed
+P240806292-3,2408.06292,v1,670300c77b3a043b90c24223e96bcb664f2019073364eb6e7e7b633635ad0765,143,"ation loss
+                     • Validation accuracy
+                     • Steps to 99% validation accuracy (S99)
+
+         Each experiment is run three times",accuracy,99%,,,,,pdf_text_candidate,machine_suggested_unreviewed
+P240806292-4,2408.06292,v1,670300c77b3a043b90c24223e96bcb664f2019073364eb6e7e7b633635ad0765,105,"impact of the dual-expert approach on model performance.
+         Both models are trained and evaluated under identical conditions for each dataset.
+        To ",,,,,,,pdf_text_candidate,machine_suggested_unreviewed
+P220803306-1,2208.03306,v1,2b275abe8e0fbc1d54b78bad6baea3b90592ea861902c794e2efefdac73ca9ba,11,"8 Training Domains                        8 Evaluation Domains
+                                                    26   20                     Params/ELM",,26,,,,,pdf_text_candidate,machine_suggested_unreviewed
+P220803306-2,2208.03306,v1,2b275abe8e0fbc1d54b78bad6baea3b90592ea861902c794e2efefdac73ca9ba,15,"raining Domains                           16 Evaluation Domains
+   20                                                    20
+
+
+   18",,20,,,,,pdf_text_candidate,machine_suggested_unreviewed
+P220803306-3,2208.03306,v1,2b275abe8e0fbc1d54b78bad6baea3b90592ea861902c794e2efefdac73ca9ba,12,"8 Training Domains                        8 Evaluation Domains
+   20                                               40
+              0% seed training
+   19      ",,20,,,,,pdf_text_candidate,machine_suggested_unreviewed
+P220803306-4,2208.03306,v1,2b275abe8e0fbc1d54b78bad6baea3b90592ea861902c794e2efefdac73ca9ba,6,"2.3). Ensembling ELMFORESTs trained with BTM
+results in comparable performance across a wide range of seed LM training settings (§5).
+
+3.3  Scale: Expanding the",,5,,,,,pdf_text_candidate,machine_suggested_unreviewed
+P230403442-1,2304.03442,v1,ff9b55c51d59817cf72d5326a401a5c2902049b83edf4192a32b58b905c5eb34,14,"as
+the full architecture through the two day simulation. We chose to
+design the experiment this way as re-simulating for each architec-
+ture would cause the sim",,,,,,,pdf_text_candidate,machine_suggested_unreviewed
+P230403442-2,2304.03442,v1,ff9b55c51d59817cf72d5326a401a5c2902049b83edf4192a32b58b905c5eb34,3,"behaviors in isolation, and an end-to-end evaluation where the      demonstrated an early vision of interactive machine learning, allow-
+generative agents inter",,,,,,,pdf_text_candidate,machine_suggested_unreviewed
+P230403442-3,2304.03442,v1,ff9b55c51d59817cf72d5326a401a5c2902049b83edf4192a32b58b905c5eb34,13,", we present
+tree. In the example above, the result of this traversal is The Lin                                                                             hyp",,,,,,,pdf_text_candidate,machine_suggested_unreviewed
+P230403442-4,2304.03442,v1,ff9b55c51d59817cf72d5326a401a5c2902049b83edf4192a32b58b905c5eb34,16,"ut the party at Hobbs
+Cafe by the end of the simulation.
+
+
+<name>?"" For example, when asked “Do you know of Maria Lopez?”,      increased from one (4%) to twelv",,4%,,,,,pdf_text_candidate,machine_suggested_unreviewed
+P230518290-1,2305.18290,v1,304d57efe53317673ee5e93e1e1d990e3231fb4e24198aedd4829968e2c3cfbb,10,"preferences.
+
+Limitations & Future Work. Our results raise several questions that are out of scope of the present
+study: How does the DPO policy generalize out ",,,,,,,pdf_text_candidate,machine_suggested_unreviewed
+P230518290-2,2305.18290,v1,304d57efe53317673ee5e93e1e1d990e3231fb4e24198aedd4829968e2c3cfbb,7,"-4 as evaluator. DPO exceeds PPO’s best-case performance on
+summarization, while being more robust to changes in the sampling temperature.
+
+learning algorithms ",,,,,,,pdf_text_candidate,machine_suggested_unreviewed
+P230518290-3,2305.18290,v1,304d57efe53317673ee5e93e1e1d990e3231fb4e24198aedd4829968e2c3cfbb,20,"the dispreferred response)
+in our sentiment experiments, we do not include it as a baseline in either the summarization or
+dialogue experiment because it produc",,,,,,,pdf_text_candidate,machine_suggested_unreviewed
+P230518290-4,2305.18290,v1,304d57efe53317673ee5e93e1e1d990e3231fb4e24198aedd4829968e2c3cfbb,8,"ntrolled sentiment setting. In our sentiment experiments, we use two implementations of PPO-GT,
+one of-the-shelf version [39] as well as a modified version that",,39,,,,,pdf_text_candidate,machine_suggested_unreviewed
+P230213971-1,2302.13971,v1,2e663675ae36ad12adb2f5a05281bac2747ecf8d23d92bedd9f937a89fee7136,6,"Table 8: Model performance for code generation.
+Table 7: Model performance on quantitative reason-
+                                    We rep",,7,,,,,pdf_text_candidate,machine_suggested_unreviewed
+P230213971-2,2302.13971,v1,2e663675ae36ad12adb2f5a05281bac2747ecf8d23d92bedd9f937a89fee7136,5,"51.6
+forms Chinchilla-70B on all reported benchmarks
+but BoolQ. Similarly, this model surpasses PaLM-   Table 6: Reading Comprehension.  Zero-shot accu-
+540B ev",,6,,,,,pdf_text_candidate,machine_suggested_unreviewed
+P230213971-3,2302.13971,v1,2e663675ae36ad12adb2f5a05281bac2747ecf8d23d92bedd9f937a89fee7136,7,"ask Language Understanding (MMLU). Five-shot accuracy.
+
+
+that may indicate that  this benchmark  is not      In Table 10, we report the results of our instruct
+",accuracy,10,,,,,pdf_text_candidate,machine_suggested_unreviewed
+P230213971-4,2302.13971,v1,2e663675ae36ad12adb2f5a05281bac2747ecf8d23d92bedd9f937a89fee7136,9,"indicative of gender bias. Indeed, in the case of the
+measure biases in 9 categories: gender, religion,",bias,9,,,,,pdf_text_candidate,machine_suggested_unreviewed
+P231007984-1,2310.07984,v1,1c29019f3330bf844a045fe041d7ad7c2c0b11ccb08670b1af27e3cc12d6d300,4,"rt (SOTA) results in Physiology, raising the AUC-ROC from a
+previous best of 74.43% to 76.60%, a gain of 2.8%. In Biophysics, our model further enhanced
+perform",AUC,74.43%,,,,,pdf_text_candidate,machine_suggested_unreviewed
+P231007984-2,2310.07984,v1,1c29019f3330bf844a045fe041d7ad7c2c0b11ccb08670b1af27e3cc12d6d300,16,"eristic curve (AUC-ROC) metric
+was employed. AUC-ROC, measures the ability of the model to distinguish between classes,
+with a range from 0 to 1, where a higher",AUC,0,,,,,pdf_text_candidate,machine_suggested_unreviewed
+P231007984-3,2310.07984,v1,1c29019f3330bf844a045fe041d7ad7c2c0b11ccb08670b1af27e3cc12d6d300,5,"t performed baseline, registering an average MAE of 5.8233
+across 12 tasks as opposed to 11.2450. Similarly, in physical chemistry, LLM4SD observed a
+noteworthy",MAE,5.8233,,,,,pdf_text_candidate,machine_suggested_unreviewed
+P231007984-4,2310.07984,v1,1c29019f3330bf844a045fe041d7ad7c2c0b11ccb08670b1af27e3cc12d6d300,6,"3.2.1 Effect of Scale
+
+The ablation study of LLM4SD, which compared four open-source LLM backbones, revealed
+substantial differences among the differe",,,,,,,pdf_text_candidate,machine_suggested_unreviewed
+P230808155-1,2308.08155,v1,a1176bc2e194ebbcca778ffcd19684c7962a2d42f4ed5c558bef82b9b01cfa29,17,"on with human-judged correctness than EM and F1.
+According to Recall, Retrieval-augmented Chat significantly outperforms other solutions.
+
+   8https://huggingfa",F1,8,,,,,pdf_text_candidate,machine_suggested_unreviewed
+P230808155-2,2308.08155,v1,a1176bc2e194ebbcca778ffcd19684c7962a2d42f4ed5c558bef82b9b01cfa29,15,"use AutoGen to solve tasks in the MiniWob++ benchmark which contains browser
+interaction tasks described in natural language, such as “expand the web section be",,,,,,,pdf_text_candidate,machine_suggested_unreviewed
+P230808155-3,2308.08155,v1,a1176bc2e194ebbcca778ffcd19684c7962a2d42f4ed5c558bef82b9b01cfa29,8,"formers Agent: Transformers Agent [17] is an experimental natural language API on top
+  of transformers.  It includes a set of curated tools and an agent to int",,,,,,,pdf_text_candidate,machine_suggested_unreviewed
+P230808155-4,2308.08155,v1,a1176bc2e194ebbcca778ffcd19684c7962a2d42f4ed5c558bef82b9b01cfa29,11,"Table 2: Qualitative evaluation on two math problems from the MATH dataset under the autonomous
+problem solving setting. Each LLM-based system is",,,,,,,pdf_text_candidate,machine_suggested_unreviewed
+P221003629-1,2210.03629,v1,6ec7c9ba12a5a7462afaaa759b9d4186e522fcb502ef480afd7fa1821960a576,8,"Table 4: Results on Web-
+                                                                   shop.   IL and IL+RL
+Table 3: AlfWorld",,,,,,,pdf_text_candidate,machine_suggested_unreviewed
+P221003629-2,2210.03629,v1,6ec7c9ba12a5a7462afaaa759b9d4186e522fcb502ef480afd7fa1821960a576,3,"We conduct empirical evaluations of ReAct and state-of-the-art baselines on four diverse benchmarks:
+question answering (HotPotQA, Yang",,,,,,,pdf_text_candidate,machine_suggested_unreviewed
+P221003629-3,2210.03629,v1,6ec7c9ba12a5a7462afaaa759b9d4186e522fcb502ef480afd7fa1821960a576,5,"answer, which is found to
+consistently boost performance over CoT. (c) Acting-only prompt (Act), which removes thoughts
+in ReAct trajectories, loosely resemblin",,,,,,,pdf_text_candidate,machine_suggested_unreviewed
+P221003629-4,2210.03629,v1,6ec7c9ba12a5a7462afaaa759b9d4186e522fcb502ef480afd7fa1821960a576,4,"uning is enabled, and in Section 4 how ReAct performance is robust to
+        prompt selections.
+      4. Human aligned and controllable. ReAct promises an inte",,4,,,,,pdf_text_candidate,machine_suggested_unreviewed

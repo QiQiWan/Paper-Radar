@@ -17,10 +17,10 @@ import sqlite3
 from .downloads.manager import resolve_saved_file
 from .quality import normalized
 
-PARSER_VERSION = 'pypdf-v1.12.0'
+PARSER_VERSION = 'pypdf-v1.45.1-long-doc'
 CARD_VERSION = 'reading-card-v1.12.0-evidence-1'
-MAX_PAGES = 100
-MAX_CHUNKS = 600
+MAX_PAGES = 240
+MAX_CHUNKS = 1800
 MAX_PDF_BYTES = 50 * 1024 * 1024
 MAX_PAGE_STREAM = 12 * 1024 * 1024
 MAX_PAGE_TEXT = 40000
@@ -198,6 +198,7 @@ def index_paper(conn, paper_id: str, *, db_path: Path,
             raise ValueError('PDF 没有可读取的页面。')
         limit = min(total_pages, max(1, min(int(max_pages), MAX_PAGES)))
         chunks = []
+        truncated_pages = 0
         section = '正文'
         for i in range(limit):
             page = reader.pages[i]
@@ -208,7 +209,10 @@ def index_paper(conn, paper_id: str, *, db_path: Path,
                 length = raw_content.get('/Length', 0) or 0
                 if isinstance(length, int) and length > MAX_PAGE_STREAM:
                     raise ValueError(f'第 {i+1} 页内容流过大，已停止解析。')
-            page_text = _clean_text(page.extract_text() or '')[:MAX_PAGE_TEXT]
+            raw_text = _clean_text(page.extract_text() or '')
+            if len(raw_text) > MAX_PAGE_TEXT:
+                truncated_pages += 1
+            page_text = raw_text[:MAX_PAGE_TEXT]
             section = _section(page_text, section)
             for piece in _chunks(page_text):
                 chunks.append((paper_id, i+1, section, piece))
@@ -230,6 +234,8 @@ def index_paper(conn, paper_id: str, *, db_path: Path,
         state = 'indexed' if parsed_pages == total_pages and len(chunks) < MAX_CHUNKS else 'partial'
         note = ('已建立全文文本索引。' if state == 'indexed' else
                 '只索引了部分页面或达到片段数量上限，引用和阅读卡片仅覆盖已解析范围。')
+        if truncated_pages:
+            note += f' 另有 {truncated_pages} 页文本超过单页上限，超出部分未纳入索引。'
     stamp = datetime.now(timezone.utc).isoformat(timespec='seconds')
     # Commit only after the PDF was successfully parsed. Replacing the PDF
     # invalidates old fulltext chunks, search entries and model claims.

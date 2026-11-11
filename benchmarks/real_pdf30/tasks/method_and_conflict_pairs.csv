@@ -1,0 +1,35 @@
+﻿pair_id,paper_a,paper_b,category,pair_type,anchor_a,anchor_b,comparison_dimension,same_dataset,same_metric,same_setting,quantitatively_comparable,contradiction_label,judgement_reason,review_status,split
+C-001,2210.03629,2304.03442,agent_science,within_domain,P221003629-1,P230403442-1,methods_datasets_metrics_protocols,,,,,,,pending_independent_double_review,train
+C-002,2210.03629,2308.08155,agent_science,within_domain,P221003629-1,P230808155-1,methods_datasets_metrics_protocols,,,,,,,pending_independent_double_review,train
+C-003,2304.03442,2308.08155,agent_science,within_domain,P230403442-1,P230808155-1,methods_datasets_metrics_protocols,,,,,,,pending_independent_double_review,train
+C-004,1910.03193,2010.08895,operator,within_domain,P191003193-1,P201008895-1,methods_datasets_metrics_protocols,,,,,,,pending_independent_double_review,train
+C-005,1910.03193,2102.09618,operator,within_domain,P191003193-1,P210209618-1,methods_datasets_metrics_protocols,,,,,,,pending_independent_double_review,train
+C-006,1910.03193,2108.12515,operator,within_domain,P191003193-1,P210812515-1,methods_datasets_metrics_protocols,,,,,,,pending_independent_double_review,train
+C-007,1910.03193,2109.03697,operator,within_domain,P191003193-1,P210903697-1,methods_datasets_metrics_protocols,,,,,,,pending_independent_double_review,train
+C-008,1910.03193,2111.03794,operator,within_domain,P191003193-1,P211103794-1,methods_datasets_metrics_protocols,,,,,,,pending_independent_double_review,train
+C-009,2010.08895,2102.09618,operator,within_domain,P201008895-1,P210209618-1,methods_datasets_metrics_protocols,,,,,,,pending_independent_double_review,train
+C-010,2203.13181,2306.03838,operator,within_domain,P220313181-1,P230603838-1,methods_datasets_metrics_protocols,,,,,,,pending_independent_double_review,validation
+C-011,2402.02366,2504.13480,operator,within_domain,P240202366-1,P250413480-1,methods_datasets_metrics_protocols,,,,,,,pending_independent_double_review,test
+C-012,1711.10561,2004.01806,pinn,within_domain,P171110561-1,P200401806-1,methods_datasets_metrics_protocols,,,,,,,pending_independent_double_review,train
+C-013,1711.10561,2104.02741,pinn,within_domain,P171110561-1,P210402741-1,methods_datasets_metrics_protocols,,,,,,,pending_independent_double_review,train
+C-014,2004.01806,2104.02741,pinn,within_domain,P200401806-1,P210402741-1,methods_datasets_metrics_protocols,,,,,,,pending_independent_double_review,train
+C-015,2105.00862,2206.02016,pinn,within_domain,P210500862-1,P220602016-1,methods_datasets_metrics_protocols,,,,,,,pending_independent_double_review,validation
+C-016,2305.10157,2308.08468,pinn,within_domain,P230510157-1,P230808468-1,methods_datasets_metrics_protocols,,,,,,,pending_independent_double_review,test
+C-017,2202.11214,2208.05419,weather,within_domain,P220211214-1,P220805419-1,methods_datasets_metrics_protocols,,,,,,,pending_independent_double_review,train
+C-018,1711.10561,1910.03193,pinn vs operator,cross_domain_control,P171110561-1,P191003193-1,methods_datasets_metrics_protocols,,,,,,,pending_independent_double_review,train
+C-019,1711.10561,2010.08895,pinn vs operator,cross_domain_control,P171110561-1,P201008895-1,methods_datasets_metrics_protocols,,,,,,,pending_independent_double_review,train
+C-020,1711.10561,2102.09618,pinn vs operator,cross_domain_control,P171110561-1,P210209618-1,methods_datasets_metrics_protocols,,,,,,,pending_independent_double_review,train
+C-021,1711.10561,2108.12515,pinn vs operator,cross_domain_control,P171110561-1,P210812515-1,methods_datasets_metrics_protocols,,,,,,,pending_independent_double_review,train
+C-022,1711.10561,2109.03697,pinn vs operator,cross_domain_control,P171110561-1,P210903697-1,methods_datasets_metrics_protocols,,,,,,,pending_independent_double_review,train
+C-023,1711.10561,2111.03794,pinn vs operator,cross_domain_control,P171110561-1,P211103794-1,methods_datasets_metrics_protocols,,,,,,,pending_independent_double_review,train
+C-024,1711.10561,2202.11214,pinn vs weather,cross_domain_control,P171110561-1,P220211214-1,methods_datasets_metrics_protocols,,,,,,,pending_independent_double_review,train
+C-025,2105.00862,2203.13181,pinn vs operator,cross_domain_control,P210500862-1,P220313181-1,methods_datasets_metrics_protocols,,,,,,,pending_independent_double_review,validation
+C-026,2105.00862,2211.02556,pinn vs weather,cross_domain_control,P210500862-1,P221102556-1,methods_datasets_metrics_protocols,,,,,,,pending_independent_double_review,validation
+C-027,2105.00862,2302.13971,pinn vs language,cross_domain_control,P210500862-1,P230213971-1,methods_datasets_metrics_protocols,,,,,,,pending_independent_double_review,validation
+C-028,2105.00862,2306.03838,pinn vs operator,cross_domain_control,P210500862-1,P230603838-1,methods_datasets_metrics_protocols,,,,,,,pending_independent_double_review,validation
+C-029,2105.00862,2310.07984,pinn vs agent_science,cross_domain_control,P210500862-1,P231007984-1,methods_datasets_metrics_protocols,,,,,,,pending_independent_double_review,validation
+C-030,2212.12794,2305.10157,weather vs pinn,cross_domain_control,P221212794-1,P230510157-1,methods_datasets_metrics_protocols,,,,,,,pending_independent_double_review,test
+C-031,2212.12794,2305.18290,weather vs language,cross_domain_control,P221212794-1,P230518290-1,methods_datasets_metrics_protocols,,,,,,,pending_independent_double_review,test
+C-032,2212.12794,2308.08468,weather vs pinn,cross_domain_control,P221212794-1,P230808468-1,methods_datasets_metrics_protocols,,,,,,,pending_independent_double_review,test
+C-033,2212.12794,2402.02366,weather vs operator,cross_domain_control,P221212794-1,P240202366-1,methods_datasets_metrics_protocols,,,,,,,pending_independent_double_review,test
+C-034,2212.12794,2408.06292,weather vs agent_science,cross_domain_control,P221212794-1,P240806292-1,methods_datasets_metrics_protocols,,,,,,,pending_independent_double_review,test

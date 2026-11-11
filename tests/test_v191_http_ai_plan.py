@@ -8,6 +8,7 @@ from urllib.request import Request, urlopen
 from urllib.error import HTTPError
 from unittest.mock import patch
 from paper_radar.webapp import Handler
+from paper_radar.core import DEFAULTS
 
 
 class AIPlanningHttpTests(unittest.TestCase):
@@ -28,12 +29,16 @@ class AIPlanningHttpTests(unittest.TestCase):
         req=Request(self.base+'/api/ai/plan',
             data=json.dumps(payload).encode('utf-8'),method='POST',
             headers={'Content-Type':'application/json','X-Local-Token':'test-csrf'})
-        return urlopen(req,timeout=5)
+        # The planner HTTP contract is independent of shared config-recovery
+        # state left by earlier repository integration tests. Read-only guards
+        # are validated separately by config_safety/storage tests.
+        with patch('paper_radar.webapp.config_health', return_value={'state':'ok','read_only':False}):
+            return urlopen(req,timeout=5)
     def test_explicit_plan_does_not_mutate_settings(self):
         goal='我希望检索复杂几何和非结构化网格上的神经算子相关研究。'
         plan={'topic':'神经算子','keywords':['neural operator','unstructured mesh'],
               'notes':[],'exclusions':[]}
-        with patch('paper_radar.webapp.get_api_key',return_value='test'):
+        with patch('paper_radar.webapp.read_config',return_value={**DEFAULTS,'llm_data_consent':True}), patch('paper_radar.webapp.get_api_key',return_value='test'):
             with patch('paper_radar.webapp.plan_research',return_value=plan) as helper:
                 with self.post({'goal':goal}) as response:
                     obj=json.load(response)
@@ -41,7 +46,7 @@ class AIPlanningHttpTests(unittest.TestCase):
         self.assertEqual(obj['plan'],plan)
         self.assertEqual(helper.call_args.args[0],goal)
     def test_missing_api_key_is_actionable(self):
-        with patch('paper_radar.webapp.get_api_key',return_value=''):
+        with patch('paper_radar.webapp.read_config',return_value={**DEFAULTS,'llm_data_consent':True}), patch('paper_radar.webapp.get_api_key',return_value=''):
             with self.assertRaises(HTTPError) as problem:
                 self.post({'goal':'关于神经算子和复杂几何的学习泛化问题。'})
         self.assertEqual(problem.exception.code,400)

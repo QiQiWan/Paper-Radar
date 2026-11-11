@@ -18,9 +18,34 @@ MAX_MARKDOWN_BYTES = 300_000
 def create_report(portal, uid: str, topic_id: str, *, job_id: int | None = None) -> dict:
     from .portal_research import synthesis
     data = synthesis(portal, uid, topic_id)
-    summary = data['summary']
+    summary = dict(data['summary'])
+    # Metadata-only papers must remain useful for literature triage, while
+    # never becoming evidence-supported experimental findings by implication.
+    with portal.workspace(uid) as db:
+        library_count = db.execute('SELECT COUNT(*) FROM topic_papers WHERE topic_id=?', (topic_id,)).fetchone()[0]
+        listing = db.execute('''SELECT p.title,p.published,p.url,p.doi FROM papers p
+            JOIN topic_papers tp ON tp.paper_id=p.id
+            WHERE tp.topic_id=? ORDER BY p.published DESC,p.id LIMIT 30''', (topic_id,)).fetchall()
+    summary['library_paper_count'] = int(library_count)
+    def safe_inline(text):
+        # A title is source metadata, not trusted Markdown supplied by us.
+        value = str(text or '').replace('\r', ' ').replace('\n', ' ').strip()[:400]
+        return re.sub(r'([\\`*_{}\[\]<>])', r'\\\1', value)
+    catalog = [f'# 已收录文献概览\n',
+        f'当前主题共收录 {library_count} 篇论文题录。以下仅展示标题和发表信息，不能据此认定论文已完成全文核对。\n']
+    if listing:
+        catalog.append('## 待筛选和阅读的论文\n')
+        for row in listing:
+            title=safe_inline(row['title'])
+            date=safe_inline(row['published']) or '日期未提供'
+            catalog.append(f'- {title}（{date}）')
+        if library_count>len(listing):
+            catalog.append(f'\n仅列出最新 {len(listing)} 篇，完整清单请在“我的文献”中查看。')
+    else:
+        catalog.append('本主题尚未检索到论文。请先在“找论文”中进行检索。')
+    catalog.append('\n---\n\n以下为有可核对证据的实验分析。未核对的题录不会进入数值比较。\n')
+    markdown = '\n'.join(catalog) + '\n\n' + data['markdown']
     raw_summary = json.dumps(summary, ensure_ascii=False, sort_keys=True, separators=(',', ':'))
-    markdown = data['markdown']
     if len(markdown.encode('utf-8')) > MAX_MARKDOWN_BYTES or len(raw_summary.encode('utf-8')) > MAX_MARKDOWN_BYTES:
         raise ValueError('研究报告超过预览上限，请缩小主题范围后重新生成')
     digest = hashlib.sha256(raw_summary.encode('utf-8')).hexdigest()
@@ -41,6 +66,7 @@ def create_report(portal, uid: str, topic_id: str, *, job_id: int | None = None)
     return {'id':report_id,'topic_id':topic_id,'job_id':job_id,'generated_at':created,
             'source_digest':digest,'paper_count':int(summary.get('paper_count',0)),
             'finding_count':int(summary.get('finding_count',0)),
+            'library_paper_count':int(library_count),
             'comparison_count':len(summary.get('comparisons',[]))}
 
 

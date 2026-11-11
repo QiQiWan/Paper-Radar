@@ -211,10 +211,10 @@ def test_public_nginx_template_port_and_domain_render():
 
 def test_public_launch_scripts_use_configurable_ports():
     from paper_radar.public_portal import ROOT
-    win=(ROOT/'start_public_windows.bat').read_text(encoding='utf-8')
-    shell=(ROOT/'start_public_macos_linux.sh').read_text(encoding='utf-8')
-    assert 'set "PORT=%~1"' in win
-    assert '--port "%PORT%"' in win
-    assert '.venv\\Scripts\\python.exe' in win
-    assert '--port "$PORT"' in shell
-    assert '127.0.0.1' in win and '127.0.0.1' in shell
+    win=(ROOT/'start_windows.bat').read_text(encoding='utf-8')
+    shell=(ROOT/'start_macos_linux.sh').read_text(encoding='utf-8')
+    launcher=(ROOT/'paper_radar/cli_launcher.py').read_text(encoding='utf-8')
+    assert '--public' in win and '--public' in shell
+    assert 'PAPERRADAR_PUBLIC_PORT' in launcher and '--port' in launcher
+    assert 'PAPERRADAR_PUBLIC_ORIGIN' in launcher and '127.0.0.1' in launcher
+

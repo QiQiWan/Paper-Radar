@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="270" viewBox="0 0 1000 270" role="img" aria-label="从 Zotero 收藏夹到追踪关键词">
+<rect width="1000" height="270" rx="20" fill="#f6f9fc"/>
+<text x="46" y="45" font-size="24" font-family="sans-serif" font-weight="700" fill="#203544">从 Zotero 收藏夹到追踪关键词</text>
+<text x="46" y="74" font-size="15" font-family="sans-serif" fill="#617a89">Zotero 连接是可选功能，文献库不依赖它</text>
+<rect x="46.0" y="105" width="201.0" height="100" rx="14" fill="#fff" stroke="#cbdde8" stroke-width="2"/>
+<circle cx="71.0" cy="132" r="14" fill="#e7f3f7"/>
+<text x="71.0" y="138" text-anchor="middle" font-size="16" fill="#0b6880" font-family="sans-serif">1</text>
+<text x="92.0" y="137" font-size="18" font-weight="600" fill="#203544" font-family="sans-serif">读取收藏夹</text>
+<text x="65.0" y="180" font-size="14" fill="#54707f" font-family="sans-serif">选择参考论文</text>
+<path d="M 253.0 151 l 8 -6 l 0 12 z" fill="#8aa6b5"/>
+<rect x="269.0" y="105" width="201.0" height="100" rx="14" fill="#fff" stroke="#cbdde8" stroke-width="2"/>
+<circle cx="294.0" cy="132" r="14" fill="#e7f3f7"/>
+<text x="294.0" y="138" text-anchor="middle" font-size="16" fill="#0b6880" font-family="sans-serif">2</text>
+<text x="315.0" y="137" font-size="18" font-weight="600" fill="#203544" font-family="sans-serif">提取关键词</text>
+<text x="288.0" y="180" font-size="14" fill="#54707f" font-family="sans-serif">查看并修改</text>
+<path d="M 476.0 151 l 8 -6 l 0 12 z" fill="#8aa6b5"/>
+<rect x="492.0" y="105" width="201.0" height="100" rx="14" fill="#fff" stroke="#cbdde8" stroke-width="2"/>
+<circle cx="517.0" cy="132" r="14" fill="#e7f3f7"/>
+<text x="517.0" y="138" text-anchor="middle" font-size="16" fill="#0b6880" font-family="sans-serif">3</text>
+<text x="538.0" y="137" font-size="18" font-weight="600" fill="#203544" font-family="sans-serif">应用到主题</text>
+<text x="511.0" y="180" font-size="14" fill="#54707f" font-family="sans-serif">保留手工调整</text>
+<path d="M 699.0 151 l 8 -6 l 0 12 z" fill="#8aa6b5"/>
+<rect x="715.0" y="105" width="201.0" height="100" rx="14" fill="#fff" stroke="#cbdde8" stroke-width="2"/>
+<circle cx="740.0" cy="132" r="14" fill="#e7f3f7"/>
+<text x="740.0" y="138" text-anchor="middle" font-size="16" fill="#0b6880" font-family="sans-serif">4</text>
+<text x="761.0" y="137" font-size="18" font-weight="600" fill="#203544" font-family="sans-serif">执行检索</text>
+<text x="734.0" y="180" font-size="14" fill="#54707f" font-family="sans-serif">更新专题文献</text>
+<text x="50" y="243" font-size="15" font-family="sans-serif" fill="#48677a">推荐本地只读连接，不要求上传你的 Zotero 数据库。</text>
+</svg>

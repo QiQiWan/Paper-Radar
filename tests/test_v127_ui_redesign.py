@@ -87,10 +87,14 @@ def test_local_library_reports_and_zotero_keep_advanced_actions():
 
 def test_public_workspace_has_direct_tasks_and_closed_advanced_info():
     html = view('portal.html')
-    for control in ('quickStart', 'openReadingQueue', 'openEvidenceQueue', 'openTopicSettings',
-                    'metricToRead', 'metricPendingEvidence'):
+    for control in ('quickStart', 'openReadingQueue', 'openTopicSettings', 'metricToRead'):
         assert control in html.ids
         assert not html.ids[control][1], f'{control} should be visible without extra clicks'
+    # v1.48 prioritizes finding and reading papers; specialist review queues
+    # remain reachable from the intentionally closed Other tasks disclosure.
+    for control in ('openEvidenceQueue', 'metricPendingEvidence'):
+        assert control in html.ids
+        assert 'details:home-expert-queue' in html.ids[control][1]
     assert html.ids['topicSetup'][0] == 'details'
     assert 'open' not in html.ids['topicSetup'][2]
     for control in ('oldPassword', 'newPassword', 'fetchPdf', 'cloudAnalysis', 'evidenceCsv'):
@@ -109,8 +113,8 @@ def test_public_creating_and_editing_topic_do_not_show_two_forms():
 def test_model_cost_warning_and_research_review_controls_remain_available():
     local = (STATIC / 'index.html').read_text('utf-8')
     public = (STATIC / 'portal.html').read_text('utf-8')
-    assert '会将输入的研究目标发送' in local
-    assert '云模型可能产生费用' in public
+    assert '只发送你输入的研究方向' in local
+    assert '使用 AI 前将显示发送范围与费用' in public
     for key in ('fulltextArea', 'importEvidence', 'reportDownload', 'retrySafeJob'):
         assert key in view('portal.html').ids
 
@@ -130,4 +134,4 @@ def test_shortcut_to_publisher_credentials_reveals_collapsed_settings():
     js = (STATIC / 'app.js').read_text('utf-8')
     assert "$('settings-sources').open=true" in js
     assert "$('publisherPanel').scrollIntoView" in js
-    assert '点击“检索论文并更新报告”' in js
+    assert '点击“开始检索”' in js and '检索论文并更新报告' not in js

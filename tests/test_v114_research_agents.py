@@ -163,8 +163,11 @@ def test_real_http_experiment_status_and_job_token():
         thread=Thread(target=server.serve_forever,daemon=True);thread.start()
         base=f'http://127.0.0.1:{server.server_port}'
         try:
+            # Isolate this HTTP authorization test from an earlier test that
+            # deliberately leaves the module-wide config state read-only.
             with patch.object(webapp,'DB_FILE',db_path),\
-                 patch.object(webapp,'read_config',lambda:DEFAULTS),\
+                 patch.object(webapp,'read_config',lambda:{**DEFAULTS,'llm_data_consent':True}),\
+                 patch.object(webapp,'config_health',lambda _:{'read_only':False}),\
                  patch.object(webapp,'open_database',local_db):
                 with urlopen(base+'/api/experiments/status?paper_id=study-v114') as req:
                     info=json.load(req)
@@ -172,7 +175,7 @@ def test_real_http_experiment_status_and_job_token():
                 with pytest.raises(HTTPError) as exc:
                     urlopen(base+'/api/experiments/status?paper_id=none')
                 assert exc.value.code==404
-                body=json.dumps({'mode':'analyze_experiments','ids':['study-v114']}).encode('utf-8')
+                body=json.dumps({'mode':'analyze_experiments','ids':['study-v114'],'confirm_data_transfer':True}).encode('utf-8')
                 with pytest.raises(HTTPError) as exc:
                     urlopen(Request(base+'/api/job',data=body,headers={'Content-Type':'application/json'}))
                 assert exc.value.code==403

@@ -1,0 +1,12 @@
+arxiv_id,pdf_page_1based,table_id,dataset,metric,method,value,spread,scale,conditions,review_status,pdf_url
+2611.10217,13,Table 5,Burgers,test relative L2 error,PI-Init Full PI,0.0224,0.0031,unscaled,B=10000 supervised labels; N=50000 unlabeled pretraining; 3 seeds; 500 supervised epochs,visually_checked_public_pdf,https://arxiv.org/pdf/2611.10217
+2611.10217,13,Table 5,Burgers,test relative L2 error,PI-Init PDE-only,0.0193,0.0017,unscaled,B=10000 supervised labels; N=50000 unlabeled pretraining; 3 seeds; 500 supervised epochs,visually_checked_public_pdf,https://arxiv.org/pdf/2611.10217
+2611.10217,13,Table 5,Burgers,test relative L2 error,Supervised-only,0.0480,0.0081,unscaled,B=10000 supervised labels; 500 supervised epochs; 3 seeds,visually_checked_public_pdf,https://arxiv.org/pdf/2611.10217
+2611.10217,13,Table 5,Darcy Flow,test relative L2 error,PI-Init Full PI,0.1233,0.0065,unscaled,B=9000 supervised labels; N=50000 unlabeled pretraining; 3 seeds; 500 supervised epochs,visually_checked_public_pdf,https://arxiv.org/pdf/2611.10217
+2611.10217,13,Table 5,Darcy Flow,test relative L2 error,PI-Init PDE-only,0.1236,0.0107,unscaled,B=9000 supervised labels; N=50000 unlabeled pretraining; 3 seeds; 500 supervised epochs,visually_checked_public_pdf,https://arxiv.org/pdf/2611.10217
+2611.10945,9,Table 1,Lotka-Volterra,relative L2 prediction error,CoupledFlow-GP,1.21,,x10^-2,1024 training samples; published table scale x10^-2,visually_checked_public_pdf,https://arxiv.org/pdf/2611.10945
+2611.10945,9,Table 1,Lotka-Volterra,relative L2 prediction error,CoupledFlow-Linear,1.29,,x10^-2,1024 training samples; published table scale x10^-2,visually_checked_public_pdf,https://arxiv.org/pdf/2611.10945
+2611.10945,9,Table 1,Lotka-Volterra,relative L2 prediction error,FNOc,9.55,,x10^-2,1024 training samples; published table scale x10^-2,visually_checked_public_pdf,https://arxiv.org/pdf/2611.10945
+2611.10945,9,Table 1,Gray-Scott,relative L2 prediction error,CoupledFlow-GP,0.15,,x10^-2,1024 training samples; published table scale x10^-2,visually_checked_public_pdf,https://arxiv.org/pdf/2611.10945
+2611.10945,9,Table 1,Multiphase,relative L2 prediction error,CoupledFlow-GP,0.11,,x10^-2,1024 training samples; published table scale x10^-2,visually_checked_public_pdf,https://arxiv.org/pdf/2611.10945
+2611.10945,9,Table 1,THM,relative L2 prediction error,CoupledFlow-GP,0.05,,x10^-2,1024 training samples; published table scale x10^-2,visually_checked_public_pdf,https://arxiv.org/pdf/2611.10945

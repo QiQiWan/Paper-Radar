@@ -1,0 +1,9 @@
+{
+  "schema": "realpdf30-independent-human-review-v1",
+  "reviewers": {
+    "A": {"reviewer_id": "", "attested_at_utc": "", "independent_human_review": false},
+    "B": {"reviewer_id": "", "attested_at_utc": "", "independent_human_review": false}
+  },
+  "adjudicator": {"reviewer_id": "", "attested_at_utc": ""},
+  "note": "Fill only after two distinct real people have independently annotated all real samples; AI annotators cannot sign here."
+}

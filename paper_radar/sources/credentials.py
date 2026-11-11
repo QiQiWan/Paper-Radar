@@ -11,9 +11,15 @@ ENV = {
     ('elsevier', 'key'): 'PAPER_RADAR_ELSEVIER_API_KEY',
     ('elsevier', 'insttoken'): 'PAPER_RADAR_ELSEVIER_INSTTOKEN',
     ('springer', 'key'): 'PAPER_RADAR_SPRINGER_API_KEY',
+    ('openalex', 'key'): 'OPENALEX_API_KEY',
 }
 
 def get_credential(source: str, field: str = 'key') -> str:
+    # The public portal must not silently spend a desktop user's keyring
+    # credits on untrusted multi-user metadata searches.
+    if (source == 'openalex' and os.environ.get('PAPERRADAR_PUBLIC_METADATA_CHILD') == '1'
+            and os.environ.get('PAPERRADAR_PUBLIC_ALLOW_OPENALEX_API_KEY') != '1'):
+        return ''
     env = ENV.get((source, field))
     if env:
         value = os.environ.get(env, '').strip()
@@ -45,6 +51,6 @@ def save_credential(source: str, field: str, value: str) -> None:
 def credential_state() -> dict[str, dict[str, bool]]:
     status = {src: {'key': bool(get_credential(src)),
                     'insttoken': bool(get_credential(src, 'insttoken')) if src == 'elsevier' else False}
-              for src in ('elsevier', 'springer')}
+              for src in ('elsevier', 'springer', 'openalex')}
     status['sciencedirect'] = dict(status['elsevier'])
     return status

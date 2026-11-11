@@ -1,0 +1,2139 @@
+{
+  "schema": "paper-radar-real-pdf-30-acquisition-v1",
+  "downloaded_at": "2026-11-10T01:42:12.057971+00:00",
+  "source": "existing real_papers_v2 manifest; downloaded from official arxiv.org",
+  "papers_requested": 33,
+  "pdf_downloaded": 33,
+  "experimental_signal": 33,
+  "selected": 30,
+  "note": "Experiment signals are lexical screening, not independent human review. Check version and PDF rights before redistribution.",
+  "items": [
+    {
+      "paper_id": "2010.08895",
+      "version": "v3",
+      "title": "Fourier Neural Operator for Parametric Partial Differential Equations",
+      "category": "operator",
+      "pdf_url": "https://arxiv.org/pdf/2010.08895v3",
+      "filename": "pdfs/01/2010.08895v3.pdf",
+      "status": "downloaded",
+      "selected": true,
+      "license_status": "not_checked",
+      "sha256": "6cd2645d4a50d1a61a261529b33747c674d78851bdbe6993b0961f81a17dc6f2",
+      "bytes": 2436198,
+      "pages": 16,
+      "extracted_chars": 54183,
+      "experiment_mentions": 38,
+      "candidate_experiment_pages": [
+        {
+          "page": 8,
+          "matches": 9
+        },
+        {
+          "page": 7,
+          "matches": 8
+        },
+        {
+          "page": 15,
+          "matches": 6
+        },
+        {
+          "page": 6,
+          "matches": 5
+        },
+        {
+          "page": 9,
+          "matches": 4
+        },
+        {
+          "page": 1,
+          "matches": 2
+        },
+        {
+          "page": 3,
+          "matches": 1
+        },
+        {
+          "page": 5,
+          "matches": 1
+        },
+        {
+          "page": 10,
+          "matches": 1
+        },
+        {
+          "page": 16,
+          "matches": 1
+        }
+      ],
+      "experiment_signal": true
+    },
+    {
+      "paper_id": "2109.03697",
+      "version": "v3",
+      "title": "U-FNO -- an enhanced Fourier neural operator-based deep-learning model for multiphase flow",
+      "category": "operator",
+      "pdf_url": "https://arxiv.org/pdf/2109.03697v3",
+      "filename": "pdfs/01/2109.03697v3.pdf",
+      "status": "downloaded",
+      "selected": true,
+      "license_status": "not_checked",
+      "sha256": "3ac2875f51a30b644213275ad380a929415ef85401049d889e22c7131869755e",
+      "bytes": 5659559,
+      "pages": 37,
+      "extracted_chars": 74293,
+      "experiment_mentions": 87,
+      "candidate_experiment_pages": [
+        {
+          "page": 20,
+          "matches": 7
+        },
+        {
+          "page": 2,
+          "matches": 6
+        },
+        {
+          "page": 13,
+          "matches": 6
+        },
+        {
+          "page": 27,
+          "matches": 6
+        },
+        {
+          "page": 1,
+          "matches": 5
+        },
+        {
+          "page": 3,
+          "matches": 5
+        },
+        {
+          "page": 5,
+          "matches": 5
+        },
+        {
+          "page": 16,
+          "matches": 5
+        },
+        {
+          "page": 22,
+          "matches": 5
+        },
+        {
+          "page": 11,
+          "matches": 4
+        },
+        {
+          "page": 12,
+          "matches": 4
+        },
+        {
+          "page": 14,
+          "matches": 4
+        }
+      ],
+      "experiment_signal": true
+    },
+    {
+      "paper_id": "2111.03794",
+      "version": "v4",
+      "title": "Physics-Informed Neural Operator for Learning Partial Differential Equations",
+      "category": "operator",
+      "pdf_url": "https://arxiv.org/pdf/2111.03794v4",
+      "filename": "pdfs/01/2111.03794v4.pdf",
+      "status": "downloaded",
+      "selected": true,
+      "license_status": "not_checked",
+      "sha256": "bc7fbaddfc6f87d5afeb8af7fe757d2224b30ff0d7e9e8f5be38495f46b9985d",
+      "bytes": 8382546,
+      "pages": 27,
+      "extracted_chars": 98020,
+      "experiment_mentions": 60,
+      "candidate_experiment_pages": [
+        {
+          "page": 22,
+          "matches": 11
+        },
+        {
+          "page": 10,
+          "matches": 6
+        },
+        {
+          "page": 13,
+          "matches": 5
+        },
+        {
+          "page": 7,
+          "matches": 4
+        },
+        {
+          "page": 12,
+          "matches": 4
+        },
+        {
+          "page": 23,
+          "matches": 4
+        },
+        {
+          "page": 17,
+          "matches": 3
+        },
+        {
+          "page": 19,
+          "matches": 3
+        },
+        {
+          "page": 25,
+          "matches": 3
+        },
+        {
+          "page": 6,
+          "matches": 2
+        },
+        {
+          "page": 11,
+          "matches": 2
+        },
+        {
+          "page": 14,
+          "matches": 2
+        }
+      ],
+      "experiment_signal": true
+    },
+    {
+      "paper_id": "1910.03193",
+      "version": "v1",
+      "title": "DeepONet: Learning nonlinear operators for identifying differential equations based on the universal approximation theorem of operators",
+      "category": "operator",
+      "pdf_url": "https://arxiv.org/pdf/1910.03193v1",
+      "filename": "pdfs/01/1910.03193v1.pdf",
+      "status": "downloaded",
+      "selected": true,
+      "license_status": "not_checked",
+      "sha256": "71929b9618892fdc8c0555a10ce6a908202bbfac3a936c4103df00ffba2365fd",
+      "bytes": 757988,
+      "pages": 22,
+      "extracted_chars": 78808,
+      "experiment_mentions": 27,
+      "candidate_experiment_pages": [
+        {
+          "page": 1,
+          "matches": 4
+        },
+        {
+          "page": 7,
+          "matches": 4
+        },
+        {
+          "page": 3,
+          "matches": 3
+        },
+        {
+          "page": 4,
+          "matches": 3
+        },
+        {
+          "page": 6,
+          "matches": 3
+        },
+        {
+          "page": 11,
+          "matches": 3
+        },
+        {
+          "page": 12,
+          "matches": 3
+        },
+        {
+          "page": 15,
+          "matches": 2
+        },
+        {
+          "page": 2,
+          "matches": 1
+        },
+        {
+          "page": 16,
+          "matches": 1
+        }
+      ],
+      "experiment_signal": true
+    },
+    {
+      "paper_id": "1711.10561",
+      "version": "v1",
+      "title": "Physics Informed Deep Learning (Part I): Data-driven Solutions of Nonlinear Partial Differential Equations",
+      "category": "pinn",
+      "pdf_url": "https://arxiv.org/pdf/1711.10561v1",
+      "filename": "pdfs/01/1711.10561v1.pdf",
+      "status": "downloaded",
+      "selected": true,
+      "license_status": "not_checked",
+      "sha256": "2a8db6776a110a4f36bd1e36af79cf31a2e74baa5af8f7ee3d9286a75fdc400d",
+      "bytes": 579573,
+      "pages": 22,
+      "extracted_chars": 50671,
+      "experiment_mentions": 26,
+      "candidate_experiment_pages": [
+        {
+          "page": 6,
+          "matches": 4
+        },
+        {
+          "page": 4,
+          "matches": 3
+        },
+        {
+          "page": 16,
+          "matches": 3
+        },
+        {
+          "page": 2,
+          "matches": 2
+        },
+        {
+          "page": 11,
+          "matches": 2
+        },
+        {
+          "page": 1,
+          "matches": 1
+        },
+        {
+          "page": 7,
+          "matches": 1
+        },
+        {
+          "page": 8,
+          "matches": 1
+        },
+        {
+          "page": 9,
+          "matches": 1
+        },
+        {
+          "page": 10,
+          "matches": 1
+        },
+        {
+          "page": 12,
+          "matches": 1
+        },
+        {
+          "page": 13,
+          "matches": 1
+        }
+      ],
+      "experiment_signal": true
+    },
+    {
+      "paper_id": "2402.02366",
+      "version": "v1",
+      "title": "Transolver: A Fast Transformer Solver for PDEs on General Geometries",
+      "category": "operator",
+      "pdf_url": "https://arxiv.org/pdf/2402.02366v1",
+      "filename": "pdfs/01/2402.02366v1.pdf",
+      "status": "downloaded",
+      "selected": true,
+      "license_status": "not_checked",
+      "sha256": "35dd9dbd82f897b4981fe7734642d63abe319fcd05ed9c534860e8b243dfab94",
+      "bytes": 17403356,
+      "pages": 22,
+      "extracted_chars": 109302,
+      "experiment_mentions": 151,
+      "candidate_experiment_pages": [
+        {
+          "page": 5,
+          "matches": 18
+        },
+        {
+          "page": 7,
+          "matches": 17
+        },
+        {
+          "page": 14,
+          "matches": 15
+        },
+        {
+          "page": 16,
+          "matches": 15
+        },
+        {
+          "page": 20,
+          "matches": 14
+        },
+        {
+          "page": 6,
+          "matches": 12
+        },
+        {
+          "page": 17,
+          "matches": 11
+        },
+        {
+          "page": 21,
+          "matches": 11
+        },
+        {
+          "page": 8,
+          "matches": 7
+        },
+        {
+          "page": 18,
+          "matches": 6
+        },
+        {
+          "page": 13,
+          "matches": 5
+        },
+        {
+          "page": 19,
+          "matches": 5
+        }
+      ],
+      "experiment_signal": true
+    },
+    {
+      "paper_id": "2212.12794",
+      "version": "v1",
+      "title": "GraphCast: Learning skillful medium-range global weather forecasting",
+      "category": "weather",
+      "pdf_url": "https://arxiv.org/pdf/2212.12794v1",
+      "filename": "pdfs/01/2212.12794v1.pdf",
+      "status": "downloaded",
+      "selected": true,
+      "license_status": "not_checked",
+      "sha256": "9413bfbc57f610e61d65307c2a7630b2047ec7c71d5b4e7c5e81b9eaa7f83e3b",
+      "bytes": 14493816,
+      "pages": 36,
+      "extracted_chars": 155141,
+      "experiment_mentions": 81,
+      "candidate_experiment_pages": [
+        {
+          "page": 14,
+          "matches": 9
+        },
+        {
+          "page": 10,
+          "matches": 8
+        },
+        {
+          "page": 1,
+          "matches": 6
+        },
+        {
+          "page": 7,
+          "matches": 6
+        },
+        {
+          "page": 15,
+          "matches": 6
+        },
+        {
+          "page": 3,
+          "matches": 5
+        },
+        {
+          "page": 4,
+          "matches": 5
+        },
+        {
+          "page": 32,
+          "matches": 5
+        },
+        {
+          "page": 24,
+          "matches": 4
+        },
+        {
+          "page": 17,
+          "matches": 3
+        },
+        {
+          "page": 18,
+          "matches": 3
+        },
+        {
+          "page": 21,
+          "matches": 3
+        }
+      ],
+      "experiment_signal": true
+    },
+    {
+      "paper_id": "2308.08468",
+      "version": "v1",
+      "title": "An Expert's Guide to Training Physics-informed Neural Networks",
+      "category": "pinn",
+      "pdf_url": "https://arxiv.org/pdf/2308.08468v1",
+      "filename": "pdfs/01/2308.08468v1.pdf",
+      "status": "downloaded",
+      "selected": true,
+      "license_status": "not_checked",
+      "sha256": "afae5ab4ddf2a59b5fdf00516d0145ab1d0b09491e8d03e32be77610efbe0348",
+      "bytes": 3322739,
+      "pages": 36,
+      "extracted_chars": 142638,
+      "experiment_mentions": 152,
+      "candidate_experiment_pages": [
+        {
+          "page": 10,
+          "matches": 14
+        },
+        {
+          "page": 2,
+          "matches": 12
+        },
+        {
+          "page": 9,
+          "matches": 11
+        },
+        {
+          "page": 11,
+          "matches": 10
+        },
+        {
+          "page": 16,
+          "matches": 8
+        },
+        {
+          "page": 6,
+          "matches": 7
+        },
+        {
+          "page": 12,
+          "matches": 7
+        },
+        {
+          "page": 1,
+          "matches": 6
+        },
+        {
+          "page": 14,
+          "matches": 6
+        },
+        {
+          "page": 18,
+          "matches": 6
+        },
+        {
+          "page": 21,
+          "matches": 6
+        },
+        {
+          "page": 22,
+          "matches": 6
+        }
+      ],
+      "experiment_signal": true
+    },
+    {
+      "paper_id": "2105.00862",
+      "version": "v1",
+      "title": "Data vs. Physics: The Apparent Pareto Front of Physics-Informed Neural Networks",
+      "category": "pinn",
+      "pdf_url": "https://arxiv.org/pdf/2105.00862v1",
+      "filename": "pdfs/01/2105.00862v1.pdf",
+      "status": "downloaded",
+      "selected": true,
+      "license_status": "not_checked",
+      "sha256": "974f622d396b14c4e465b8fe0210a83fbe3baaa0320129787056ec30e29c0efb",
+      "bytes": 4640540,
+      "pages": 17,
+      "extracted_chars": 103354,
+      "experiment_mentions": 44,
+      "candidate_experiment_pages": [
+        {
+          "page": 8,
+          "matches": 10
+        },
+        {
+          "page": 10,
+          "matches": 7
+        },
+        {
+          "page": 13,
+          "matches": 5
+        },
+        {
+          "page": 14,
+          "matches": 5
+        },
+        {
+          "page": 15,
+          "matches": 4
+        },
+        {
+          "page": 7,
+          "matches": 3
+        },
+        {
+          "page": 11,
+          "matches": 3
+        },
+        {
+          "page": 9,
+          "matches": 2
+        },
+        {
+          "page": 1,
+          "matches": 1
+        },
+        {
+          "page": 2,
+          "matches": 1
+        },
+        {
+          "page": 3,
+          "matches": 1
+        },
+        {
+          "page": 5,
+          "matches": 1
+        }
+      ],
+      "experiment_signal": true
+    },
+    {
+      "paper_id": "2305.10157",
+      "version": "v1",
+      "title": "Efficient Error Certification for Physics-Informed Neural Networks",
+      "category": "pinn",
+      "pdf_url": "https://arxiv.org/pdf/2305.10157v1",
+      "filename": "pdfs/01/2305.10157v1.pdf",
+      "status": "downloaded",
+      "selected": true,
+      "license_status": "not_checked",
+      "sha256": "239bac4661e8f45679fbb02a2048becb9ae5b11128ab52e8f810d39060ec75d2",
+      "bytes": 1563626,
+      "pages": 28,
+      "extracted_chars": 130888,
+      "experiment_mentions": 38,
+      "candidate_experiment_pages": [
+        {
+          "page": 9,
+          "matches": 6
+        },
+        {
+          "page": 13,
+          "matches": 6
+        },
+        {
+          "page": 6,
+          "matches": 5
+        },
+        {
+          "page": 1,
+          "matches": 3
+        },
+        {
+          "page": 11,
+          "matches": 3
+        },
+        {
+          "page": 3,
+          "matches": 2
+        },
+        {
+          "page": 8,
+          "matches": 2
+        },
+        {
+          "page": 28,
+          "matches": 2
+        },
+        {
+          "page": 2,
+          "matches": 1
+        },
+        {
+          "page": 4,
+          "matches": 1
+        },
+        {
+          "page": 5,
+          "matches": 1
+        },
+        {
+          "page": 7,
+          "matches": 1
+        }
+      ],
+      "experiment_signal": true
+    },
+    {
+      "paper_id": "2104.02741",
+      "version": "v1",
+      "title": "Conditional physics informed neural networks",
+      "category": "pinn",
+      "pdf_url": "https://arxiv.org/pdf/2104.02741v1",
+      "filename": "pdfs/01/2104.02741v1.pdf",
+      "status": "downloaded",
+      "selected": true,
+      "license_status": "not_checked",
+      "sha256": "53af6eb350d18ae74e33e01c24ba1425655efd65ff7dc1301c225c5b36f4dcd0",
+      "bytes": 939605,
+      "pages": 18,
+      "extracted_chars": 52731,
+      "experiment_mentions": 9,
+      "candidate_experiment_pages": [
+        {
+          "page": 1,
+          "matches": 2
+        },
+        {
+          "page": 16,
+          "matches": 2
+        },
+        {
+          "page": 17,
+          "matches": 2
+        },
+        {
+          "page": 11,
+          "matches": 1
+        },
+        {
+          "page": 12,
+          "matches": 1
+        },
+        {
+          "page": 14,
+          "matches": 1
+        }
+      ],
+      "experiment_signal": true
+    },
+    {
+      "paper_id": "2408.06292",
+      "version": "v1",
+      "title": "The AI Scientist: Towards Fully Automated Open-Ended Scientific Discovery",
+      "category": "agent_science",
+      "pdf_url": "https://arxiv.org/pdf/2408.06292v1",
+      "filename": "pdfs/02/2408.06292v1.pdf",
+      "status": "downloaded",
+      "selected": true,
+      "license_status": "not_checked",
+      "sha256": "670300c77b3a043b90c24223e96bcb664f2019073364eb6e7e7b633635ad0765",
+      "bytes": 11699251,
+      "pages": 185,
+      "extracted_chars": 576544,
+      "experiment_mentions": 937,
+      "candidate_experiment_pages": [
+        {
+          "page": 91,
+          "matches": 23
+        },
+        {
+          "page": 4,
+          "matches": 15
+        },
+        {
+          "page": 105,
+          "matches": 15
+        },
+        {
+          "page": 10,
+          "matches": 14
+        },
+        {
+          "page": 96,
+          "matches": 14
+        },
+        {
+          "page": 130,
+          "matches": 14
+        },
+        {
+          "page": 145,
+          "matches": 14
+        },
+        {
+          "page": 18,
+          "matches": 13
+        },
+        {
+          "page": 87,
+          "matches": 13
+        },
+        {
+          "page": 90,
+          "matches": 13
+        },
+        {
+          "page": 143,
+          "matches": 13
+        },
+        {
+          "page": 94,
+          "matches": 12
+        }
+      ],
+      "experiment_signal": true
+    },
+    {
+      "paper_id": "2208.05419",
+      "version": "v1",
+      "title": "FourCastNet: Accelerating Global High-Resolution Weather Forecasting using Adaptive Fourier Neural Operators",
+      "category": "weather",
+      "pdf_url": "https://arxiv.org/pdf/2208.05419v1",
+      "filename": "pdfs/02/2208.05419v1.pdf",
+      "status": "downloaded",
+      "selected": true,
+      "license_status": "not_checked",
+      "sha256": "7b54372112d7305d0d90bb4726a361fb2f951a45379b04d267f99180020facf4",
+      "bytes": 497978,
+      "pages": 12,
+      "extracted_chars": 75786,
+      "experiment_mentions": 68,
+      "candidate_experiment_pages": [
+        {
+          "page": 2,
+          "matches": 16
+        },
+        {
+          "page": 7,
+          "matches": 12
+        },
+        {
+          "page": 3,
+          "matches": 10
+        },
+        {
+          "page": 10,
+          "matches": 8
+        },
+        {
+          "page": 8,
+          "matches": 5
+        },
+        {
+          "page": 11,
+          "matches": 5
+        },
+        {
+          "page": 6,
+          "matches": 3
+        },
+        {
+          "page": 9,
+          "matches": 3
+        },
+        {
+          "page": 4,
+          "matches": 2
+        },
+        {
+          "page": 5,
+          "matches": 2
+        },
+        {
+          "page": 1,
+          "matches": 1
+        },
+        {
+          "page": 12,
+          "matches": 1
+        }
+      ],
+      "experiment_signal": true
+    },
+    {
+      "paper_id": "2202.11214",
+      "version": "v1",
+      "title": "FourCastNet: A Global Data-driven High-resolution Weather Model using Adaptive Fourier Neural Operators",
+      "category": "weather",
+      "pdf_url": "https://arxiv.org/pdf/2202.11214v1",
+      "filename": "pdfs/02/2202.11214v1.pdf",
+      "status": "downloaded",
+      "selected": true,
+      "license_status": "not_checked",
+      "sha256": "cee61c60a35e9533f59dcebb8c621faa6e2f9b1bddfa0e7048d809b38d42e1d8",
+      "bytes": 8061234,
+      "pages": 28,
+      "extracted_chars": 104850,
+      "experiment_mentions": 53,
+      "candidate_experiment_pages": [
+        {
+          "page": 18,
+          "matches": 9
+        },
+        {
+          "page": 5,
+          "matches": 6
+        },
+        {
+          "page": 8,
+          "matches": 5
+        },
+        {
+          "page": 19,
+          "matches": 5
+        },
+        {
+          "page": 16,
+          "matches": 4
+        },
+        {
+          "page": 2,
+          "matches": 3
+        },
+        {
+          "page": 11,
+          "matches": 3
+        },
+        {
+          "page": 22,
+          "matches": 3
+        },
+        {
+          "page": 4,
+          "matches": 2
+        },
+        {
+          "page": 9,
+          "matches": 2
+        },
+        {
+          "page": 17,
+          "matches": 2
+        },
+        {
+          "page": 21,
+          "matches": 2
+        }
+      ],
+      "experiment_signal": true
+    },
+    {
+      "paper_id": "2211.02556",
+      "version": "v1",
+      "title": "Pangu-Weather: A 3D High-Resolution Model for Fast and Accurate Global Weather Forecast",
+      "category": "weather",
+      "pdf_url": "https://arxiv.org/pdf/2211.02556v1",
+      "filename": "pdfs/02/2211.02556v1.pdf",
+      "status": "downloaded",
+      "selected": true,
+      "license_status": "not_checked",
+      "sha256": "b3d88357a66fd002be67baf9e9e0c63e646e013ff33d14ec514980007854d79a",
+      "bytes": 12416295,
+      "pages": 19,
+      "extracted_chars": 155794,
+      "experiment_mentions": 87,
+      "candidate_experiment_pages": [
+        {
+          "page": 12,
+          "matches": 16
+        },
+        {
+          "page": 16,
+          "matches": 9
+        },
+        {
+          "page": 9,
+          "matches": 8
+        },
+        {
+          "page": 11,
+          "matches": 7
+        },
+        {
+          "page": 8,
+          "matches": 6
+        },
+        {
+          "page": 17,
+          "matches": 6
+        },
+        {
+          "page": 1,
+          "matches": 5
+        },
+        {
+          "page": 18,
+          "matches": 5
+        },
+        {
+          "page": 4,
+          "matches": 4
+        },
+        {
+          "page": 15,
+          "matches": 4
+        },
+        {
+          "page": 19,
+          "matches": 4
+        },
+        {
+          "page": 3,
+          "matches": 3
+        }
+      ],
+      "experiment_signal": true
+    },
+    {
+      "paper_id": "2210.07182",
+      "version": "v1",
+      "title": "PDEBENCH: An Extensive Benchmark for Scientific Machine Learning",
+      "category": "benchmark",
+      "pdf_url": "https://arxiv.org/pdf/2210.07182v1",
+      "filename": "pdfs/02/2210.07182v1.pdf",
+      "status": "downloaded",
+      "selected": true,
+      "license_status": "not_checked",
+      "sha256": "da46eaddc7be152feb22c08314c0e80a484e2e86607e84db7ac84449aa445a9e",
+      "bytes": 4034424,
+      "pages": 50,
+      "extracted_chars": 204158,
+      "experiment_mentions": 180,
+      "candidate_experiment_pages": [
+        {
+          "page": 2,
+          "matches": 18
+        },
+        {
+          "page": 1,
+          "matches": 14
+        },
+        {
+          "page": 3,
+          "matches": 13
+        },
+        {
+          "page": 7,
+          "matches": 12
+        },
+        {
+          "page": 37,
+          "matches": 10
+        },
+        {
+          "page": 9,
+          "matches": 9
+        },
+        {
+          "page": 11,
+          "matches": 9
+        },
+        {
+          "page": 10,
+          "matches": 8
+        },
+        {
+          "page": 17,
+          "matches": 8
+        },
+        {
+          "page": 8,
+          "matches": 7
+        },
+        {
+          "page": 6,
+          "matches": 6
+        },
+        {
+          "page": 38,
+          "matches": 6
+        }
+      ],
+      "experiment_signal": true
+    },
+    {
+      "paper_id": "2306.03838",
+      "version": "v1",
+      "title": "Spherical Fourier Neural Operators: Learning Stable Dynamics on the Sphere",
+      "category": "operator",
+      "pdf_url": "https://arxiv.org/pdf/2306.03838v1",
+      "filename": "pdfs/02/2306.03838v1.pdf",
+      "status": "downloaded",
+      "selected": true,
+      "license_status": "not_checked",
+      "sha256": "3d24e686dc3dab1192bc691815363bd5f545a0d4bac31a31b40b2afd11c928ae",
+      "bytes": 11347911,
+      "pages": 18,
+      "extracted_chars": 94310,
+      "experiment_mentions": 34,
+      "candidate_experiment_pages": [
+        {
+          "page": 16,
+          "matches": 8
+        },
+        {
+          "page": 7,
+          "matches": 5
+        },
+        {
+          "page": 6,
+          "matches": 4
+        },
+        {
+          "page": 11,
+          "matches": 4
+        },
+        {
+          "page": 8,
+          "matches": 3
+        },
+        {
+          "page": 1,
+          "matches": 2
+        },
+        {
+          "page": 3,
+          "matches": 2
+        },
+        {
+          "page": 4,
+          "matches": 2
+        },
+        {
+          "page": 2,
+          "matches": 1
+        },
+        {
+          "page": 9,
+          "matches": 1
+        },
+        {
+          "page": 17,
+          "matches": 1
+        },
+        {
+          "page": 18,
+          "matches": 1
+        }
+      ],
+      "experiment_signal": true
+    },
+    {
+      "paper_id": "2310.07984",
+      "version": "v1",
+      "title": "Large Language Models for Scientific Synthesis, Inference and Explanation",
+      "category": "agent_science",
+      "pdf_url": "https://arxiv.org/pdf/2310.07984v1",
+      "filename": "pdfs/02/2310.07984v1.pdf",
+      "status": "downloaded",
+      "selected": true,
+      "license_status": "not_checked",
+      "sha256": "1c29019f3330bf844a045fe041d7ad7c2c0b11ccb08670b1af27e3cc12d6d300",
+      "bytes": 5176224,
+      "pages": 27,
+      "extracted_chars": 77843,
+      "experiment_mentions": 80,
+      "candidate_experiment_pages": [
+        {
+          "page": 4,
+          "matches": 13
+        },
+        {
+          "page": 6,
+          "matches": 11
+        },
+        {
+          "page": 5,
+          "matches": 8
+        },
+        {
+          "page": 16,
+          "matches": 5
+        },
+        {
+          "page": 7,
+          "matches": 4
+        },
+        {
+          "page": 19,
+          "matches": 4
+        },
+        {
+          "page": 22,
+          "matches": 4
+        },
+        {
+          "page": 23,
+          "matches": 4
+        },
+        {
+          "page": 24,
+          "matches": 4
+        },
+        {
+          "page": 3,
+          "matches": 3
+        },
+        {
+          "page": 20,
+          "matches": 3
+        },
+        {
+          "page": 21,
+          "matches": 3
+        }
+      ],
+      "experiment_signal": true
+    },
+    {
+      "paper_id": "2210.03629",
+      "version": "v1",
+      "title": "ReAct: Synergizing Reasoning and Acting in Language Models",
+      "category": "agent_science",
+      "pdf_url": "https://arxiv.org/pdf/2210.03629v1",
+      "filename": "pdfs/02/2210.03629v1.pdf",
+      "status": "downloaded",
+      "selected": true,
+      "license_status": "not_checked",
+      "sha256": "6ec7c9ba12a5a7462afaaa759b9d4186e522fcb502ef480afd7fa1821960a576",
+      "bytes": 538424,
+      "pages": 31,
+      "extracted_chars": 139268,
+      "experiment_mentions": 63,
+      "candidate_experiment_pages": [
+        {
+          "page": 8,
+          "matches": 11
+        },
+        {
+          "page": 3,
+          "matches": 7
+        },
+        {
+          "page": 6,
+          "matches": 6
+        },
+        {
+          "page": 10,
+          "matches": 6
+        },
+        {
+          "page": 5,
+          "matches": 5
+        },
+        {
+          "page": 4,
+          "matches": 4
+        },
+        {
+          "page": 7,
+          "matches": 4
+        },
+        {
+          "page": 1,
+          "matches": 3
+        },
+        {
+          "page": 20,
+          "matches": 3
+        },
+        {
+          "page": 2,
+          "matches": 2
+        },
+        {
+          "page": 14,
+          "matches": 2
+        },
+        {
+          "page": 29,
+          "matches": 2
+        }
+      ],
+      "experiment_signal": true
+    },
+    {
+      "paper_id": "2303.11366",
+      "version": "v1",
+      "title": "Reflexion: Language Agents with Verbal Reinforcement Learning",
+      "category": "agent_science",
+      "pdf_url": "https://arxiv.org/pdf/2303.11366v1",
+      "filename": "pdfs/02/2303.11366v1.pdf",
+      "status": "downloaded",
+      "selected": false,
+      "license_status": "not_checked",
+      "sha256": "965a720f42e0318facf0de5d1b9d7a135ded227284fc615ca5b3ec1763c46066",
+      "bytes": 760808,
+      "pages": 17,
+      "extracted_chars": 55474,
+      "experiment_mentions": 62,
+      "candidate_experiment_pages": [
+        {
+          "page": 10,
+          "matches": 13
+        },
+        {
+          "page": 2,
+          "matches": 12
+        },
+        {
+          "page": 4,
+          "matches": 6
+        },
+        {
+          "page": 5,
+          "matches": 6
+        },
+        {
+          "page": 1,
+          "matches": 5
+        },
+        {
+          "page": 6,
+          "matches": 5
+        },
+        {
+          "page": 7,
+          "matches": 5
+        },
+        {
+          "page": 17,
+          "matches": 3
+        },
+        {
+          "page": 3,
+          "matches": 2
+        },
+        {
+          "page": 11,
+          "matches": 2
+        },
+        {
+          "page": 9,
+          "matches": 1
+        },
+        {
+          "page": 13,
+          "matches": 1
+        }
+      ],
+      "experiment_signal": true
+    },
+    {
+      "paper_id": "2308.08155",
+      "version": "v1",
+      "title": "AutoGen: Enabling Next-Gen LLM Applications via Multi-Agent Conversation",
+      "category": "agent_science",
+      "pdf_url": "https://arxiv.org/pdf/2308.08155v1",
+      "filename": "pdfs/02/2308.08155v1.pdf",
+      "status": "downloaded",
+      "selected": true,
+      "license_status": "not_checked",
+      "sha256": "a1176bc2e194ebbcca778ffcd19684c7962a2d42f4ed5c558bef82b9b01cfa29",
+      "bytes": 2747109,
+      "pages": 28,
+      "extracted_chars": 121502,
+      "experiment_mentions": 73,
+      "candidate_experiment_pages": [
+        {
+          "page": 15,
+          "matches": 12
+        },
+        {
+          "page": 17,
+          "matches": 8
+        },
+        {
+          "page": 11,
+          "matches": 7
+        },
+        {
+          "page": 16,
+          "matches": 6
+        },
+        {
+          "page": 12,
+          "matches": 5
+        },
+        {
+          "page": 28,
+          "matches": 5
+        },
+        {
+          "page": 14,
+          "matches": 4
+        },
+        {
+          "page": 4,
+          "matches": 3
+        },
+        {
+          "page": 10,
+          "matches": 3
+        },
+        {
+          "page": 18,
+          "matches": 3
+        },
+        {
+          "page": 8,
+          "matches": 2
+        },
+        {
+          "page": 9,
+          "matches": 2
+        }
+      ],
+      "experiment_signal": true
+    },
+    {
+      "paper_id": "2307.16789",
+      "version": "v1",
+      "title": "ToolLLM: Facilitating Large Language Models to Master 16000+ Real-world APIs",
+      "category": "agent_science",
+      "pdf_url": "https://arxiv.org/pdf/2307.16789v1",
+      "filename": "pdfs/02/2307.16789v1.pdf",
+      "status": "downloaded",
+      "selected": false,
+      "license_status": "not_checked",
+      "sha256": "6998d4dc2544f53fc8d1a51e0e76b22e60a31e3fad72bc3991b1d6d26cde6398",
+      "bytes": 2043352,
+      "pages": 23,
+      "extracted_chars": 92665,
+      "experiment_mentions": 61,
+      "candidate_experiment_pages": [
+        {
+          "page": 7,
+          "matches": 13
+        },
+        {
+          "page": 10,
+          "matches": 10
+        },
+        {
+          "page": 9,
+          "matches": 8
+        },
+        {
+          "page": 8,
+          "matches": 7
+        },
+        {
+          "page": 3,
+          "matches": 6
+        },
+        {
+          "page": 2,
+          "matches": 3
+        },
+        {
+          "page": 11,
+          "matches": 3
+        },
+        {
+          "page": 12,
+          "matches": 3
+        },
+        {
+          "page": 1,
+          "matches": 2
+        },
+        {
+          "page": 4,
+          "matches": 2
+        },
+        {
+          "page": 22,
+          "matches": 2
+        },
+        {
+          "page": 5,
+          "matches": 1
+        }
+      ],
+      "experiment_signal": true
+    },
+    {
+      "paper_id": "2302.13971",
+      "version": "v1",
+      "title": "LLaMA: Open and Efficient Foundation Language Models",
+      "category": "language",
+      "pdf_url": "https://arxiv.org/pdf/2302.13971v1",
+      "filename": "pdfs/03/2302.13971v1.pdf",
+      "status": "downloaded",
+      "selected": true,
+      "license_status": "not_checked",
+      "sha256": "2e663675ae36ad12adb2f5a05281bac2747ecf8d23d92bedd9f937a89fee7136",
+      "bytes": 726566,
+      "pages": 27,
+      "extracted_chars": 120772,
+      "experiment_mentions": 88,
+      "candidate_experiment_pages": [
+        {
+          "page": 6,
+          "matches": 16
+        },
+        {
+          "page": 5,
+          "matches": 15
+        },
+        {
+          "page": 1,
+          "matches": 9
+        },
+        {
+          "page": 7,
+          "matches": 9
+        },
+        {
+          "page": 4,
+          "matches": 6
+        },
+        {
+          "page": 8,
+          "matches": 6
+        },
+        {
+          "page": 11,
+          "matches": 6
+        },
+        {
+          "page": 9,
+          "matches": 5
+        },
+        {
+          "page": 10,
+          "matches": 4
+        },
+        {
+          "page": 2,
+          "matches": 3
+        },
+        {
+          "page": 12,
+          "matches": 3
+        },
+        {
+          "page": 3,
+          "matches": 1
+        }
+      ],
+      "experiment_signal": true
+    },
+    {
+      "paper_id": "2304.03442",
+      "version": "v1",
+      "title": "Generative Agents: Interactive Simulacra of Human Behavior",
+      "category": "agent_science",
+      "pdf_url": "https://arxiv.org/pdf/2304.03442v1",
+      "filename": "pdfs/03/2304.03442v1.pdf",
+      "status": "downloaded",
+      "selected": true,
+      "license_status": "not_checked",
+      "sha256": "ff9b55c51d59817cf72d5326a401a5c2902049b83edf4192a32b58b905c5eb34",
+      "bytes": 11832276,
+      "pages": 22,
+      "extracted_chars": 166086,
+      "experiment_mentions": 91,
+      "candidate_experiment_pages": [
+        {
+          "page": 14,
+          "matches": 18
+        },
+        {
+          "page": 3,
+          "matches": 9
+        },
+        {
+          "page": 13,
+          "matches": 9
+        },
+        {
+          "page": 19,
+          "matches": 7
+        },
+        {
+          "page": 20,
+          "matches": 7
+        },
+        {
+          "page": 15,
+          "matches": 6
+        },
+        {
+          "page": 16,
+          "matches": 6
+        },
+        {
+          "page": 2,
+          "matches": 5
+        },
+        {
+          "page": 17,
+          "matches": 5
+        },
+        {
+          "page": 4,
+          "matches": 4
+        },
+        {
+          "page": 5,
+          "matches": 2
+        },
+        {
+          "page": 6,
+          "matches": 2
+        }
+      ],
+      "experiment_signal": true
+    },
+    {
+      "paper_id": "2208.03306",
+      "version": "v1",
+      "title": "Branch-Train-Merge: Embarrassingly Parallel Training of Expert Language Models",
+      "category": "language",
+      "pdf_url": "https://arxiv.org/pdf/2208.03306v1",
+      "filename": "pdfs/03/2208.03306v1.pdf",
+      "status": "downloaded",
+      "selected": true,
+      "license_status": "not_checked",
+      "sha256": "2b275abe8e0fbc1d54b78bad6baea3b90592ea861902c794e2efefdac73ca9ba",
+      "bytes": 1643113,
+      "pages": 29,
+      "extracted_chars": 114382,
+      "experiment_mentions": 181,
+      "candidate_experiment_pages": [
+        {
+          "page": 11,
+          "matches": 21
+        },
+        {
+          "page": 15,
+          "matches": 17
+        },
+        {
+          "page": 7,
+          "matches": 14
+        },
+        {
+          "page": 6,
+          "matches": 13
+        },
+        {
+          "page": 12,
+          "matches": 13
+        },
+        {
+          "page": 9,
+          "matches": 12
+        },
+        {
+          "page": 10,
+          "matches": 12
+        },
+        {
+          "page": 8,
+          "matches": 11
+        },
+        {
+          "page": 16,
+          "matches": 11
+        },
+        {
+          "page": 17,
+          "matches": 7
+        },
+        {
+          "page": 14,
+          "matches": 6
+        },
+        {
+          "page": 2,
+          "matches": 5
+        }
+      ],
+      "experiment_signal": true
+    },
+    {
+      "paper_id": "2305.14688",
+      "version": "v1",
+      "title": "ExpertPrompting: Instructing Large Language Models to be Distinguished Experts",
+      "category": "language",
+      "pdf_url": "https://arxiv.org/pdf/2305.14688v1",
+      "filename": "pdfs/03/2305.14688v1.pdf",
+      "status": "downloaded",
+      "selected": false,
+      "license_status": "not_checked",
+      "sha256": "4c309122e3dbc9b08025c775018e90483ea3911cf54d3441e18e37d1c164d5c8",
+      "bytes": 957997,
+      "pages": 8,
+      "extracted_chars": 32767,
+      "experiment_mentions": 21,
+      "candidate_experiment_pages": [
+        {
+          "page": 3,
+          "matches": 7
+        },
+        {
+          "page": 4,
+          "matches": 6
+        },
+        {
+          "page": 8,
+          "matches": 4
+        },
+        {
+          "page": 1,
+          "matches": 2
+        },
+        {
+          "page": 2,
+          "matches": 1
+        },
+        {
+          "page": 5,
+          "matches": 1
+        }
+      ],
+      "experiment_signal": true
+    },
+    {
+      "paper_id": "2305.18290",
+      "version": "v1",
+      "title": "Direct Preference Optimization: Your Language Model is Secretly a Reward Model",
+      "category": "language",
+      "pdf_url": "https://arxiv.org/pdf/2305.18290v1",
+      "filename": "pdfs/03/2305.18290v1.pdf",
+      "status": "downloaded",
+      "selected": true,
+      "license_status": "not_checked",
+      "sha256": "304d57efe53317673ee5e93e1e1d990e3231fb4e24198aedd4829968e2c3cfbb",
+      "bytes": 1286755,
+      "pages": 26,
+      "extracted_chars": 104591,
+      "experiment_mentions": 91,
+      "candidate_experiment_pages": [
+        {
+          "page": 20,
+          "matches": 16
+        },
+        {
+          "page": 10,
+          "matches": 15
+        },
+        {
+          "page": 9,
+          "matches": 13
+        },
+        {
+          "page": 7,
+          "matches": 12
+        },
+        {
+          "page": 8,
+          "matches": 5
+        },
+        {
+          "page": 11,
+          "matches": 5
+        },
+        {
+          "page": 19,
+          "matches": 5
+        },
+        {
+          "page": 26,
+          "matches": 5
+        },
+        {
+          "page": 2,
+          "matches": 3
+        },
+        {
+          "page": 16,
+          "matches": 2
+        },
+        {
+          "page": 1,
+          "matches": 1
+        },
+        {
+          "page": 3,
+          "matches": 1
+        }
+      ],
+      "experiment_signal": true
+    },
+    {
+      "paper_id": "2102.09618",
+      "version": "v1",
+      "title": "Error estimates for DeepOnets: A deep learning framework in infinite dimensions",
+      "category": "operator",
+      "pdf_url": "https://arxiv.org/pdf/2102.09618v1",
+      "filename": "pdfs/03/2102.09618v1.pdf",
+      "status": "downloaded",
+      "selected": true,
+      "license_status": "not_checked",
+      "sha256": "93fcd489bf8b8e65b4334b48c4cc67d0bdc9f62e41ef6a088da0fb3afe20b424",
+      "bytes": 1481650,
+      "pages": 112,
+      "extracted_chars": 332896,
+      "experiment_mentions": 90,
+      "candidate_experiment_pages": [
+        {
+          "page": 61,
+          "matches": 7
+        },
+        {
+          "page": 57,
+          "matches": 6
+        },
+        {
+          "page": 39,
+          "matches": 4
+        },
+        {
+          "page": 58,
+          "matches": 4
+        },
+        {
+          "page": 62,
+          "matches": 4
+        },
+        {
+          "page": 3,
+          "matches": 3
+        },
+        {
+          "page": 16,
+          "matches": 3
+        },
+        {
+          "page": 19,
+          "matches": 3
+        },
+        {
+          "page": 29,
+          "matches": 3
+        },
+        {
+          "page": 46,
+          "matches": 3
+        },
+        {
+          "page": 59,
+          "matches": 3
+        },
+        {
+          "page": 60,
+          "matches": 3
+        }
+      ],
+      "experiment_signal": true
+    },
+    {
+      "paper_id": "2004.01806",
+      "version": "v1",
+      "title": "On the convergence of physics informed neural networks for linear second-order elliptic and parabolic type PDEs",
+      "category": "pinn",
+      "pdf_url": "https://arxiv.org/pdf/2004.01806v1",
+      "filename": "pdfs/03/2004.01806v1.pdf",
+      "status": "downloaded",
+      "selected": true,
+      "license_status": "not_checked",
+      "sha256": "b3038a3c8077ddfac3be7725f0fb537408aa88a26d76e05d2a46366083c86c42",
+      "bytes": 756131,
+      "pages": 29,
+      "extracted_chars": 95102,
+      "experiment_mentions": 64,
+      "candidate_experiment_pages": [
+        {
+          "page": 16,
+          "matches": 8
+        },
+        {
+          "page": 18,
+          "matches": 8
+        },
+        {
+          "page": 4,
+          "matches": 6
+        },
+        {
+          "page": 13,
+          "matches": 6
+        },
+        {
+          "page": 14,
+          "matches": 6
+        },
+        {
+          "page": 15,
+          "matches": 5
+        },
+        {
+          "page": 17,
+          "matches": 5
+        },
+        {
+          "page": 2,
+          "matches": 3
+        },
+        {
+          "page": 7,
+          "matches": 3
+        },
+        {
+          "page": 8,
+          "matches": 3
+        },
+        {
+          "page": 11,
+          "matches": 3
+        },
+        {
+          "page": 3,
+          "matches": 2
+        }
+      ],
+      "experiment_signal": true
+    },
+    {
+      "paper_id": "2206.02016",
+      "version": "v1",
+      "title": "Is $L^2$ Physics-Informed Loss Always Suitable for Training Physics-Informed Neural Network?",
+      "category": "pinn",
+      "pdf_url": "https://arxiv.org/pdf/2206.02016v1",
+      "filename": "pdfs/03/2206.02016v1.pdf",
+      "status": "downloaded",
+      "selected": true,
+      "license_status": "not_checked",
+      "sha256": "0f68a33b3d908905598a7713530b7b8ce68a47ad64f039dab45bafed64ecd667",
+      "bytes": 1306362,
+      "pages": 29,
+      "extracted_chars": 107458,
+      "experiment_mentions": 59,
+      "candidate_experiment_pages": [
+        {
+          "page": 9,
+          "matches": 9
+        },
+        {
+          "page": 2,
+          "matches": 8
+        },
+        {
+          "page": 5,
+          "matches": 5
+        },
+        {
+          "page": 7,
+          "matches": 5
+        },
+        {
+          "page": 8,
+          "matches": 5
+        },
+        {
+          "page": 27,
+          "matches": 5
+        },
+        {
+          "page": 6,
+          "matches": 3
+        },
+        {
+          "page": 13,
+          "matches": 3
+        },
+        {
+          "page": 25,
+          "matches": 3
+        },
+        {
+          "page": 1,
+          "matches": 2
+        },
+        {
+          "page": 12,
+          "matches": 2
+        },
+        {
+          "page": 17,
+          "matches": 2
+        }
+      ],
+      "experiment_signal": true
+    },
+    {
+      "paper_id": "2108.12515",
+      "version": "v1",
+      "title": "Convergence Rates for Learning Linear Operators from Noisy Data",
+      "category": "operator",
+      "pdf_url": "https://arxiv.org/pdf/2108.12515v1",
+      "filename": "pdfs/03/2108.12515v1.pdf",
+      "status": "downloaded",
+      "selected": true,
+      "license_status": "not_checked",
+      "sha256": "4adc93bec176ee9ab8d7278fa9fe58913c1fc7263fc088daec66e79d06664ff9",
+      "bytes": 972933,
+      "pages": 33,
+      "extracted_chars": 142060,
+      "experiment_mentions": 53,
+      "candidate_experiment_pages": [
+        {
+          "page": 19,
+          "matches": 9
+        },
+        {
+          "page": 3,
+          "matches": 8
+        },
+        {
+          "page": 9,
+          "matches": 5
+        },
+        {
+          "page": 1,
+          "matches": 3
+        },
+        {
+          "page": 8,
+          "matches": 3
+        },
+        {
+          "page": 16,
+          "matches": 3
+        },
+        {
+          "page": 17,
+          "matches": 3
+        },
+        {
+          "page": 30,
+          "matches": 3
+        },
+        {
+          "page": 7,
+          "matches": 2
+        },
+        {
+          "page": 13,
+          "matches": 2
+        },
+        {
+          "page": 14,
+          "matches": 2
+        },
+        {
+          "page": 22,
+          "matches": 2
+        }
+      ],
+      "experiment_signal": true
+    },
+    {
+      "paper_id": "2203.13181",
+      "version": "v1",
+      "title": "The Cost-Accuracy Trade-Off In Operator Learning With Neural Networks",
+      "category": "operator",
+      "pdf_url": "https://arxiv.org/pdf/2203.13181v1",
+      "filename": "pdfs/03/2203.13181v1.pdf",
+      "status": "downloaded",
+      "selected": true,
+      "license_status": "not_checked",
+      "sha256": "7adfd7d4c6b6aac124e665236d4b780de86edfb9887730f21282d9077d792409",
+      "bytes": 18808271,
+      "pages": 25,
+      "extracted_chars": 130715,
+      "experiment_mentions": 142,
+      "candidate_experiment_pages": [
+        {
+          "page": 18,
+          "matches": 18
+        },
+        {
+          "page": 4,
+          "matches": 13
+        },
+        {
+          "page": 8,
+          "matches": 10
+        },
+        {
+          "page": 9,
+          "matches": 10
+        },
+        {
+          "page": 6,
+          "matches": 9
+        },
+        {
+          "page": 3,
+          "matches": 8
+        },
+        {
+          "page": 1,
+          "matches": 7
+        },
+        {
+          "page": 7,
+          "matches": 7
+        },
+        {
+          "page": 16,
+          "matches": 7
+        },
+        {
+          "page": 17,
+          "matches": 7
+        },
+        {
+          "page": 21,
+          "matches": 7
+        },
+        {
+          "page": 2,
+          "matches": 6
+        }
+      ],
+      "experiment_signal": true
+    },
+    {
+      "paper_id": "2504.13480",
+      "version": "v1",
+      "title": "Integrating Locality-Aware Attention with Transformers for General Geometry PDEs",
+      "category": "operator",
+      "pdf_url": "https://arxiv.org/pdf/2504.13480v1",
+      "filename": "pdfs/03/2504.13480v1.pdf",
+      "status": "downloaded",
+      "selected": true,
+      "license_status": "not_checked",
+      "sha256": "53dfb121f25b309cab57f5bcc02d53084aaff6f188504878765e64d9cc2be991",
+      "bytes": 3347469,
+      "pages": 8,
+      "extracted_chars": 52052,
+      "experiment_mentions": 51,
+      "candidate_experiment_pages": [
+        {
+          "page": 5,
+          "matches": 19
+        },
+        {
+          "page": 6,
+          "matches": 11
+        },
+        {
+          "page": 2,
+          "matches": 7
+        },
+        {
+          "page": 1,
+          "matches": 5
+        },
+        {
+          "page": 7,
+          "matches": 5
+        },
+        {
+          "page": 3,
+          "matches": 3
+        },
+        {
+          "page": 8,
+          "matches": 1
+        }
+      ],
+      "experiment_signal": true
+    }
+  ]
+}

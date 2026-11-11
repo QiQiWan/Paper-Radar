@@ -1,0 +1,45 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1320" height="390" viewBox="0 0 1320 390" role="img" aria-labelledby="t d">
+<title id="t">Paper-Radar 研究证据链</title>
+<desc id="d">阅读笔记关联 PDF 指纹、页码、引文与实验记录，人工审核后形成可追溯结论；文档或实验审核变化触发失效提醒。</desc>
+<rect width="1320" height="390" rx="20" fill="#f4f7fb"/>
+<text x="44" y="48" font-family="Arial,'Noto Sans CJK SC',sans-serif" font-size="24" font-weight="700" fill="#233b5c">从论文阅读到可复核研究结论</text>
+<text x="44" y="78" font-family="Arial,'Noto Sans CJK SC',sans-serif" font-size="15" fill="#61768b">每条结论保留来源标识，失效记录保留历史</text>
+<g font-family="Arial,'Noto Sans CJK SC',sans-serif">
+  <rect x="44" y="111" width="218" height="146" rx="13" fill="#fff" stroke="#c9d7e7" stroke-width="2"/>
+  <rect x="44" y="111" width="218" height="38" rx="13" fill="#dcecff"/>
+  <text x="64" y="138" font-size="17" font-weight="700" fill="#25598e">① 阅读笔记</text>
+  <text x="63" y="176" font-size="14" fill="#3a526f">人工判断、价值与局限</text>
+  <text x="63" y="201" font-size="14" fill="#3a526f">精读 / 复现 / 引用</text>
+  <text x="63" y="231" font-size="12" fill="#647a92">关联笔记修订版本</text>
+  <path d="M272 184 H298" stroke="#5382bd" stroke-width="3" fill="none"/>
+  <path d="M293 177 L304 184 L293 191" fill="none" stroke="#5382bd" stroke-width="3"/>
+  <rect x="315" y="111" width="235" height="146" rx="13" fill="#fff" stroke="#c9d7e7" stroke-width="2"/>
+  <rect x="315" y="111" width="235" height="38" rx="13" fill="#e3f5ef"/>
+  <text x="334" y="138" font-size="17" font-weight="700" fill="#267358">② PDF 原文锚点</text>
+  <text x="334" y="176" font-size="14" fill="#3a526f">原文页码 + 连续引文</text>
+  <text x="334" y="201" font-size="14" fill="#3a526f">SHA-256 + 文本偏移</text>
+  <text x="334" y="231" font-size="12" fill="#647a92">只接受逐字可定位内容</text>
+  <path d="M560 184 H586" stroke="#5382bd" stroke-width="3" fill="none"/>
+  <path d="M581 177 L592 184 L581 191" fill="none" stroke="#5382bd" stroke-width="3"/>
+  <rect x="604" y="111" width="235" height="146" rx="13" fill="#fff" stroke="#c9d7e7" stroke-width="2"/>
+  <rect x="604" y="111" width="235" height="38" rx="13" fill="#fff0d7"/>
+  <text x="624" y="138" font-size="17" font-weight="700" fill="#956324">③ 实验复核</text>
+  <text x="624" y="176" font-size="14" fill="#3a526f">指标 / 数据集 / 单位</text>
+  <text x="624" y="201" font-size="14" fill="#3a526f">划分 / 协议 / 基线</text>
+  <text x="624" y="231" font-size="12" fill="#647a92">跨论文另核查可比性</text>
+  <path d="M849 184 H875" stroke="#5382bd" stroke-width="3" fill="none"/>
+  <path d="M870 177 L881 184 L870 191" fill="none" stroke="#5382bd" stroke-width="3"/>
+  <rect x="892" y="111" width="380" height="146" rx="13" fill="#fff" stroke="#c9d7e7" stroke-width="2"/>
+  <rect x="892" y="111" width="380" height="38" rx="13" fill="#e7e4ff"/>
+  <text x="912" y="138" font-size="17" font-weight="700" fill="#5e4b9e">④ 人工研究结论</text>
+  <text x="912" y="176" font-size="14" fill="#3a526f">1–12 条引用 → 人工撰写 → 明确确认</text>
+  <text x="912" y="201" font-size="14" fill="#3a526f">有效结论进入报告，保留修订历史</text>
+  <text x="912" y="231" font-size="12" fill="#647a92">多篇论文可汇集成一条可核查判断</text>
+  <rect x="315" y="286" width="957" height="69" rx="12" fill="#fff1f0" stroke="#e8b5af" stroke-width="1.6"/>
+  <text x="333" y="310" font-size="16" font-weight="700" fill="#973d38">动态失效与复核门禁</text>
+  <text x="333" y="335" font-size="14" fill="#884f4d">PDF 字节变更 / 引文位置失效 / 实验字段复核撤销 / 跨论文不可比 → 标为失效或待复核，历史保留</text>
+  <path d="M432 257 V282" stroke="#ce7875" stroke-width="2" stroke-dasharray="5 5"/>
+  <path d="M721 257 V282" stroke="#ce7875" stroke-width="2" stroke-dasharray="5 5"/>
+  <path d="M1080 257 V282" stroke="#ce7875" stroke-width="2" stroke-dasharray="5 5"/>
+</g>
+</svg>

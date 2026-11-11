@@ -1,7 +1,7 @@
 # Copyright (c) 2026 @EatRice. SPDX-License-Identifier: MIT
-"""Bounded, background-only GitHub Release checks.
+"""Bounded, background-only GitHub Release checks for source and frozen apps.
 
-No auto-installation, no personal settings or API keys are transmitted.
+No native binary auto-installation, no personal settings or API keys are transmitted.
 Public GitHub Release metadata is the single source of truth: a tag pushed
 without a published Release cannot trigger a software update notification.
 """
@@ -71,7 +71,17 @@ def fetch_latest(opener=None) -> dict:
     local = version_tuple(__version__)
     if local is None:
         raise RuntimeError('当前程序版本格式无效。')
+    # Official GitHub Releases may intentionally be manual-download-only.
+    # A signature's presence is only a UI eligibility hint: startup_update
+    # independently verifies the detached Ed25519 signature before installing.
+    uploaded = {str(a.get('name')) for a in (info.get('assets') or [])
+                if isinstance(a, dict) and a.get('state') == 'uploaded'}
+    ver = '.'.join(map(str, remote))
+    signed_source_assets = {f'Paper-Radar_v{ver}_{suffix}' for suffix in
+                            ('Source.zip', 'release.json', 'release.sig')}
+    source_auto_installable = signed_source_assets <= uploaded
     return {'state': 'available' if remote > local else 'up_to_date',
+            'source_auto_installable': source_auto_installable,
             'latest_version': '.'.join(map(str, remote)), 'tag_name': tag,
             'release_url': release_url, 'release_notes': str(info.get('body') or '')[:1400],
             'published_at': str(info.get('published_at') or '')[:40],
@@ -130,7 +140,10 @@ class UpdateChecker:
         copy['startup_update'] = {key:root_status.get(key) for key in
             ('state','message','at','installed_version','previous_version','attempted_version')
             if key in root_status}
-        copy.update(can_install=not getattr(sys,'frozen',False),current_version=__version__, enabled=bool(cfg.get('update_check_enabled', True)),
+        copy.update(can_install=(not getattr(sys,'frozen',False) and
+                                 bool(copy.get('source_auto_installable', False))),
+                    update_method='signed_source_handoff' if not getattr(sys,'frozen',False) else 'native_package_manual',
+                    current_version=__version__, enabled=bool(cfg.get('update_check_enabled', True)),
                     checking=busy, releases_url=RELEASES_URL)
         copy['dismissed'] = (copy.get('tag_name') and
                              copy.get('tag_name') == cfg.get('dismissed_update_tag')) or False
@@ -139,10 +152,8 @@ class UpdateChecker:
         return copy
 
     def schedule(self, config: dict | None = None, *, force: bool = False) -> bool:
-        # A frozen application is updated by its signed native installer, never
-        # by the source ZIP updater (which cannot safely replace .exe/.app).
-        if getattr(sys, 'frozen', False):
-            return False
+        # All installations may CHECK for releases. Frozen binaries may only
+        # notify; safe native replacement remains a manual installer action.
         cfg = config or read_config()
         if not cfg.get('update_check_enabled', True) and not force:
             return False
