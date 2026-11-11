@@ -24,6 +24,27 @@ REQUIRED_RELEASE_MARKERS = (
 )
 
 
+def validate_root_launchers(root: Path) -> None:
+    """Catch obsolete root scripts before a long pytest or release build.
+
+    The source updater accepts only the two stable launchers. Additional
+    *.bat/*.sh files belong under tools/ and must not be shipped at root.
+    """
+    root = Path(root)
+    expected = {'start_windows.bat', 'start_macos_linux.sh'}
+    actual = {p.name for p in root.iterdir()
+              if p.is_file() and p.suffix.lower() in ('.bat', '.sh')}
+    extra, missing = sorted(actual - expected), sorted(expected - actual)
+    if extra or missing:
+        raise ValueError(
+            f'Invalid repository-root launch scripts; extra={extra}; missing={missing}. '
+            'Use only start_windows.bat and start_macos_linux.sh at root; '
+            'move diagnostics under tools/ or remove obsolete files.'
+        )
+    if any((root / name).is_symlink() for name in expected):
+        raise ValueError('Repository-root launch scripts must be regular files.')
+
+
 def validate_repo(root: Path = ROOT) -> None:
     root = Path(root)
     for rel in WORKFLOWS:
@@ -40,6 +61,7 @@ def validate_repo(root: Path = ROOT) -> None:
         raise ValueError('Missing release verification referenced by workflow')
     if not (root / 'tools/packaging/feature_parity.py').is_file():
         raise ValueError('Missing feature parity verification referenced by workflow')
+    validate_root_launchers(root)
 
 
 def validate_archive(archive: Path, *, prefix: str, root: Path = ROOT) -> None:
