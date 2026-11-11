@@ -37,7 +37,9 @@ console.log(JSON.stringify(context.result));
 })().catch(e=>{console.error(e.stack);process.exit(1)});
 '''
     result = subprocess.run(['node', '-e', stub + code + finish, str(STATIC / 'reading_links.js')],
-                            capture_output=True, text=True, timeout=6, check=True)
+                            # Node startup may be delayed by CPU contention on
+                            # shared CI runners. This guard still terminates hangs.
+                            capture_output=True, text=True, timeout=20, check=True)
     return json.loads(result.stdout.strip())
 
 
